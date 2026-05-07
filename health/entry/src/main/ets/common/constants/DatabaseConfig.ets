@@ -1,0 +1,75 @@
+/**
+ * 数据库配置
+ */
+
+// API端点接口
+interface ApiEndpoints {
+  // 用户相关
+  LOGIN: string;
+  REGISTER: string;
+  USER_INFO: string;
+  UPDATE_USER: string;
+  AVATAR_UPLOAD: string; // 头像上传
+
+  // 日记相关
+  DIARY_LIST: string;
+  DIARY_ADD: string;
+  DIARY_UPDATE: string;
+  DIARY_DELETE: string;
+
+  // 测评相关
+  ASSESSMENT_LIST: string;
+  ASSESSMENT_SUBMIT: string;
+  ASSESSMENT_RESULT: string;
+  ASSESSMENT_RESULTS: string;
+
+  // AI对话相关
+  CHAT_SEND: string;
+  CHAT_HISTORY: string;
+
+  // 文章相关
+  ARTICLE_LIST: string;
+  ARTICLE_DETAIL: string;
+}
+
+export class DatabaseConfig {
+
+  static readonly DB_NAME: string = 'mindhpealth';
+  static readonly DB_HOST: string = 'localhost';
+  static readonly DB_PORT: number = 3306;
+  static readonly DB_USER: string = 'root';
+  static readonly DB_PASSWORD: string = '111111';
+
+
+  static readonly API_BASE_URL: string = 'http://10.20.149.3:9000';
+
+  // API端点
+  static readonly ENDPOINTS: ApiEndpoints = {
+    // 用户相关
+    LOGIN: '/api/user/login',
+    REGISTER: '/api/user/register',
+    USER_INFO: '/api/user/info',
+    UPDATE_USER: '/api/user/update',
+    AVATAR_UPLOAD: '/api/user/avatar/upload',
+
+    // 日记相关
+    DIARY_LIST: '/api/diary',
+    DIARY_ADD: '/api/diary',
+    DIARY_UPDATE: '/api/diary',
+    DIARY_DELETE: '/api/diary',
+
+    // 测评相关
+    ASSESSMENT_LIST: '/api/assessment/list',
+    ASSESSMENT_SUBMIT: '/api/assessment/submit',
+    ASSESSMENT_RESULT: '/api/assessment',
+    ASSESSMENT_RESULTS: '/api/assessment/results',
+
+    // AI对话相关
+    CHAT_SEND: '/api/ai/chat',
+    CHAT_HISTORY: '/api/ai/history',
+
+    // 文章相关
+    ARTICLE_LIST: '/api/article/list',
+    ARTICLE_DETAIL: '/api/article/detail'
+  };
+}

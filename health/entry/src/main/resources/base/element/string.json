@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "心理健康辅导应用"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "轻心主能力入口"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "轻心"
+    },
+    {
+      "name": "read_media_reason",
+      "value": "需要访问相册以选择头像图片"
+    }
+  ]
+}
