@@ -7,14 +7,14 @@ import { AvatarComponent } from '../../common/components/AvatarComponent'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { AppBottomNav } from '../../common/components/AppBottomNav'
 import { LightTheme, Dimension } from '../../common/constants/Theme'
-import { DatabaseConfig } from '../../common/constants/DatabaseConfig'
+import { ApiConfig  } from '../../common/constants/apiConfig'
 
 /**
  * 获取后端服务根地址
  * 主要用于拼接头像完整访问路径
  */
 function getAvatarServerOrigin(): string {
-  const apiBase: string = DatabaseConfig.API_BASE_URL
+  const apiBase: string = ApiConfig .API_BASE_URL
   if (apiBase.endsWith('/api')) {
     return apiBase.substring(0, apiBase.length - 4)
   }

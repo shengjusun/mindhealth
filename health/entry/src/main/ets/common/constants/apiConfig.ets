@@ -32,16 +32,10 @@ interface ApiEndpoints {
   ARTICLE_DETAIL: string;
 }
 
-export class DatabaseConfig {
-
-  static readonly DB_NAME: string = 'mindhpealth';
-  static readonly DB_HOST: string = 'localhost';
-  static readonly DB_PORT: number = 3306;
-  static readonly DB_USER: string = 'root';
-  static readonly DB_PASSWORD: string = '111111';
+export class ApiConfig  {
 
 
-  static readonly API_BASE_URL: string = 'http://10.20.149.3:9000';
+  static readonly API_BASE_URL: string = 'http://REMOVED:9000';
 
   // API端点
   static readonly ENDPOINTS: ApiEndpoints = {

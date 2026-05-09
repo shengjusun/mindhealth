@@ -1,4 +1,4 @@
-import { DatabaseConfig } from '../../common/constants/DatabaseConfig'
+import { ApiConfig  } from '../../common/constants/apiConfig'
 import { Logger } from '../../common/utils/Logger'
 import { http } from '@kit.NetworkKit'
 import { fileIo } from '@kit.CoreFileKit'
@@ -25,8 +25,8 @@ interface LoginData {
 export class ApiService {
   private static instance: ApiService
 
-  // 后端基础地址，统一从 DatabaseConfig 读取
-  private baseUrl: string = DatabaseConfig.API_BASE_URL
+  // 后端基础地址，统一从 ApiConfig  读取
+  private baseUrl: string = ApiConfig .API_BASE_URL
 
   // 当前登录用户的 token
   // 登录成功后由 AuthService 调用 setToken 同步过来
@@ -162,22 +162,22 @@ export class ApiService {
   // 当前项目主登录链路走 AuthService.loginWithCredentials
   async login(phone: string, password: string): Promise<ApiResponse<Object>> {
     const loginData: LoginData = { phone: phone, password: password }
-    return this.post<Object>(DatabaseConfig.ENDPOINTS.LOGIN, loginData)
+    return this.post<Object>(ApiConfig .ENDPOINTS.LOGIN, loginData)
   }
 
   // 注册
   async register(data: Object): Promise<ApiResponse<Object>> {
-    return this.post<Object>(DatabaseConfig.ENDPOINTS.REGISTER, data)
+    return this.post<Object>(ApiConfig .ENDPOINTS.REGISTER, data)
   }
 
   // 获取当前用户信息
   async getUserInfo(): Promise<ApiResponse<Object>> {
-    return this.get<Object>(DatabaseConfig.ENDPOINTS.USER_INFO)
+    return this.get<Object>(ApiConfig .ENDPOINTS.USER_INFO)
   }
 
   // 修改用户信息
   async updateUserInfo(data: Object): Promise<ApiResponse<Object>> {
-    return this.put<Object>(DatabaseConfig.ENDPOINTS.UPDATE_USER, data)
+    return this.put<Object>(ApiConfig .ENDPOINTS.UPDATE_USER, data)
   }
 
   /**
@@ -192,7 +192,7 @@ export class ApiService {
       try {
         httpRequest = http.createHttp()
 
-        const url = this.baseUrl + DatabaseConfig.ENDPOINTS.AVATAR_UPLOAD
+        const url = this.baseUrl + ApiConfig .ENDPOINTS.AVATAR_UPLOAD
         Logger.info(TAG, `上传头像: ${url}`)
 
         // 读取本地图片文件
@@ -302,65 +302,65 @@ export class ApiService {
 
   // 查询日记列表
   async getDiaryList(): Promise<ApiResponse<Object[]>> {
-    return this.get<Object[]>(DatabaseConfig.ENDPOINTS.DIARY_LIST)
+    return this.get<Object[]>(ApiConfig .ENDPOINTS.DIARY_LIST)
   }
 
   // 新增日记
   async addDiary(data: Object): Promise<ApiResponse<Object>> {
-    return this.post<Object>(DatabaseConfig.ENDPOINTS.DIARY_ADD, data)
+    return this.post<Object>(ApiConfig .ENDPOINTS.DIARY_ADD, data)
   }
 
   // 修改日记
   async updateDiary(id: string, data: Object): Promise<ApiResponse<Object>> {
-    return this.put<Object>(`${DatabaseConfig.ENDPOINTS.DIARY_UPDATE}/${id}`, data)
+    return this.put<Object>(`${ApiConfig .ENDPOINTS.DIARY_UPDATE}/${id}`, data)
   }
 
   // 删除日记
   async deleteDiary(id: string): Promise<ApiResponse<Object>> {
-    return this.delete<Object>(`${DatabaseConfig.ENDPOINTS.DIARY_DELETE}/${id}`)
+    return this.delete<Object>(`${ApiConfig .ENDPOINTS.DIARY_DELETE}/${id}`)
   }
 
   // 获取测评列表
   async getAssessmentList(): Promise<ApiResponse<Object[]>> {
-    return this.get<Object[]>(DatabaseConfig.ENDPOINTS.ASSESSMENT_LIST)
+    return this.get<Object[]>(ApiConfig .ENDPOINTS.ASSESSMENT_LIST)
   }
 
   // 提交测评
   async submitAssessment(data: Object): Promise<ApiResponse<Object>> {
-    return this.post<Object>(DatabaseConfig.ENDPOINTS.ASSESSMENT_SUBMIT, data)
+    return this.post<Object>(ApiConfig .ENDPOINTS.ASSESSMENT_SUBMIT, data)
   }
 
   // 查询单个测评结果
   async getAssessmentResult(id: string): Promise<ApiResponse<Object>> {
-    return this.get<Object>(`${DatabaseConfig.ENDPOINTS.ASSESSMENT_RESULT}/${id}`)
+    return this.get<Object>(`${ApiConfig .ENDPOINTS.ASSESSMENT_RESULT}/${id}`)
   }
 
   // 发送 AI 对话消息
   async sendMessage(data: Object): Promise<ApiResponse<Object>> {
-    return this.post<Object>(DatabaseConfig.ENDPOINTS.CHAT_SEND, data)
+    return this.post<Object>(ApiConfig .ENDPOINTS.CHAT_SEND, data)
   }
 
   // 获取 AI 对话历史
   async getChatHistory(userId: string): Promise<ApiResponse<Object[]>> {
-    return this.get<Object[]>(`${DatabaseConfig.ENDPOINTS.CHAT_HISTORY}?userId=${userId}`)
+    return this.get<Object[]>(`${ApiConfig .ENDPOINTS.CHAT_HISTORY}?userId=${userId}`)
   }
 
   // 获取文章列表，可按分类筛选
   async getArticleList(category?: string): Promise<ApiResponse<Object[]>> {
     const url = category
-      ? `${DatabaseConfig.ENDPOINTS.ARTICLE_LIST}?category=${category}`
-      : DatabaseConfig.ENDPOINTS.ARTICLE_LIST
+      ? `${ApiConfig .ENDPOINTS.ARTICLE_LIST}?category=${category}`
+      : ApiConfig .ENDPOINTS.ARTICLE_LIST
     return this.get<Object[]>(url)
   }
 
   // 获取文章详情
   async getArticleDetail(id: string): Promise<ApiResponse<Object>> {
-    return this.get<Object>(`${DatabaseConfig.ENDPOINTS.ARTICLE_DETAIL}/${id}`)
+    return this.get<Object>(`${ApiConfig .ENDPOINTS.ARTICLE_DETAIL}/${id}`)
   }
 
   // 查询当前用户的测评结果列表
   // 首页最近测评卡片会用到这个接口
   async getAssessmentResults(): Promise<ApiResponse<Object[]>> {
-    return this.get<Object[]>(DatabaseConfig.ENDPOINTS.ASSESSMENT_RESULTS)
+    return this.get<Object[]>(ApiConfig .ENDPOINTS.ASSESSMENT_RESULTS)
   }
 }

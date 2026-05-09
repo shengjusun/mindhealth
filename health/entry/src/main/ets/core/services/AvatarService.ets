@@ -1,6 +1,14 @@
 /**
  * 头像服务
  * @description 管理用户头像的选择、验证、上传和显示
+ *
+ * 头像主链路：
+ * ProfileEditPage 点击更换头像
+ * → AvatarService.selectAvatar 选择图片
+ * → AvatarService.validateImage 校验格式和大小
+ * → AvatarService.uploadAvatar 调用 ApiService 上传文件
+ * → 上传成功后 updateLocalAvatar 同步 AuthService
+ * → AuthService.updateUserInfo 更新内存 userInfo，并保存到 Preferences
  */
 
 import { picker, fileIo } from '@kit.CoreFileKit'
@@ -18,6 +26,7 @@ const TAG = 'AvatarService'
 export class AvatarService {
   private static instance: AvatarService
 
+  // 头像上传限制：最大 5MB，只允许常见图片格式。
   private readonly MAX_FILE_SIZE: number = 5 * 1024 * 1024
   private readonly SUPPORTED_FORMATS: string[] = ['jpg', 'jpeg', 'png', 'webp']
 
@@ -25,6 +34,7 @@ export class AvatarService {
     Logger.info(TAG, 'AvatarService初始化')
   }
 
+  // 单例：保证整个 App 使用同一个 AvatarService。
   static getInstance(): AvatarService {
     if (!AvatarService.instance) {
       AvatarService.instance = new AvatarService()
@@ -32,6 +42,15 @@ export class AvatarService {
     return AvatarService.instance
   }
 
+  /**
+   * 选择头像图片
+   *
+   * 作用：
+   * 1. 打开系统图片选择器；
+   * 2. 限制只能选择图片；
+   * 3. 最多选择 1 张；
+   * 4. 返回图片 uri，后续上传时用这个 uri 读取本地文件。
+   */
   async selectAvatar(): Promise<string> {
     try {
       Logger.info(TAG, '打开图片选择器')
@@ -57,6 +76,14 @@ export class AvatarService {
     }
   }
 
+  /**
+   * 上传前校验图片
+   *
+   * 作用：
+   * 1. 校验文件后缀是否属于 jpg / jpeg / png / webp；
+   * 2. 校验文件大小是否超过 5MB；
+   * 3. 不符合要求时直接返回错误，不再请求后端。
+   */
   validateImage(uri: string): ImageValidationResult {
     try {
       const extension = this.getFileExtension(uri)
@@ -93,10 +120,21 @@ export class AvatarService {
     }
   }
 
+  /**
+   * 上传头像主流程
+   *
+   * 业务链路：
+   * 1. 先做本地图片校验；
+   * 2. 再检查当前是否已登录；
+   * 3. 调用 ApiService.uploadAvatar 真正上传文件；
+   * 4. 后端返回头像地址后，同步本地 AuthService 用户信息；
+   * 5. 返回 UploadResult 给页面层，页面层再决定是否重新 loadUserInfo 或弹窗提示。
+   */
   async uploadAvatar(uri: string): Promise<UploadResult> {
     try {
       Logger.info(TAG, `开始上传头像: ${uri}`)
 
+      // 第一步：本地校验，避免无效文件直接请求后端。
       const validation = this.validateImage(uri)
       if (!validation.valid) {
         return {
@@ -106,6 +144,8 @@ export class AvatarService {
         }
       }
 
+      // 第二步：确认登录态。
+      // 头像属于用户资料，必须知道当前用户是谁，所以未登录不能上传。
       const authService = AuthService.getInstance()
       const userInfo = authService.getUserInfo()
       if (!userInfo || !userInfo.isLoggedIn) {
@@ -116,6 +156,8 @@ export class AvatarService {
         }
       }
 
+      // 第三步：调用 ApiService 上传文件。
+      // 这里不直接写 multipart 细节，真正的文件读取、请求体拼接和 token 请求头由 ApiService.uploadAvatar 负责。
       const apiService = ApiService.getInstance()
       const response = await apiService.uploadAvatar(uri)
 
@@ -123,6 +165,8 @@ export class AvatarService {
         const avatarUrl: string = response.data
         Logger.info(TAG, `上传成功: ${avatarUrl}`)
 
+        // 第四步：同步本地头像状态。
+        // 这一步会更新 AuthService.userInfo.photoUrl，并通过 AuthService.updateUserInfo 保存到 Preferences。
         await this.updateLocalAvatar(avatarUrl)
 
         return {
@@ -147,6 +191,18 @@ export class AvatarService {
     }
   }
 
+  /**
+   * 更新本地头像状态
+   *
+   * 注意：
+   * 这里只负责更新 AuthService 里的用户头像信息；
+   * 页面是否刷新头像，由 ProfileEditPage / MePage 的 @State avatarUrl 和 loadUserInfo 控制。
+   *
+   * AuthService.updateUserInfo 的作用：
+   * 1. 更新内存里的 this.userInfo；
+   * 2. 保存到 Preferences 的 user_info；
+   * 3. 重新同步 token 给 ApiService。
+   */
   async updateLocalAvatar(url: string): Promise<void> {
     try {
       const authService = AuthService.getInstance()
@@ -162,12 +218,19 @@ export class AvatarService {
     }
   }
 
+  /**
+   * 获取当前本地头像地址
+   *
+   * 主要用于页面快速回显：
+   * 页面可以先读 AuthService 里的 photoUrl，不必一进页面就等后端接口返回。
+   */
   getAvatarUrl(): string {
     const authService = AuthService.getInstance()
     const userInfo = authService.getUserInfo()
     return userInfo?.photoUrl || ''
   }
 
+  // 从 uri 中提取文件后缀，用于格式校验。
   private getFileExtension(uri: string): string {
     const lastDotIndex = uri.lastIndexOf('.')
     if (lastDotIndex === -1) {

@@ -5,7 +5,7 @@ import { AuthService, UserAuthInfo } from '../../core/auth/AppAuthService'
 import { AvatarComponent } from '../../common/components/AvatarComponent'
 import { ApiService } from '../../core/api/ApiService'
 import { LightTheme, Dimension } from '../../common/constants/Theme'
-import { DatabaseConfig } from '../../common/constants/DatabaseConfig'
+import { ApiConfig  } from '../../common/constants/apiConfig'
 
 const TAG = 'ProfileEditPage'
 
@@ -119,7 +119,7 @@ struct ProfileEditPage {
 
   // 获取后端服务根地址，用来拼接头像完整访问路径
   private getServerOrigin(): string {
-    const apiBase: string = DatabaseConfig.API_BASE_URL
+    const apiBase: string = ApiConfig .API_BASE_URL
     if (apiBase.endsWith('/api')) {
       return apiBase.substring(0, apiBase.length - 4)
     }
@@ -196,7 +196,7 @@ struct ProfileEditPage {
     const qIndex: number = url.indexOf('?')
     const cleanUrl: string = qIndex >= 0 ? url.substring(0, qIndex) : url
     const serverOrigin: string = this.getServerOrigin()
-    const apiBase: string = DatabaseConfig.API_BASE_URL
+    const apiBase: string = ApiConfig .API_BASE_URL
 
     if (cleanUrl.startsWith(serverOrigin + '/api/')) {
       return cleanUrl.substring(serverOrigin.length)

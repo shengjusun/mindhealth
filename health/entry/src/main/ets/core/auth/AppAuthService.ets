@@ -10,7 +10,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit'
 import { preferences } from '@kit.ArkData'
 import { common } from '@kit.AbilityKit'
 import { http } from '@kit.NetworkKit'
-import { DatabaseConfig } from '../../common/constants/DatabaseConfig'
+import { ApiConfig  } from '../../common/constants/apiConfig'
 import { ApiService } from '../api/ApiService'
 
 const DOMAIN = 0xFF00
@@ -135,7 +135,7 @@ export class AuthService {
       const loginData: LoginRequest = { phone, password }
 
       // 拼接完整登录地址：后端基础地址 + 登录接口路径
-      const url = `${DatabaseConfig.API_BASE_URL}${DatabaseConfig.ENDPOINTS.LOGIN}`
+      const url = `${ApiConfig .API_BASE_URL}${ApiConfig .ENDPOINTS.LOGIN}`
 
       // 打印请求地址，方便看前端到底请求到哪里
       hilog.info(DOMAIN, TAG, `Login URL: ${url}`)

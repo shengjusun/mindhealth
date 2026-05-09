@@ -30,12 +30,16 @@ struct AssessmentsPage {
   @State assessmentList: AssessmentItem[] = []
 
   private apiService: ApiService = ApiService.getInstance()
+  private authService: AuthService = AuthService.getInstance()
 
   aboutToAppear(): void {
-    this.loadAssessments()
+    // 先校验登录态，未登录直接跳转登录页
+    // 已登录后再加载状态自查列表，避免未登录时发起无效请求
     if (!this.ensureLogin()) {
       return
     }
+
+    this.loadAssessments()
   }
 
   private async loadAssessments(): Promise<void> {
@@ -52,10 +56,10 @@ struct AssessmentsPage {
       } else {
         this.assessmentList = []
         this.hasError = true
-        this.errorMessage = res.message ? res.message : '测评列表数据格式错误'
+        this.errorMessage = res.message ? res.message : '状态自查列表数据格式错误'
       }
     } catch (error) {
-      Logger.error(TAG, `加载测评列表失败: ${JSON.stringify(error)}`)
+      Logger.error(TAG, `加载状态自查列表失败: ${JSON.stringify(error)}`)
       this.assessmentList = []
       this.hasError = true
       this.errorMessage = '网络异常，请稍后重试'
@@ -71,7 +75,7 @@ struct AssessmentsPage {
     if (item.name && item.name.length > 0) {
       return item.name
     }
-    return '心理测评'
+    return '状态自查'
   }
 
   private getItemDesc(item: AssessmentItem): string {
@@ -81,7 +85,7 @@ struct AssessmentsPage {
     if (item.desc && item.desc.length > 0) {
       return item.desc
     }
-    return '通过几个问题，快速了解自己当前的心理状态。'
+    return '通过几个问题，快速了解自己当前的状态。'
   }
 
   private getItemQuestionCount(item: AssessmentItem): string {
@@ -101,13 +105,16 @@ struct AssessmentsPage {
     return '约 3~5 分钟'
   }
 
-  private goToAssessmentDetail(item: AssessmentItem): void {
-    Logger.info(TAG, `点击测评项: ${JSON.stringify(item)}`)
+  // 点击状态自查卡片后，直接进入答题页
+  // 原来中间有 AssessmentDetailPage，现在去掉冗余详情页，链路更短：
+  // AssessmentsPage → AssessmentQuestionPage
+  private startAssessment(item: AssessmentItem): void {
+    Logger.info(TAG, `点击自查项: ${JSON.stringify(item)}`)
 
     if (item.id === undefined || item.id === null || `${item.id}`.length === 0) {
       AlertDialog.show({
         title: '提示',
-        message: '当前测评详情暂不可用',
+        message: '当前自查项目暂不可用',
         primaryButton: {
           value: '知道了',
           action: () => {}
@@ -117,11 +124,11 @@ struct AssessmentsPage {
     }
 
     router.pushUrl({
-      url: 'pages/assessment/AssessmentDetailPage',
+      url: 'pages/assessment/AssessmentQuestionPage',
       params: {
         id: Number(item.id),
+        assessmentId: Number(item.id),
         title: this.getItemTitle(item),
-        description: this.getItemDesc(item),
         questionCount: item.questionCount !== undefined
           ? item.questionCount
           : (item.totalQuestions !== undefined ? item.totalQuestions : 0),
@@ -133,12 +140,12 @@ struct AssessmentsPage {
   build() {
     Column() {
       AppPageHeader({
-        title: '心理测评'
+        title: '状态自查'
       })
 
       if (this.isLoading) {
         LoadingComponent({
-          message: '正在加载测评内容...',
+          message: '正在加载自查内容...',
           loadingSize: 36
         })
           .layoutWeight(1)
@@ -152,7 +159,7 @@ struct AssessmentsPage {
             if (this.assessmentList.length === 0) {
               EmptyComponent({
                 icon: '📝',
-                message: '暂时还没有可用测评'
+                message: '暂时还没有可用自查'
               })
                 .height(320)
             } else {
@@ -223,7 +230,7 @@ struct AssessmentsPage {
         .fontColor(LightTheme.TextPrimary)
         .width('100%')
 
-      Text('测评不是贴标签，而是帮助你看见自己此刻的状态。')
+      Text('自查不是贴标签，而是帮助你看见自己此刻的状态。')
         .fontSize(14)
         .fontColor(LightTheme.TextSecondary)
         .lineHeight(22)
@@ -252,7 +259,6 @@ struct AssessmentsPage {
   buildAssessmentCard(item: AssessmentItem, index: number) {
     Column() {
       Row() {
-
         Blank()
 
         Text(this.getItemQuestionCount(item))
@@ -285,7 +291,7 @@ struct AssessmentsPage {
 
         Blank()
 
-        Button('开始测评')
+        Button('开始自查')
           .height(34)
           .fontSize(14)
           .fontColor('#FFFFFF')
@@ -293,7 +299,7 @@ struct AssessmentsPage {
           .borderRadius(18)
           .padding({ left: 14, right: 14 })
           .onClick(() => {
-            this.goToAssessmentDetail(item)
+            this.startAssessment(item)
           })
       }
       .width('100%')
@@ -305,7 +311,6 @@ struct AssessmentsPage {
     .borderRadius(16)
     .margin({ bottom: index === this.assessmentList.length - 1 ? 0 : 12 })
   }
-  private authService: AuthService = AuthService.getInstance()
 
   private ensureLogin(): boolean {
     if (this.authService.isLoggedIn()) {
