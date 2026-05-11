@@ -7,14 +7,14 @@ import { AvatarComponent } from '../../common/components/AvatarComponent'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { AppBottomNav } from '../../common/components/AppBottomNav'
 import { LightTheme, Dimension } from '../../common/constants/Theme'
-import { ApiConfig  } from '../../common/constants/apiConfig'
+import { ApiConfig } from '../../common/constants/apiConfig'
 
 /**
  * 获取后端服务根地址
  * 主要用于拼接头像完整访问路径
  */
 function getAvatarServerOrigin(): string {
-  const apiBase: string = ApiConfig .API_BASE_URL
+  const apiBase: string = ApiConfig.API_BASE_URL
   if (apiBase.endsWith('/api')) {
     return apiBase.substring(0, apiBase.length - 4)
   }
@@ -151,7 +151,10 @@ struct MePage {
   @State isUserInfoLoading: boolean = false
 
   private authService: AuthService = AuthService.getInstance()
-  apiService: ApiService = ApiService.getInstance()
+  private apiService: ApiService = ApiService.getInstance()
+
+  // 防止 aboutToAppear / onPageShow 同时触发导致重复请求
+  private isRefreshingUserInfo: boolean = false
 
   // 个人中心菜单配置
   menuItems: MenuItem[] = [
@@ -164,53 +167,67 @@ struct MePage {
   ]
 
   aboutToAppear(): void {
-    // 先从 AuthService 里拿本地用户信息，快速展示昵称、手机号和头像
-    const localUser = this.authService.getUserInfo()
-
-    // 判断当前是否已登录
-    this.isLoggedIn = this.authService.isLoggedIn()
-
-    // 如果已登录，就进入用户信息加载状态
-    this.isUserInfoLoading = this.isLoggedIn
-
-    if (localUser) {
-      this.userName = localUser.displayName || '用户'
-      this.userPhone = localUser.phoneNumber || ''
-
-      const localAvatarUrl: string = this.normalizeAvatarUrl(localUser.photoUrl || '')
-      if (localAvatarUrl) {
-        this.avatarUrl = localAvatarUrl
-      }
-    }
-
-    // 从后端刷新最新用户信息
-    this.loadUserInfo()
-
-    // 页面显示时再次同步本地信息，保证从编辑资料页返回后能刷新
-    this.onPageShow()
+    this.refreshMePage()
   }
 
   onPageShow(): void {
-    // 未登录时不加载个人中心数据
-    if (!this.authService.isLoggedIn()) {
+    this.refreshMePage()
+  }
+
+  /**
+   * 个人中心统一刷新入口
+   * 先判断登录态，再决定是否加载本地信息和后端信息
+   */
+  private refreshMePage(): void {
+    this.isLoggedIn = this.authService.isLoggedIn()
+
+    if (!this.isLoggedIn) {
+      this.resetUserState()
       return
     }
 
-    // 先用本地用户信息刷新页面，避免等待接口时显示旧数据
-    const localUser = this.authService.getUserInfo()
-    if (localUser) {
-      this.userName = localUser.displayName || this.userName
-      this.userPhone = localUser.phoneNumber || this.userPhone
+    // 已登录时，先用本地用户信息快速展示
+    this.applyLocalUserInfo()
 
-      const localAvatarUrl: string = this.normalizeAvatarUrl(localUser.photoUrl || '')
-      if (localAvatarUrl && !this.isSameAvatar(localAvatarUrl)) {
-        this.avatarUrl = localAvatarUrl
-      }
-    }
-
-    // 再请求后端，获取最新用户资料
+    // 再请求后端最新用户资料
     this.isUserInfoLoading = true
     this.loadUserInfo()
+  }
+
+  /**
+   * 从 AuthService 读取本地用户信息，快速刷新页面展示
+   */
+  private applyLocalUserInfo(): void {
+    const localUser = this.authService.getUserInfo()
+
+    if (!localUser) {
+      return
+    }
+
+    this.userName = localUser.displayName || '用户'
+    this.userPhone = localUser.phoneNumber || ''
+
+    const localAvatarUrl: string = this.normalizeAvatarUrl(localUser.photoUrl || '')
+    if (localAvatarUrl && !this.isSameAvatar(localAvatarUrl)) {
+      this.avatarUrl = localAvatarUrl
+    }
+  }
+
+  /**
+   * 未登录时清空个人中心状态
+   */
+  private resetUserState(): void {
+    this.isUserInfoLoading = false
+    this.isRefreshingUserInfo = false
+    this.diaryCount = 0
+    this.assessmentCount = 0
+    this.favoriteCount = 0
+    this.backendUserId = 0
+    this.userName = '用户'
+    this.userPhone = ''
+    this.userAge = 0
+    this.userGender = ''
+    this.avatarUrl = ''
   }
 
   // 头像路径统一处理
@@ -252,35 +269,33 @@ struct MePage {
 
   /**
    * 加载用户信息
-   * 先读取 AuthService 本地用户信息做快速展示
-   * 再请求后端获取最新资料
-   * 最后同步回 AuthService 和 Preferences
+   * 已登录后请求后端最新资料
+   * 成功后更新页面 @State，并同步回 AuthService 和 Preferences
    */
   async loadUserInfo(): Promise<void> {
+    if (this.isRefreshingUserInfo) {
+      return
+    }
+
+    this.isRefreshingUserInfo = true
+
     try {
-      // 读取本地登录态和用户信息
-      const localUser = this.authService.getUserInfo()
       this.isLoggedIn = this.authService.isLoggedIn()
-
-      // 先展示本地信息，提升页面响应速度
-      if (localUser) {
-        this.userName = localUser.displayName || '用户'
-        this.userPhone = localUser.phoneNumber || ''
-
-        const localAvatarUrl: string = this.normalizeAvatarUrl(localUser.photoUrl || '')
-        if (localAvatarUrl && !this.isSameAvatar(localAvatarUrl)) {
-          this.avatarUrl = localAvatarUrl
-        }
-      }
 
       // 未登录就不请求后端用户信息
       if (!this.isLoggedIn) {
+        this.resetUserState()
         return
       }
+
+      // 请求前先展示本地信息，提升页面响应速度
+      const localUser = this.authService.getUserInfo()
+      this.applyLocalUserInfo()
 
       // 请求后端最新用户信息
       // ApiService 会在请求头里携带 token
       const res = await this.apiService.getUserInfo()
+
       if (res.code === 200 && res.data) {
         const user: UserProfileData = res.data as UserProfileData
 
@@ -295,6 +310,7 @@ struct MePage {
         this.userAge = user.age ? user.age : 0
         this.userGender = user.gender !== undefined && user.gender !== null ? String(user.gender) : ''
         this.backendUserId = user.id ? Number(user.id) : 0
+
         Logger.info(TAG, `当前后端用户ID: ${this.backendUserId}, phone=${this.userPhone}`)
 
         // 如果后端头像和当前头像不同，就刷新头像
@@ -320,6 +336,7 @@ struct MePage {
 
         // 用户信息加载成功后，再加载日记数和测评数
         this.loadStatistics()
+
         Logger.info(TAG, `后端用户信息: ${this.userName}, phone: ${this.userPhone}, avatar: ${this.avatarUrl}`)
       } else {
         Logger.error(TAG, `加载用户信息失败: code=${res.code}`)
@@ -329,6 +346,7 @@ struct MePage {
     } finally {
       // 无论成功失败，都结束用户信息加载状态
       this.isUserInfoLoading = false
+      this.isRefreshingUserInfo = false
     }
   }
 
@@ -625,7 +643,8 @@ struct MePage {
       }
       .layoutWeight(1)
       .onClick(() => {
-        router.pushUrl({ url: 'pages/diary/MoodDiaryPage' })
+        // 日记页是一级 Tab 页面，和“我的”平级，用 replaceUrl
+        router.replaceUrl({ url: 'pages/diary/MoodDiaryPage' })
       })
 
       Column() {
@@ -727,7 +746,8 @@ struct MePage {
         .backgroundColor(LightTheme.Primary)
         .borderRadius(23)
         .onClick(() => {
-          router.pushUrl({ url: 'pages/diary/MoodDiaryPage' })
+          // 写日记是二级业务页面，需要支持返回个人中心
+          router.pushUrl({ url: 'pages/diary/DiaryEditPage' })
         })
 
       Blank()
@@ -741,7 +761,8 @@ struct MePage {
         .backgroundColor(LightTheme.SurfaceSoft)
         .borderRadius(23)
         .onClick(() => {
-          router.pushUrl({ url: 'pages/assessment/AssessmentsPage' })
+          // 状态自查列表页是一级 Tab 页面，和“我的”平级，用 replaceUrl
+          router.replaceUrl({ url: 'pages/assessment/AssessmentsPage' })
         })
     }
     .width('100%')
@@ -867,7 +888,7 @@ struct MePage {
 
     AlertDialog.show({
       title: '关于我们',
-      message: '这是一个情绪记录、心理测评与 AI 陪伴的 HarmonyOS NEXT 全栈项目。',
+      message: '这是一个情绪记录、状态自查与 AI 陪伴的 HarmonyOS NEXT 全栈项目。',
       primaryButton: { value: '知道了', action: () => {} }
     })
   }
@@ -889,16 +910,7 @@ struct MePage {
             await this.authService.logout()
 
             // 清空当前页面展示状态
-            this.isLoggedIn = false
-            this.isUserInfoLoading = false
-            this.diaryCount = 0
-            this.assessmentCount = 0
-            this.favoriteCount = 0
-            this.userName = '用户'
-            this.userPhone = ''
-            this.userAge = 0
-            this.userGender = ''
-            this.avatarUrl = ''
+            this.resetUserState()
 
             try {
               // 清空路由栈，避免退出后返回到已登录页面
