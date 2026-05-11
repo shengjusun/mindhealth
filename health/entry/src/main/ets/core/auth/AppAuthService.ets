@@ -359,22 +359,40 @@ export class AuthService {
         this.preferencesStore = await preferences.getPreferences(this.context, 'auth_store')
       }
 
-      // 从本地读取之前保存的 user_info
       const userInfoStr = await this.preferencesStore.get('user_info', '') as string
       if (!userInfoStr) {
         hilog.info(DOMAIN, TAG, '本地没有保存的用户信息')
         return
       }
 
-      // 把 JSON 字符串转hu换回 UserAuthInfo 对象
-      this.userInfo = JSON.parse(userInfoStr) as UserAuthInfo
-      hilog.info(DOMAIN, TAG, '已从本地恢复用户信息')
+      const restoredUserInfo = JSON.parse(userInfoStr) as UserAuthInfo
 
-      // 恢复登录态后，也要重新把 token 给 ApiService
+      if (!restoredUserInfo.accessToken || restoredUserInfo.accessToken.trim().length === 0) {
+        hilog.warn(DOMAIN, TAG, '本地用户信息缺少 token，清理登录态')
+        this.userInfo = null
+        this.syncTokenToApiService('')
+        await this.clearUserInfo()
+        return
+      }
+
+      if (!restoredUserInfo.isLoggedIn) {
+        hilog.warn(DOMAIN, TAG, '本地用户信息不是登录状态，清理登录态')
+        this.userInfo = null
+        this.syncTokenToApiService('')
+        await this.clearUserInfo()
+        return
+      }
+
+      this.userInfo = restoredUserInfo
       this.syncTokenToApiService(this.userInfo.accessToken)
-      hilog.info(DOMAIN, TAG, `本地 token 恢复成功, tokenLength=${this.userInfo.accessToken.length}`)
+
+      hilog.info(DOMAIN, TAG, `本地登录态恢复成功, tokenLength=${this.userInfo.accessToken.length}`)
     } catch (error) {
       hilog.error(DOMAIN, TAG, `加载本地用户信息失败: ${JSON.stringify(error)}`)
+
+      this.userInfo = null
+      this.syncTokenToApiService('')
+      await this.clearUserInfo()
     }
   }
 

@@ -94,6 +94,8 @@ function getInitialAvatarUrl(): string {
 
 const TAG = 'MePage'
 const DOMAIN = 0xFF00
+// 用户信息远程刷新间隔，避免每次切回“我的”都请求后端造成页面跳动
+const USER_INFO_REFRESH_INTERVAL: number = 5 * 60 * 1000
 
 // 个人中心菜单项结构
 interface MenuItem {
@@ -156,6 +158,9 @@ struct MePage {
   // 防止 aboutToAppear / onPageShow 同时触发导致重复请求
   private isRefreshingUserInfo: boolean = false
 
+  // 上次从后端刷新用户信息的时间
+  private lastUserInfoRefreshTime: number = 0
+
   // 个人中心菜单配置
   menuItems: MenuItem[] = [
     { id: 'profile', icon: '资', title: '个人资料', subtitle: '完善昵称、头像和基础信息', showArrow: true },
@@ -167,18 +172,29 @@ struct MePage {
   ]
 
   aboutToAppear(): void {
-    this.refreshMePage()
+    // 第一次进入个人中心，允许请求后端最新数据
+    this.refreshMePage(true)
   }
 
   onPageShow(): void {
-    this.refreshMePage()
+    // 从其他页面返回时，优先同步本地信息，不强制请求后端
+    // 这样可以避免每次切回“我的”都刷新导致页面跳动
+    this.refreshMePage(false)
   }
 
   /**
    * 个人中心统一刷新入口
    * 先判断登录态，再决定是否加载本地信息和后端信息
    */
-  private refreshMePage(): void {
+  /**
+   * 个人中心统一刷新入口
+   *
+   * 逻辑：
+   * 1. 未登录：清空状态，展示登录引导，不请求后端
+   * 2. 已登录：先用 AuthService 本地信息快速展示
+   * 3. 首次进入 / 超过刷新间隔 / 强制刷新时，再请求后端最新资料
+   */
+  private refreshMePage(forceRemoteRefresh: boolean = false): void {
     this.isLoggedIn = this.authService.isLoggedIn()
 
     if (!this.isLoggedIn) {
@@ -186,11 +202,23 @@ struct MePage {
       return
     }
 
-    // 已登录时，先用本地用户信息快速展示
+    // 每次进入页面都先同步本地用户信息
+    // 这样从编辑资料页返回时，头像 / 昵称可以立即刷新
     this.applyLocalUserInfo()
 
-    // 再请求后端最新用户资料
-    this.isUserInfoLoading = true
+    const now: number = Date.now()
+    const needRemoteRefresh: boolean =
+      forceRemoteRefresh ||
+        this.lastUserInfoRefreshTime <= 0 ||
+        now - this.lastUserInfoRefreshTime > USER_INFO_REFRESH_INTERVAL
+
+    if (!needRemoteRefresh) {
+      return
+    }
+
+    // 如果已有头像和昵称，就不明显展示头像 loading，避免页面视觉跳动
+    this.isUserInfoLoading = this.avatarUrl.length === 0
+
     this.loadUserInfo()
   }
 
@@ -347,6 +375,9 @@ struct MePage {
       // 无论成功失败，都结束用户信息加载状态
       this.isUserInfoLoading = false
       this.isRefreshingUserInfo = false
+
+      // 记录本次远程刷新时间，避免频繁切换 Tab 时重复请求后端
+      this.lastUserInfoRefreshTime = Date.now()
     }
   }
 
