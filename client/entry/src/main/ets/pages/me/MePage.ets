@@ -7,6 +7,7 @@ import { AvatarComponent } from '../../common/components/AvatarComponent'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Dimension } from '../../common/constants/Theme'
 import { ApiConfig } from '../../common/constants/apiConfig'
+import { SnapshotRepository } from '../../core/repository/SnapshotRepository'
 
 function getAvatarServerOrigin(): string {
   const apiBase: string = ApiConfig.API_BASE_URL
@@ -159,9 +160,12 @@ export struct MeView {
 
   @State backendUserId: number = 0
   @State isUserInfoLoading: boolean = false
+  // 非空表示当前统计数字来自本地快照，需要在界面上标注数据时间
+  @State statsSnapshotHint: string = ''
 
   private authService: AuthService = AuthService.getInstance()
   private apiService: ApiService = ApiService.getInstance()
+  private snapshotRepo: SnapshotRepository = SnapshotRepository.getInstance()
 
   private isRefreshingUserInfo: boolean = false
   private isStatisticsRefreshing: boolean = false
@@ -192,6 +196,7 @@ export struct MeView {
     }
 
     this.applyLocalUserInfo()
+    this.applySnapshotData()
 
     const now: number = Date.now()
     const needRemoteRefresh: boolean =
@@ -205,6 +210,39 @@ export struct MeView {
 
     this.isUserInfoLoading = this.avatarUrl.length === 0
     this.loadUserInfo()
+  }
+
+  /**
+   * 断网降级：先用本地快照把用户资料和统计数字填上，界面不留空。
+   * 头像不在这里回填——离线时 URL 拼得出来但图片必然下载失败，保留上一次成功加载的即可。
+   */
+  private async applySnapshotData(): Promise<void> {
+    try {
+      const profile: Object | null = await this.snapshotRepo.getUserProfile()
+      if (profile) {
+        const user = profile as UserProfileData
+        this.userName = user.nickname ? user.nickname : this.userName
+        this.userPhone = user.phone ? user.phone : this.userPhone
+        this.userAge = user.age ? user.age : 0
+        this.userGender = user.gender !== undefined && user.gender !== null ? String(user.gender) : ''
+        this.backendUserId = user.id ? Number(user.id) : 0
+      }
+
+      const diaryCount: number | null = await this.snapshotRepo.getDiaryCount()
+      const assessmentCount: number | null = await this.snapshotRepo.getAssessmentCount()
+
+      if (diaryCount !== null || assessmentCount !== null) {
+        this.diaryCount = diaryCount !== null ? diaryCount : this.diaryCount
+        this.assessmentCount = assessmentCount !== null ? assessmentCount : this.assessmentCount
+        this.isStatsLoaded = true
+
+        const ts: number = await this.snapshotRepo.getDiaryTimestamp()
+        this.statsSnapshotHint = SnapshotRepository.formatAgoText(ts)
+        Logger.info(TAG, `统计数字命中本地快照 ${this.statsSnapshotHint}`)
+      }
+    } catch (error) {
+      Logger.error(TAG, `读取本地快照失败: ${JSON.stringify(error)}`)
+    }
   }
 
   private applyLocalUserInfo(): void {
@@ -335,6 +373,8 @@ export struct MeView {
           await this.authService.updateUserInfo(newUserInfo)
         }
 
+        await this.snapshotRepo.saveUserProfile(user as Object)
+
         this.loadStatistics()
         Logger.info(TAG, `后端用户信息: ${this.userName}, phone: ${this.userPhone}, avatar: ${this.avatarUrl}`)
       } else {
@@ -377,6 +417,10 @@ export struct MeView {
         const diaryRes = await this.apiService.getDiaryList()
         if (diaryRes.code === 200 && diaryRes.data) {
           nextDiaryCount = this.parseCount(diaryRes.data as Object)
+          // 直接是数组时顺便存一份列表快照，供日记页离线展示
+          if (Array.isArray(diaryRes.data)) {
+            await this.snapshotRepo.saveDiaryList(diaryRes.data as Object[])
+          }
         }
       } catch (error) {
         hilog.error(DOMAIN, TAG, `加载日记统计失败: ${JSON.stringify(error)}`)
@@ -386,17 +430,24 @@ export struct MeView {
         const assessmentRes = await this.apiService.getAssessmentResults()
 
         if (Array.isArray(assessmentRes)) {
-          nextAssessmentCount = assessmentRes.length
+          const list: Object[] = assessmentRes as Object[]
+          nextAssessmentCount = list.length
+          await this.snapshotRepo.saveAssessmentResults(list)
         } else if (assessmentRes.code === 200 && assessmentRes.data && Array.isArray(assessmentRes.data)) {
           nextAssessmentCount = assessmentRes.data.length
+          await this.snapshotRepo.saveAssessmentResults(assessmentRes.data as Object[])
         }
       } catch (error) {
         hilog.error(DOMAIN, TAG, `加载测评记录统计失败: ${JSON.stringify(error)}`)
       }
 
+      // 总数单独落盘：日记列表快照会被截断到 20 条，不能拿长度当总数
+      await this.snapshotRepo.saveCounts(nextDiaryCount, nextAssessmentCount)
+
       this.diaryCount = nextDiaryCount
       this.assessmentCount = nextAssessmentCount
       this.isStatsLoaded = true
+      this.statsSnapshotHint = ''
 
       mePageStatsCache = {
         diaryCount: nextDiaryCount,
@@ -600,7 +651,8 @@ export struct MeView {
 
   @Builder
   buildStatsCard() {
-    Row() {
+    Column() {
+      Row() {
       Column() {
         Text(this.isStatsLoaded ? `${this.diaryCount}` : '—')
           .fontSize(26)
@@ -633,6 +685,16 @@ export struct MeView {
       .onClick(() => {
         router.pushUrl({ url: 'pages/me/MyRecordsPage' })
       })
+      }
+
+      if (this.statsSnapshotHint.length > 0) {
+        Text(this.statsSnapshotHint)
+          .fontSize(12)
+          .fontColor($r('app.color.text_tertiary'))
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .margin({ top: 8 })
+      }
     }
     .width('100%')
     .padding({ top: 18, bottom: 18 })

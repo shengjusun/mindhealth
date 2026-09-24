@@ -1,5 +1,5 @@
 {
-  "version": 2026092401,
+  "version": 2026092402,
   "updatedAt": "2026-09-24T00:00:00",
   "scales": [
     {
@@ -34,6 +34,15 @@
       "name": "压力感知量表",
       "type": "PSS",
       "description": "用于评估个体对压力的感知程度，帮助了解自身的压力水平。",
+      "questionCount": 5,
+      "maxScore": 15,
+      "version": 1
+    },
+    {
+      "id": 5,
+      "name": "睡眠质量自查",
+      "type": "SLEEP",
+      "description": "用于评估最近一周的入睡、夜醒与睡眠恢复情况，帮助了解自身睡眠质量。",
       "questionCount": 5,
       "maxScore": 15,
       "version": 1

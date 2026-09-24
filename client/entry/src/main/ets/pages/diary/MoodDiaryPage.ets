@@ -5,6 +5,7 @@ import { Dimension } from '../../common/constants/Theme'
 import { LoadingComponent, EmptyComponent, ErrorComponent } from '../../common/components/StateComponents'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
+import { SnapshotRepository } from '../../core/repository/SnapshotRepository'
 
 const TAG = 'MoodDiaryPage'
 
@@ -39,38 +40,56 @@ export struct MoodDiaryView {
   @State hasError: boolean = false
   @State errorMessage: string = '加载失败'
   @State diaryList: DiaryItem[] = []
+  // 非空表示当前列表来自本地快照，需要在界面上标注数据时间，避免用户以为是最新
+  @State snapshotHint: string = ''
 
   private apiService: ApiService = ApiService.getInstance()
+  private snapshotRepo: SnapshotRepository = SnapshotRepository.getInstance()
 
   aboutToAppear(): void {
     this.loadDiaryList()
   }
 
+  /**
+   * 离线优先（SWR）：
+   * 1. 先读本地快照并立刻渲染，不等网络；
+   * 2. 再静默刷新，成功则覆盖并更新快照，失败一律吞掉并保留快照；
+   * 3. 只有「本地与网络都没有数据」时才展示错误页。
+   */
   private async loadDiaryList(showLoading: boolean = true): Promise<void> {
     if (showLoading) {
       this.isLoading = true
     }
     this.hasError = false
+
+    const cached: Object[] | null = await this.snapshotRepo.getDiaryList()
+    const hasSnapshot: boolean = cached !== null
+    if (hasSnapshot) {
+      this.diaryList = cached as DiaryItem[]
+      const ts: number = await this.snapshotRepo.getDiaryTimestamp()
+      this.snapshotHint = SnapshotRepository.formatAgoText(ts)
+      Logger.info(TAG, `日记命中本地快照，共 ${this.diaryList.length} 条 ${this.snapshotHint}`)
+    }
+    this.isLoading = false
+
     try {
       const res = await this.apiService.getDiaryList()
-      if (res.code === 200 && res.data) {
-        if (Array.isArray(res.data)) {
-          this.diaryList = res.data as DiaryItem[]
-        } else {
-          this.diaryList = []
-        }
-      } else {
+      if (res.code === 200 && res.data && Array.isArray(res.data)) {
+        this.diaryList = res.data as DiaryItem[]
+        this.snapshotHint = ''
+        await this.snapshotRepo.saveDiaryList(res.data as Object[])
+      } else if (!hasSnapshot) {
         this.hasError = true
         this.errorMessage = res.message ? res.message : '加载日记失败'
         this.diaryList = []
       }
     } catch (error) {
-      Logger.error(TAG, `加载日记失败:${JSON.stringify(error)}`)
-      this.hasError = true
-      this.errorMessage = '网络异常， 请稍后重试'
-      this.diaryList = []
-    } finally {
-      this.isLoading = false
+      Logger.error(TAG, `刷新日记失败:${JSON.stringify(error)}`)
+      if (!hasSnapshot) {
+        this.hasError = true
+        this.errorMessage = '网络异常， 请稍后重试'
+        this.diaryList = []
+      }
     }
   }
 
@@ -132,6 +151,15 @@ export struct MoodDiaryView {
           Scroll() {
             Column() {
               this.buildTopIntroCard()
+
+              if (this.snapshotHint.length > 0) {
+                Text(this.snapshotHint)
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_tertiary'))
+                  .width('100%')
+                  .textAlign(TextAlign.Start)
+                  .margin({ bottom: 8 })
+              }
 
               if (this.diaryList.length === 0) {
                 EmptyComponent({

@@ -1,0 +1,51 @@
+{
+  "version": 2026092402,
+  "updatedAt": "2026-09-24T00:00:00",
+  "scales": [
+    {
+      "id": 1,
+      "name": "SCL-90症状自评量表",
+      "type": "SCL-90",
+      "description": "用于评估个体在一周内的心理健康状况，包括9个因子：躯体化、强迫症状、人际关系敏感、抑郁、焦虑、敌对、恐怖、偏执及精神病性。",
+      "questionCount": 5,
+      "maxScore": 15,
+      "version": 1
+    },
+    {
+      "id": 2,
+      "name": "SDS抑郁自评量表",
+      "type": "SDS",
+      "description": "用于评估抑郁程度，适用于具有抑郁症状的成年人。",
+      "questionCount": 5,
+      "maxScore": 15,
+      "version": 1
+    },
+    {
+      "id": 3,
+      "name": "SAS焦虑自评量表",
+      "type": "SAS",
+      "description": "用于评估焦虑程度，适用于具有焦虑症状的成年人。",
+      "questionCount": 5,
+      "maxScore": 15,
+      "version": 1
+    },
+    {
+      "id": 4,
+      "name": "压力感知量表",
+      "type": "PSS",
+      "description": "用于评估个体对压力的感知程度，帮助了解自身的压力水平。",
+      "questionCount": 5,
+      "maxScore": 15,
+      "version": 1
+    },
+    {
+      "id": 5,
+      "name": "睡眠质量自查",
+      "type": "SLEEP",
+      "description": "用于评估最近一周的入睡、夜醒与睡眠恢复情况，帮助了解自身睡眠质量。",
+      "questionCount": 5,
+      "maxScore": 15,
+      "version": 1
+    }
+  ]
+}

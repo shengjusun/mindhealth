@@ -1,11 +1,12 @@
 import router from '@ohos.router'
-import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Dimension } from '../../common/constants/Theme'
-import { LoadingComponent, EmptyComponent, ErrorComponent } from '../../common/components/StateComponents'
+import { LoadingComponent, EmptyComponent } from '../../common/components/StateComponents'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 import { AuthService } from '../../core/auth/AppAuthService'
+import { ScaleRepository } from '../../core/repository/ScaleRepository'
+import { ScaleMeta } from '../../common/types/ScaleTypes'
 
 const TAG = 'AssessmentsPage'
 
@@ -24,11 +25,9 @@ interface AssessmentItem {
 @Component
 export struct AssessmentsView {
   @State isLoading: boolean = true
-  @State hasError: boolean = false
-  @State errorMessage: string = '加载失败'
   @State assessmentList: AssessmentItem[] = []
 
-  private apiService: ApiService = ApiService.getInstance()
+  private scaleRepo: ScaleRepository = ScaleRepository.getInstance()
   private authService: AuthService = AuthService.getInstance()
 
   aboutToAppear(): void {
@@ -41,30 +40,38 @@ export struct AssessmentsView {
     this.loadAssessments()
   }
 
+  /**
+   * 离线优先（SWR）：
+   * 1. 先取本地列表（内存 → 缓存 → 内置 manifest）并立刻渲染，不等网络；
+   * 2. 再后台静默刷新，成功才覆盖；失败一律吞掉，保留已渲染的本地列表。
+   */
   private async loadAssessments(): Promise<void> {
     this.isLoading = true
-    this.hasError = false
-    this.errorMessage = '加载失败'
 
-    try {
-      const res = await this.apiService.getAssessmentList()
+    const local: ScaleMeta[] = await this.scaleRepo.getScaleList()
+    this.assessmentList = this.toAssessmentItems(local)
+    this.isLoading = false
 
-      if (res.code === 200 && res.data && Array.isArray(res.data)) {
-        this.assessmentList = res.data as AssessmentItem[]
-        this.hasError = false
-      } else {
-        this.assessmentList = []
-        this.hasError = true
-        this.errorMessage = res.message ? res.message : '状态自查列表数据格式错误'
-      }
-    } catch (error) {
-      Logger.error(TAG, `加载状态自查列表失败: ${JSON.stringify(error)}`)
-      this.assessmentList = []
-      this.hasError = true
-      this.errorMessage = '网络异常，请稍后重试'
-    } finally {
-      this.isLoading = false
+    const fresh: ScaleMeta[] = await this.scaleRepo.refreshScaleList()
+    if (fresh.length > 0) {
+      this.assessmentList = this.toAssessmentItems(fresh)
     }
+  }
+
+  /**
+   * 量表元数据转换成列表项，字段兼容 AssessmentsView 的展示逻辑
+   */
+  private toAssessmentItems(metas: ScaleMeta[]): AssessmentItem[] {
+    const items: AssessmentItem[] = []
+    for (const meta of metas) {
+      items.push({
+        id: meta.id,
+        name: meta.name,
+        description: meta.description,
+        questionCount: meta.questionCount
+      })
+    }
+    return items
   }
 
   private getItemTitle(item: AssessmentItem): string {
@@ -141,8 +148,6 @@ export struct AssessmentsView {
           loadingSize: 36
         })
           .layoutWeight(1)
-      } else if (this.hasError) {
-        this.buildErrorView()
       } else {
         Scroll() {
           Column() {
@@ -175,21 +180,6 @@ export struct AssessmentsView {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('app.color.app_background'))
-  }
-
-  @Builder
-  buildErrorView() {
-    Column() {
-      ErrorComponent({
-        message: this.errorMessage,
-        onRetry: () => {
-          this.loadAssessments()
-        }
-      })
-    }
-    .layoutWeight(1)
-    .width('100%')
     .backgroundColor($r('app.color.app_background'))
   }
 

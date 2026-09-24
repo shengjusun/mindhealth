@@ -1,0 +1,14 @@
+{
+  "id": 2,
+  "name": "SDS抑郁自评量表",
+  "type": "SDS",
+  "version": 1,
+  "maxScore": 15,
+  "questions": [
+    {"id":1,"title":"最近一周，你是否感到情绪低落、开心不起来？","options":[{"key":"A","text":"几乎没有","score":0},{"key":"B","text":"偶尔有","score":1},{"key":"C","text":"经常有","score":2},{"key":"D","text":"几乎每天都有","score":3}]},
+    {"id":2,"title":"最近一周，你对以前喜欢的事情还有兴趣吗？","options":[{"key":"A","text":"和以前一样","score":0},{"key":"B","text":"兴趣少了一些","score":1},{"key":"C","text":"明显没兴趣","score":2},{"key":"D","text":"完全提不起兴趣","score":3}]},
+    {"id":3,"title":"最近一周，你是否觉得自己没什么价值或容易自责？","options":[{"key":"A","text":"没有","score":0},{"key":"B","text":"偶尔有","score":1},{"key":"C","text":"经常有","score":2},{"key":"D","text":"总是如此","score":3}]},
+    {"id":4,"title":"最近一周，你的食欲和精力怎么样？","options":[{"key":"A","text":"正常","score":0},{"key":"B","text":"稍微下降","score":1},{"key":"C","text":"明显下降","score":2},{"key":"D","text":"非常差","score":3}]},
+    {"id":5,"title":"最近一周，早晨醒来时你的心情如何？","options":[{"key":"A","text":"比较平静","score":0},{"key":"B","text":"有点低落","score":1},{"key":"C","text":"比较低落","score":2},{"key":"D","text":"非常低落","score":3}]}
+  ]
+}

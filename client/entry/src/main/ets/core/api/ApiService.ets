@@ -350,10 +350,6 @@ export class ApiService {
     return this.post<Object>(ApiConfig .ENDPOINTS.ASSESSMENT_SUBMIT, data)
   }
 
-  // 查询单个测评结果
-  async getAssessmentResult(id: string): Promise<ApiResponse<Object>> {
-    return this.get<Object>(`${ApiConfig .ENDPOINTS.ASSESSMENT_RESULT}/${id}`)
-  }
 
   // 发送 AI 对话消息
   async sendMessage(data: Object): Promise<ApiResponse<Object>> {
@@ -382,6 +378,17 @@ export class ApiService {
   // 首页最近测评卡片会用到这个接口
   async getAssessmentResults(): Promise<ApiResponse<Object[]>> {
     return this.get<Object[]>(ApiConfig .ENDPOINTS.ASSESSMENT_RESULTS)
+  }
+
+  // 量表清单（静态题库接口，后端 permitAll，未登录也能拉）
+  async getScaleManifest(): Promise<ApiResponse<Object>> {
+    return this.get<Object>(ApiConfig.ENDPOINTS.SCALE_MANIFEST)
+  }
+
+  // 单套量表题目（静态题库接口，后端 permitAll）
+  // 注意：后端目前返回的是 JSON 字符串，ScaleRepository 里做了二次解析兼容
+  async getScaleQuestions(id: number): Promise<ApiResponse<Object>> {
+    return this.get<Object>(`${ApiConfig.ENDPOINTS.SCALE_QUESTIONS}/${id}/questions`)
   }
 
   // 提交用户反馈

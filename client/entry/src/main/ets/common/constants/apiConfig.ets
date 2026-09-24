@@ -24,6 +24,10 @@ interface ApiEndpoints {
   ASSESSMENT_RESULT: string;
   ASSESSMENT_RESULTS: string;
 
+  // 量表题库（静态化接口，后端已 permitAll）
+  SCALE_MANIFEST: string;
+  SCALE_QUESTIONS: string;
+
   // AI对话相关
   CHAT_SEND: string;
   CHAT_HISTORY: string;
@@ -59,6 +63,10 @@ export class ApiConfig  {
     ASSESSMENT_SUBMIT: '/api/assessment/submit',
     ASSESSMENT_RESULT: '/api/assessment',
     ASSESSMENT_RESULTS: '/api/assessment/results',
+
+    // 量表题库（静态化接口，后端已 permitAll）
+    SCALE_MANIFEST: '/api/assessment/manifest',
+    SCALE_QUESTIONS: '/api/assessment',
 
     // AI对话相关
     CHAT_SEND: '/api/ai/chat',

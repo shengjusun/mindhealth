@@ -3,6 +3,8 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { AuthService } from '../core/auth/AppAuthService';
 import { ApiService } from '../core/api/ApiService';
+import { ScaleRepository } from '../core/repository/ScaleRepository';
+import { SnapshotRepository } from '../core/repository/SnapshotRepository';
 import { router } from '@kit.ArkUI';
 
 const DOMAIN = 0x0000;
@@ -53,6 +55,16 @@ export default class EntryAbility extends UIAbility {
     try {
       const authService = AuthService.getInstance();
       await authService.init(this.context);
+
+      // 量表题库：注入 Context，保证断网时能读本地缓存 / rawfile 内置题库
+      const scaleRepo = ScaleRepository.getInstance();
+      await scaleRepo.init(this.context);
+
+      // 动态数据（日记/测评记录/用户资料）快照：断网时用于降级展示
+      const snapshotRepo = SnapshotRepository.getInstance();
+      await snapshotRepo.init(this.context);
+      // 后台静默刷新题库，内部已兜底，失败不影响启动
+      scaleRepo.refreshFromNetwork();
 
       // 注入 401 统一处理：token 过期时清登录态并回登录页
       const apiService = ApiService.getInstance();

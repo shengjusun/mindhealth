@@ -4,6 +4,7 @@ import { Dimension } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
 import { AuthService } from '../../core/auth/AppAuthService'
 import { ApiService } from '../../core/api/ApiService'
+import { SnapshotRepository } from '../../core/repository/SnapshotRepository'
 
 const TAG = 'HomePageNew'
 
@@ -42,9 +43,12 @@ export struct HomeView {
   @State moodTip: string = '允许自己慢一点，也是一种成长。'
   @State latestAssessment: AssessmentRecordItem | null = null
   @State isAssessmentLoading: boolean = false
+  // 非空表示当前卡片来自本地快照，需要标注数据时间
+  @State assessmentSnapshotHint: string = ''
 
   private authService: AuthService = AuthService.getInstance()
   private apiService: ApiService = ApiService.getInstance()
+  private snapshotRepo: SnapshotRepository = SnapshotRepository.getInstance()
 
   private quickActions: HomeQuickAction[] = [
     {
@@ -120,29 +124,48 @@ export struct HomeView {
     return false
   }
 
+  /**
+   * 离线优先（SWR）：先渲染本地快照，再静默刷新；网络失败保留快照，不报错。
+   */
   private async loadLatestAssessment(): Promise<void> {
     this.isAssessmentLoading = true
 
+    const cached: Object[] | null = await this.snapshotRepo.getAssessmentResults()
+    if (cached && cached.length > 0) {
+      this.latestAssessment = cached[0] as AssessmentRecordItem
+      const ts: number = await this.snapshotRepo.getAssessmentTimestamp()
+      this.assessmentSnapshotHint = SnapshotRepository.formatAgoText(ts)
+      Logger.info(TAG, `最近状态记录命中本地快照 ${this.assessmentSnapshotHint}`)
+    }
+    this.isAssessmentLoading = false
+
     try {
       const rawResult = await this.apiService.getAssessmentResults() as Object
+      const list: AssessmentRecordItem[] | null = this.extractAssessmentList(rawResult)
 
-      if (Array.isArray(rawResult)) {
-        const list = rawResult as AssessmentRecordItem[]
+      if (list) {
         this.latestAssessment = list.length > 0 ? list[0] : null
-      } else {
-        const wrapped = rawResult as AssessmentListResponse
-        if (wrapped.code === 200 && wrapped.data && Array.isArray(wrapped.data)) {
-          this.latestAssessment = wrapped.data.length > 0 ? wrapped.data[0] : null
-        } else {
-          this.latestAssessment = null
-        }
+        this.assessmentSnapshotHint = ''
+        await this.snapshotRepo.saveAssessmentResults(list as Object[])
       }
     } catch (error) {
-      Logger.error(TAG, `加载最近状态记录失败: ${JSON.stringify(error)}`)
-      this.latestAssessment = null
-    } finally {
-      this.isAssessmentLoading = false
+      Logger.error(TAG, `刷新最近状态记录失败: ${JSON.stringify(error)}`)
     }
+  }
+
+  /**
+   * 后端可能直接返回数组，也可能返回 { code, data } 包装，这里统一成数组
+   */
+  private extractAssessmentList(rawResult: Object): AssessmentRecordItem[] | null {
+    if (Array.isArray(rawResult)) {
+      return rawResult as AssessmentRecordItem[]
+    }
+
+    const wrapped = rawResult as AssessmentListResponse
+    if (wrapped.code === 200 && wrapped.data && Array.isArray(wrapped.data)) {
+      return wrapped.data
+    }
+    return null
   }
 
   private safePush(url: string): void {
@@ -451,6 +474,14 @@ export struct HomeView {
               .fontColor($r('app.color.text_tertiary'))
               .width('100%')
               .margin({ top: 8 })
+
+            if (this.assessmentSnapshotHint.length > 0) {
+              Text(this.assessmentSnapshotHint)
+                .fontSize(12)
+                .fontColor($r('app.color.text_tertiary'))
+                .width('100%')
+                .margin({ top: 4 })
+            }
 
             Text(this.getSuggestionText(this.latestAssessment.suggestion ? this.latestAssessment.suggestion : ''))
               .fontSize(14)

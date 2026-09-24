@@ -6,28 +6,14 @@ import { LoadingComponent } from '../../common/components/StateComponents'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 import { AuthService } from '../../core/auth/AppAuthService'
+import { ScaleRepository } from '../../core/repository/ScaleRepository'
+import { ScaleDetail, ScaleOption, ScaleQuestion } from '../../common/types/ScaleTypes'
 
 const TAG = 'AssessmentQuestionPage'
 
-interface QuestionOption {
-  key: string
-  text: string
-  score: number
-}
-
-interface AssessmentQuestion {
-  id: number
-  title: string
-  options: QuestionOption[]
-}
-
-interface AssessmentDetailData {
-  id?: number
-  name?: string
-  description?: string
-  type?: string
-  questions?: string
-}
+// 题目结构统一复用 common/types/ScaleTypes，页面里不再维护第二份容易漂移的副本
+type QuestionOption = ScaleOption
+type AssessmentQuestion = ScaleQuestion
 
 interface AssessmentSubmitResult {
   id?: number
@@ -54,11 +40,15 @@ struct AssessmentQuestionPage {
   @State selectedAnswers: number[] = []
   @State questions: AssessmentQuestion[] = []
   @State isLoadingQuestions: boolean = true
+  @State loadError: string = ''
+  @State diagInfo: string = ''
+  @State scaleMaxScore: number = 0
   @State showResult: boolean = false
   @State resultData: AssessmentSubmitResult | null = null
   @State isSubmitting: boolean = false
 
   private apiService: ApiService = ApiService.getInstance()
+  private scaleRepo: ScaleRepository = ScaleRepository.getInstance()
 
   aboutToAppear(): void {
     const params = router.getParams() as Record<string, Object>
@@ -83,61 +73,77 @@ struct AssessmentQuestionPage {
   }
 
   /**
-   * 从后端拉取量表题库（GET /api/assessment/{id} 的 questions JSON）
-   * 拉取失败或格式无效时，回退使用内置通用题库，保证答题流程始终可用
+   * 加载量表题目：本地优先（内存 → Preferences 缓存 → rawfile 内置题库），
+   * 本地都没有时才走网络，断网时依然能用内置题库答题。
    */
   private async loadQuestions(): Promise<void> {
     this.isLoadingQuestions = true
+    this.loadError = ''
+    this.diagInfo = ''
+
+    if (this.assessmentId <= 0) {
+      this.loadError = '测评ID无效，无法加载题目'
+      this.diagInfo = `id=${this.assessmentId}`
+      this.isLoadingQuestions = false
+      return
+    }
 
     try {
-      const res = await this.apiService.getAssessmentResult(String(this.assessmentId))
-      if (res.code === 200 && res.data) {
-        const detail = res.data as AssessmentDetailData
-        if (detail.questions && detail.questions.length > 0) {
-          const parsed = this.parseQuestions(detail.questions)
-          if (parsed.length > 0) {
-            this.applyQuestions(parsed)
-            this.isLoadingQuestions = false
-            return
-          }
-        }
+      const detail: ScaleDetail | null = await this.scaleRepo.getScale(this.assessmentId)
+      if (!detail) {
+        this.loadError = '暂无可用题目，请检查网络后重试'
+        this.diagInfo = await this.scaleRepo.getDiagnostics(this.assessmentId)
+        this.applyQuestions([])
+        return
       }
-      // 后端没有题库（未执行迁移脚本）时使用内置题库
-      this.applyQuestions(this.buildDefaultQuestions())
+
+      // 题库自带名称优先，避免路由参数与题库不一致
+      if (typeof detail.name === 'string' && detail.name.length > 0) {
+        this.assessmentTitle = detail.name
+      }
+      if (typeof detail.maxScore === 'number' && detail.maxScore > 0) {
+        this.scaleMaxScore = detail.maxScore
+      }
+
+      const valid: AssessmentQuestion[] = this.sanitizeQuestions(detail.questions)
+      if (valid.length > 0) {
+        this.applyQuestions(valid)
+        return
+      }
+
+      this.loadError = '题库内容异常，请更新应用后重试'
+      this.diagInfo = await this.scaleRepo.getDiagnostics(this.assessmentId)
+      this.applyQuestions([])
     } catch (error) {
-      Logger.warn(TAG, `拉取题库失败，使用内置题库: ${JSON.stringify(error)}`)
-      this.applyQuestions(this.buildDefaultQuestions())
+      Logger.warn(TAG, `加载量表 ${this.assessmentId} 失败: ${JSON.stringify(error)}`)
+      this.loadError = '题目加载失败，请检查网络后重试'
+      this.diagInfo = await this.scaleRepo.getDiagnostics(this.assessmentId)
+      this.applyQuestions([])
     } finally {
       this.isLoadingQuestions = false
     }
   }
 
   /**
-   * 解析后端题库 JSON，并做结构校验（题目至少 1 题、每题至少 2 个选项）
+   * 结构校验：至少 1 题、每题至少 2 个选项，过滤掉脏数据
    */
-  private parseQuestions(jsonText: string): AssessmentQuestion[] {
-    try {
-      const raw = JSON.parse(jsonText) as AssessmentQuestion[]
-      if (!Array.isArray(raw) || raw.length === 0) {
-        return []
-      }
-      const valid: AssessmentQuestion[] = []
-      for (let i = 0; i < raw.length; i++) {
-        const q = raw[i]
-        if (q && typeof q.title === 'string' && Array.isArray(q.options) && q.options.length >= 2) {
-          valid.push({
-            id: typeof q.id === 'number' ? q.id : i + 1,
-            title: q.title,
-            options: q.options.filter((o: QuestionOption) =>
-              typeof o.text === 'string' && typeof o.score === 'number')
-          })
-        }
-      }
-      return valid
-    } catch (error) {
-      Logger.warn(TAG, `题库 JSON 解析失败: ${JSON.stringify(error)}`)
+  private sanitizeQuestions(raw: ScaleQuestion[]): AssessmentQuestion[] {
+    if (!Array.isArray(raw) || raw.length === 0) {
       return []
     }
+    const valid: AssessmentQuestion[] = []
+    for (let i = 0; i < raw.length; i++) {
+      const q = raw[i]
+      if (q && typeof q.title === 'string' && Array.isArray(q.options) && q.options.length >= 2) {
+        valid.push({
+          id: typeof q.id === 'number' ? q.id : i + 1,
+          title: q.title,
+          options: q.options.filter((o: QuestionOption) =>
+            typeof o.text === 'string' && typeof o.score === 'number')
+        })
+      }
+    }
+    return valid
   }
 
   private applyQuestions(list: AssessmentQuestion[]): void {
@@ -149,64 +155,6 @@ struct AssessmentQuestionPage {
       this.selectedAnswers.push(-1)
       i++
     }
-  }
-
-  /**
-   * 内置通用题库（后端题库不可用时的兜底）
-   */
-  private buildDefaultQuestions(): AssessmentQuestion[] {
-    return [
-      {
-        id: 1,
-        title: '最近一周，你是否经常感到情绪低落或烦躁？',
-        options: [
-          { key: 'A', text: '几乎没有', score: 0 },
-          { key: 'B', text: '偶尔有', score: 1 },
-          { key: 'C', text: '经常有', score: 2 },
-          { key: 'D', text: '几乎每天都有', score: 3 }
-        ]
-      },
-      {
-        id: 2,
-        title: '最近一周，你是否容易因为小事紧张或担心？',
-        options: [
-          { key: 'A', text: '完全不会', score: 0 },
-          { key: 'B', text: '偶尔会', score: 1 },
-          { key: 'C', text: '经常会', score: 2 },
-          { key: 'D', text: '非常明显', score: 3 }
-        ]
-      },
-      {
-        id: 3,
-        title: '最近一周，你的睡眠情况如何？',
-        options: [
-          { key: 'A', text: '很好', score: 0 },
-          { key: 'B', text: '偶尔睡不好', score: 1 },
-          { key: 'C', text: '经常睡不好', score: 2 },
-          { key: 'D', text: '严重影响休息', score: 3 }
-        ]
-      },
-      {
-        id: 4,
-        title: '最近一周，你做事时是否难以集中注意力？',
-        options: [
-          { key: 'A', text: '没有影响', score: 0 },
-          { key: 'B', text: '轻微影响', score: 1 },
-          { key: 'C', text: '明显影响', score: 2 },
-          { key: 'D', text: '非常严重', score: 3 }
-        ]
-      },
-      {
-        id: 5,
-        title: '最近一周，你是否愿意主动与他人交流？',
-        options: [
-          { key: 'A', text: '很愿意', score: 0 },
-          { key: 'B', text: '还可以', score: 1 },
-          { key: 'C', text: '不太愿意', score: 2 },
-          { key: 'D', text: '完全不想', score: 3 }
-        ]
-      }
-    ]
   }
 
   private getProgressText(): string {
@@ -327,12 +275,14 @@ struct AssessmentQuestionPage {
   @Builder
   buildQuestionView() {
     Column() {
-      if (this.isLoadingQuestions || this.questions.length === 0) {
+      if (this.isLoadingQuestions) {
         LoadingComponent({
           message: '正在准备题目...',
           loadingSize: 36
         })
           .layoutWeight(1)
+      } else if (this.questions.length === 0) {
+        this.buildEmptyView()
       } else {
         this.buildProgressBar()
 
@@ -358,6 +308,41 @@ struct AssessmentQuestionPage {
     }
     .width('100%')
     .layoutWeight(1)
+  }
+
+  @Builder
+  buildEmptyView() {
+    Column() {
+      Text(this.loadError.length > 0 ? this.loadError : '暂无题目')
+        .fontSize(14)
+        .fontColor($r('app.color.text_secondary'))
+        .textAlign(TextAlign.Center)
+        .margin({ bottom: 16 })
+
+      if (this.diagInfo.length > 0) {
+        Text(this.diagInfo)
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+          .textAlign(TextAlign.Center)
+          .margin({ bottom: 16 })
+      }
+
+      Button('重新加载')
+        .width('60%')
+        .height(Dimension.ButtonHeight)
+        .fontSize(15)
+        .fontColor($r('app.color.text_on_primary'))
+        .backgroundColor($r('app.color.theme_primary'))
+        .borderRadius(24)
+        .onClick(() => {
+          this.loadQuestions()
+        })
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .padding({ left: Dimension.SpaceL, right: Dimension.SpaceL })
   }
 
   @Builder
@@ -512,9 +497,13 @@ struct AssessmentQuestionPage {
   }
 
   /**
-   * 动态计算满分：当前题库每题最高分之和（默认题库为 5 题 × 3 分 = 15）
+   * 满分：优先取题库自带的 maxScore（口径与后端一致），
+   * 缺失时再按「每题最高分之和」动态计算
    */
   private getMaxScore(): number {
+    if (this.scaleMaxScore > 0) {
+      return this.scaleMaxScore
+    }
     let max: number = 0
     let i: number = 0
     while (i < this.questions.length) {

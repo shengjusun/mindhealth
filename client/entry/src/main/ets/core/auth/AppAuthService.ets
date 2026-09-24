@@ -13,6 +13,7 @@ import { http } from '@kit.NetworkKit'
 import { ApiConfig  } from '../../common/constants/apiConfig'
 import { ApiService } from '../api/ApiService'
 import { HuaweiIdService } from './HuaweiIdService'
+import { SnapshotRepository } from '../repository/SnapshotRepository'
 
 const DOMAIN = 0xFF00
 const TAG = 'AuthService'
@@ -378,6 +379,8 @@ export class AuthService {
       this.userInfo = null
       this.syncTokenToApiService('')
       await this.clearUserInfo()
+      // 清空动态数据快照，避免下一个账号看到上一个人的日记 / 测评记录
+      await SnapshotRepository.getInstance().clearAll()
       hilog.info(DOMAIN, TAG, '退出登录成功')
     } catch (error) {
       hilog.error(DOMAIN, TAG, `退出登录失败: ${JSON.stringify(error)}`)
