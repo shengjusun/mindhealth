@@ -2,7 +2,7 @@
  * 通用状态组件：加载 / 空状态 / 错误 / 网络错误
  * 统一使用主题资源配色（浅/深色自适应），错误类组件支持 onRetry 回调
  */
-import { Dimension } from '../constants/Theme'
+import { Dimension, ShadowStyle } from '../constants/Theme'
 
 @ComponentV2
 export struct LoadingComponent {
@@ -61,7 +61,13 @@ export struct EmptyComponent {
           .fontSize(14)
           .fontColor($r('app.color.text_on_primary'))
           .backgroundColor($r('app.color.theme_primary'))
-          .borderRadius(Dimension.CardRadius)
+          // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+          .linearGradient({
+            angle: 135,
+            colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+          })
+          .borderRadius(Dimension.CardRadiusInner)
+          .shadow(ShadowStyle.Button)
           .onClick(() => {
             this.onRetry()
           })
@@ -97,7 +103,13 @@ export struct ErrorComponent {
         .fontSize(14)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.theme_primary'))
-        .borderRadius(Dimension.CardRadius)
+        // 主按钮：同色系轻微渐变（theme_primary → primary_pressed）+ 柔和主色阴影
+        .linearGradient({
+          angle: 135,
+          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+        })
+        .borderRadius(Dimension.CardRadiusInner)
+        .shadow(ShadowStyle.Button)
         .onClick(() => {
           this.onRetry()
         })
@@ -137,7 +149,13 @@ export struct NetworkErrorComponent {
         .fontSize(14)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.theme_primary'))
-        .borderRadius(Dimension.CardRadius)
+        // 主按钮：同色系轻微渐变（theme_primary → primary_pressed）+ 柔和主色阴影
+        .linearGradient({
+          angle: 135,
+          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+        })
+        .borderRadius(Dimension.CardRadiusInner)
+        .shadow(ShadowStyle.Button)
         .onClick(() => {
           this.onRetry()
         })

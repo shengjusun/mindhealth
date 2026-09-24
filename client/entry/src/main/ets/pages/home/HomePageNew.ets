@@ -39,14 +39,14 @@ interface AssessmentListResponse {
 }
 
 // 首页视图：作为 MainPage 的 Tab 子组件使用（无底部导航，状态常驻）
-@Component
+@ComponentV2
 export struct HomeView {
-  @State greetingText: string = '今天也要照顾好自己'
-  @State moodTip: string = '允许自己慢一点，也是一种成长。'
-  @State latestAssessment: AssessmentRecordItem | null = null
-  @State isAssessmentLoading: boolean = false
+  @Local greetingText: string = '今天也要照顾好自己'
+  @Local moodTip: string = '允许自己慢一点，也是一种成长。'
+  @Local latestAssessment: AssessmentRecordItem | null = null
+  @Local isAssessmentLoading: boolean = false
   // 非空表示当前卡片来自本地快照，需要标注数据时间
-  @State assessmentSnapshotHint: string = ''
+  @Local assessmentSnapshotHint: string = ''
 
   private authService: AuthService = AuthService.getInstance()
   private apiService: ApiService = ApiService.getInstance()
@@ -337,7 +337,7 @@ export struct HomeView {
           right: Dimension.SpaceL,
           top: 6,
           // 底部留出悬浮胶囊栏的高度，否则最后一张卡片被栏挡住
-          bottom: Dimension.PillSafeArea
+          bottom: Dimension.pillSafeArea(appState().bottomIndicatorVp)
         })
       }
       .layoutWeight(1)
@@ -540,6 +540,13 @@ export struct HomeView {
             .fontSize(14)
             .fontColor($r('app.color.text_on_primary'))
             .backgroundColor($r('app.color.theme_primary'))
+            // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+            .linearGradient({
+              angle: 135,
+              colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+            })
+            .borderRadius(Dimension.CardRadiusInner)
+            .shadow(ShadowStyle.Button)
             .borderRadius(21)
             .onClick(() => {
               appState().mainTabIndex = 3
@@ -560,6 +567,13 @@ export struct HomeView {
           .fontSize(14)
           .fontColor($r('app.color.text_on_primary'))
           .backgroundColor($r('app.color.theme_primary'))
+          // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+          .linearGradient({
+            angle: 135,
+            colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+          })
+          .borderRadius(Dimension.CardRadiusInner)
+          .shadow(ShadowStyle.Button)
           .borderRadius(21)
           .margin({ top: 16 })
           .onClick(() => {

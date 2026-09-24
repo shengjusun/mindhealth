@@ -128,7 +128,8 @@ export struct MainPage {
     .backgroundColor($r('app.color.pill_glass'))
     .backgroundBlurStyle(BlurStyle.Thin)
     .shadow(ShadowStyle.Pill)
-    .margin({ bottom: Dimension.PillMarginBottom })
+    // 叠加系统手势条高度，否则胶囊栏会压在手势条上
+    .margin({ bottom: Dimension.pillMarginBottom(this.state.bottomIndicatorVp) })
   }
 }
 

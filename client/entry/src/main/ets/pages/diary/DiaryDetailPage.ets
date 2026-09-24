@@ -1,6 +1,6 @@
-import { popRoute, pushRouteWithParam } from '../../common/state/AppState'
+import { appState, AppState, popRoute, pushRouteWithParam } from '../../common/state/AppState'
 import { SubPageHeader } from '../../common/components/SubPageHeader'
-import { Dimension } from '../../common/constants/Theme'
+import { Dimension, ShadowStyle } from '../../common/constants/Theme'
 import { ApiService } from '../../core/api/ApiService'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
@@ -27,13 +27,17 @@ interface DiaryEditParams {
   event: string
 }
 
-@Component
+@ComponentV2
 export struct DiaryDetailPage {
   // 路由入参，由 RouteBuilders 的 DiaryDetailRoute 注入（取代 router.getParams()）
-  routeParam: Record<string, Object> | undefined = undefined
+  // V2 中普通属性禁止从外部初始化，必须由父组件传入 —— 用 @Param（只读，组件内不修改）
+  @Param routeParam: Record<string, Object> | undefined = undefined
 
-  @State diary: DiaryItem | null = null
-  @State isDeleting: boolean = false
+  @Local diary: DiaryItem | null = null
+  @Local isDeleting: boolean = false
+
+  // 用于 @Monitor 监听底部 Tab/导航返回的刷新信号
+  @Local state: AppState = appState()
 
   private apiService: ApiService = ApiService.getInstance()
 
@@ -54,10 +58,14 @@ export struct DiaryDetailPage {
   }
 
   /**
-   * 从编辑页保存返回时会触发 onPageShow，重新拉取最新内容
-   * 接口失败时静默保留现有展示，不影响阅读
+   * V2 组件不支持 onPageShow（编译器不报错，但运行时不会触发，属于静默失效）。
+   *
+   * 改为：NavDestination.onShown 递增 AppState.diaryDetailRefreshTick，
+   * 这里用 @Monitor 监听该计数，在从编辑页保存返回时重新拉取最新内容。
+   * 接口失败时静默保留现有展示，不影响阅读。
    */
-  onPageShow(): void {
+  @Monitor('state.diaryDetailRefreshTick')
+  onShownRefresh(): void {
     this.refreshFromServer()
   }
 
@@ -274,6 +282,13 @@ export struct DiaryDetailPage {
             .fontWeight(FontWeight.Medium)
             .fontColor($r('app.color.text_on_primary'))
             .backgroundColor($r('app.color.theme_primary'))
+            // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+            .linearGradient({
+              angle: 135,
+              colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+            })
+            .borderRadius(Dimension.CardRadiusInner)
+            .shadow(ShadowStyle.Button)
             .borderRadius(24)
             .margin({ left: 0 })
             .onClick(() => {

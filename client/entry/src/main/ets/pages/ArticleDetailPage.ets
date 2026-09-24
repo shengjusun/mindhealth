@@ -16,14 +16,15 @@ interface ArticleItem {
   createTime?: string
 }
 
-@Component
+@ComponentV2
 export struct ArticleDetailPage {
   // 路由入参，由 RouteBuilders 的 ArticleDetailRoute 注入（取代 router.getParams()）
-  routeParam: Record<string, Object> | undefined = undefined
+  // V2 中普通属性禁止从外部初始化，必须由父组件传入 —— 用 @Param（只读，组件内不修改）
+  @Param routeParam: Record<string, Object> | undefined = undefined
 
-  @State article: ArticleItem | null = null
-  @State isLoading: boolean = true
-  @State loadFailed: boolean = false
+  @Local article: ArticleItem | null = null
+  @Local isLoading: boolean = true
+  @Local loadFailed: boolean = false
 
   private apiService: ApiService = ApiService.getInstance()
 

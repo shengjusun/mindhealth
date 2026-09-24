@@ -57,9 +57,28 @@ export class Dimension {
   // 悬浮胶囊 Tab 栏（MainPage 底部浮动栏）
   static readonly PillHeight: number = 58
   static readonly PillMarginBottom: number = 16
-  // 悬浮栏浮在内容之上，滚动内容必须预留这么高的空白，
-  // 否则最后一条被栏挡住、且毛玻璃没有内容可模糊
-  static readonly PillSafeArea: number = 96
+  // 栏与内容之间的呼吸间距（不含系统手势条）
+  static readonly PillSafeAreaBase: number = 22
+
+  /**
+   * 胶囊栏自身距屏幕底部的距离 = 设计边距 + 系统手势条高度。
+   *
+   * 手势条高度各机型不同（常见 0~32vp），写死会让栏压住手势条或离屏边过远。
+   * 真实高度由 EntryAbility 从窗口避让区读出，经 AppState.bottomIndicatorVp 传进来。
+   */
+  static pillMarginBottom(indicatorVp: number): number {
+    return Dimension.PillMarginBottom + indicatorVp
+  }
+
+  /**
+   * 内容底部应预留的高度 = 栏高 + 栏下边距 + 呼吸间距 + 手势条高度。
+   *
+   * 悬浮栏浮在内容之上，不预留会导致最后一条被栏挡住；同时也正是靠这段空白
+   * 让内容从栏下方穿过，毛玻璃才有东西可模糊。
+   */
+  static pillSafeArea(indicatorVp: number): number {
+    return Dimension.PillHeight + Dimension.PillMarginBottom + Dimension.PillSafeAreaBase + indicatorVp
+  }
 }
 
 /**

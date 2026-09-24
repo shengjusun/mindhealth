@@ -1,6 +1,6 @@
 import { appState, popRoute, pushRoute, pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
-import { Dimension } from '../../common/constants/Theme'
+import { Dimension, ShadowStyle } from '../../common/constants/Theme'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Logger } from '../../common/utils/Logger'
 import { AuthService } from '../../core/auth/AppAuthService'
@@ -44,13 +44,13 @@ interface MainPageTabParams {
   tab: string
 }
 
-@Component
+@ComponentV2
 export struct MyRecordsPage {
-  @State currentTab: string = 'assessment'
-  @State assessmentRecords: AssessmentRecordItem[] = []
-  @State isAssessmentLoading: boolean = false
-  @State diaryRecords: DiaryItem[] = []
-  @State isDiaryLoading: boolean = false
+  @Local currentTab: string = 'assessment'
+  @Local assessmentRecords: AssessmentRecordItem[] = []
+  @Local isAssessmentLoading: boolean = false
+  @Local diaryRecords: DiaryItem[] = []
+  @Local isDiaryLoading: boolean = false
   private authService: AuthService = AuthService.getInstance()
 
   private apiService: ApiService = ApiService.getInstance()
@@ -342,6 +342,13 @@ export struct MyRecordsPage {
         .fontSize(15)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.theme_primary'))
+        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+        .linearGradient({
+          angle: 135,
+          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+        })
+        .borderRadius(Dimension.CardRadiusInner)
+        .shadow(ShadowStyle.Button)
         .borderRadius(23)
         .margin({ top: 18 })
         .onClick(() => {
@@ -355,6 +362,7 @@ export struct MyRecordsPage {
     .padding(20)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -380,6 +388,13 @@ export struct MyRecordsPage {
         .fontSize(15)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.theme_primary'))
+        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+        .linearGradient({
+          angle: 135,
+          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+        })
+        .borderRadius(Dimension.CardRadiusInner)
+        .shadow(ShadowStyle.Button)
         .borderRadius(23)
         .margin({ top: 18 })
         .onClick(() => {
@@ -390,6 +405,7 @@ export struct MyRecordsPage {
     .padding(20)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -413,6 +429,7 @@ export struct MyRecordsPage {
     .padding(20)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
     .alignItems(HorizontalAlign.Start)
   }

@@ -1,5 +1,6 @@
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Dimension } from '../../common/constants/Theme'
+import { appState } from '../../common/state/AppState'
 import { Logger } from '../../common/utils/Logger'
 import { AuthService } from '../../core/auth/AppAuthService'
 import { resetRoute } from '../../common/state/AppState'
@@ -16,12 +17,12 @@ interface ChatMessage {
 }
 
 // 树洞聊天视图：作为 MainPage 的 Tab 子组件使用（消息状态常驻不丢失）
-@Component
+@ComponentV2
 export struct AIChatView {
-  @State isLoading: boolean = false
-  @State isThinking: boolean = false
-  @State inputText: string = ''
-  @State messageList: ChatMessage[] = [
+  @Local isLoading: boolean = false
+  @Local isThinking: boolean = false
+  @Local inputText: string = ''
+  @Local messageList: ChatMessage[] = [
     {
       id: 'welcome',
       role: 'assistant',
@@ -196,7 +197,7 @@ export struct AIChatView {
         .width(44)
         .height(44)
         .fontSize(14)
-        .fontColor(Color.White)
+        .fontColor($r('app.color.text_on_primary'))
         .backgroundColor(this.isLoading ? $r('app.color.text_tertiary') : $r('app.color.theme_primary'))
         .borderRadius(22)
         .margin({ left: 10 })
@@ -209,9 +210,10 @@ export struct AIChatView {
     }
     .width('100%')
     .padding(12)
-    .backgroundColor(Color.White)
+    // 原来是硬编码 Color.White，深色模式下是一块惨白；改用资源色随深浅色切换
+    .backgroundColor($r('app.color.app_surface'))
     // 输入区是固定底栏，需要整体抬到悬浮胶囊栏上方，否则被栏盖住
-    .margin({ bottom: Dimension.PillHeight + Dimension.PillMarginBottom })
+    .margin({ bottom: Dimension.PillHeight + Dimension.pillMarginBottom(appState().bottomIndicatorVp) })
   }
 
   private buildAiChatMessages(currentUserMsg: ChatMessage): AiChatMessage[] {

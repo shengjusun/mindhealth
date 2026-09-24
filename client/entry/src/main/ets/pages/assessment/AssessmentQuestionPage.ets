@@ -1,6 +1,6 @@
 import { popRoute, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
-import { Dimension } from '../../common/constants/Theme'
+import { Dimension, ShadowStyle } from '../../common/constants/Theme'
 import { SubPageHeader } from '../../common/components/SubPageHeader'
 import { LoadingComponent } from '../../common/components/StateComponents'
 import { Logger } from '../../common/utils/Logger'
@@ -31,23 +31,24 @@ interface AssessmentSubmitRequest {
   score: number
 }
 
-@Component
+@ComponentV2
 export struct AssessmentQuestionPage {
   // 路由入参，由 RouteBuilders 的 AssessmentQuestionRoute 注入（取代 router.getParams()）
-  routeParam: Record<string, Object> | undefined = undefined
+  // V2 中普通属性禁止从外部初始化，必须由父组件传入 —— 用 @Param（只读，组件内不修改）
+  @Param routeParam: Record<string, Object> | undefined = undefined
 
-  @State assessmentId: number = 0
-  @State assessmentTitle: string = '心理测评'
-  @State currentIndex: number = 0
-  @State selectedAnswers: number[] = []
-  @State questions: AssessmentQuestion[] = []
-  @State isLoadingQuestions: boolean = true
-  @State loadError: string = ''
-  @State diagInfo: string = ''
-  @State scaleMaxScore: number = 0
-  @State showResult: boolean = false
-  @State resultData: AssessmentSubmitResult | null = null
-  @State isSubmitting: boolean = false
+  @Local assessmentId: number = 0
+  @Local assessmentTitle: string = '心理测评'
+  @Local currentIndex: number = 0
+  @Local selectedAnswers: number[] = []
+  @Local questions: AssessmentQuestion[] = []
+  @Local isLoadingQuestions: boolean = true
+  @Local loadError: string = ''
+  @Local diagInfo: string = ''
+  @Local scaleMaxScore: number = 0
+  @Local showResult: boolean = false
+  @Local resultData: AssessmentSubmitResult | null = null
+  @Local isSubmitting: boolean = false
 
   private apiService: ApiService = ApiService.getInstance()
   private scaleRepo: ScaleRepository = ScaleRepository.getInstance()
@@ -335,6 +336,13 @@ export struct AssessmentQuestionPage {
         .fontSize(15)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.theme_primary'))
+        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+        .linearGradient({
+          angle: 135,
+          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+        })
+        .borderRadius(Dimension.CardRadiusInner)
+        .shadow(ShadowStyle.Button)
         .borderRadius(24)
         .onClick(() => {
           this.loadQuestions()
@@ -480,6 +488,13 @@ export struct AssessmentQuestionPage {
         .fontSize(15)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.theme_primary'))
+        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+        .linearGradient({
+          angle: 135,
+          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+        })
+        .borderRadius(Dimension.CardRadiusInner)
+        .shadow(ShadowStyle.Button)
         .borderRadius(24)
         .enabled(!this.isSubmitting)
         .onClick(() => {
@@ -607,6 +622,13 @@ export struct AssessmentQuestionPage {
           .fontSize(16)
           .fontColor($r('app.color.text_on_primary'))
           .backgroundColor($r('app.color.theme_primary'))
+          // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+          .linearGradient({
+            angle: 135,
+            colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+          })
+          .borderRadius(Dimension.CardRadiusInner)
+          .shadow(ShadowStyle.Button)
           .borderRadius(24)
           .onClick(() => {
             popRoute()

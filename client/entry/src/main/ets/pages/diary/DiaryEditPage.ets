@@ -1,4 +1,4 @@
-import { popRoute, resetRoute } from '../../common/state/AppState'
+import { appState, AppState, popRoute, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Dimension } from '../../common/constants/Theme'
@@ -16,20 +16,24 @@ interface AddDiaryRequest {
   event?: string
 }
 
-@Component
+@ComponentV2
 export struct DiaryEditPage {
   // 路由入参。由 RouteBuilders 里的 DiaryEditRoute 在 onReady 拿到 param 后注入，
   // 所以页面 aboutToAppear 执行时它一定已经就位（取代 router.getParams()）
-  routeParam: Record<string, Object> | undefined = undefined
+  // V2 中普通属性禁止从外部初始化，必须由父组件传入 —— 用 @Param（只读，组件内不修改）
+  @Param routeParam: Record<string, Object> | undefined = undefined
 
-  @State diaryId: number = 0
-  @State isEditMode: boolean = false
-  @State title: string = ''
-  @State content: string = ''
-  @State emotion: string = '平静'
-  @State intensity: number = 5
-  @State eventText: string = ''
-  @State isSaving: boolean = false
+  @Local diaryId: number = 0
+  @Local isEditMode: boolean = false
+  @Local title: string = ''
+  @Local content: string = ''
+  @Local emotion: string = '平静'
+  @Local intensity: number = 5
+  @Local eventText: string = ''
+  @Local isSaving: boolean = false
+
+  // 用于 @Monitor 监听路由层转发过来的返回手势
+  @Local state: AppState = appState()
 
   // 进入页面时的快照，用于判断编辑模式下内容是否被改动
   private savedSnapshot: string = ''
@@ -85,10 +89,19 @@ export struct DiaryEditPage {
       this.intensity !== 5
   }
 
-  onBackPress(): boolean {
+  /**
+   * V2 组件不支持 onBackPress —— 编译器不报错，但运行时不会触发，属于静默失效。
+   * 改由 NavDestination.onBackPressed 递增 AppState.backPressedTick，这里监听后执行确认逻辑。
+   */
+  @Monitor('state.backPressedTick')
+  onBackPressed(): void {
+    this.handleBack()
+  }
+
+  private handleBack(): void {
     if (!this.hasFormContent()) {
       this.safeBack()
-      return true
+      return
     }
 
     AlertDialog.show({
@@ -105,7 +118,17 @@ export struct DiaryEditPage {
         action: () => {}
       }
     })
-    return true
+  }
+
+  // 表单任一字段变化时，把「是否脏」同步到全局，供路由层的 onBackPressed 判断是否拦截
+  @Monitor('title', 'content', 'eventText', 'emotion', 'intensity')
+  onFormChange(): void {
+    appState().hasUnsavedChanges = this.hasFormContent()
+  }
+
+  aboutToDisappear(): void {
+    // 脏标记是全局共享的，离开页面必须清掉，否则会污染其他页面的返回拦截
+    appState().hasUnsavedChanges = false
   }
 
   private async saveDiary(): Promise<void> {

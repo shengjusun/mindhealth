@@ -1,6 +1,6 @@
 import { popRoute, pushRoute, resetRoute } from '../../common/state/AppState'
 import { AuthService } from '../../core/auth/AppAuthService'
-import { Dimension } from '../../common/constants/Theme'
+import { Dimension, ShadowStyle } from '../../common/constants/Theme'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { common, bundleManager } from '@kit.AbilityKit'
 import { fileIo } from '@kit.CoreFileKit'
@@ -10,13 +10,13 @@ import { ToastUtil } from '../../common/utils/ToastUtil'
 const TAG = 'SettingsPage'
 const DOMAIN = 0xFF00
 
-@Component
+@ComponentV2
 export struct SettingsPage {
   // 开关持久化到 Preferences，重启后保留
-  @State notificationEnabled: boolean = true
-  @State diaryReminderEnabled: boolean = true
-  @State cacheSize: string = '计算中...'
-  @State versionText: string = 'v1.0.0'
+  @Local notificationEnabled: boolean = true
+  @Local diaryReminderEnabled: boolean = true
+  @Local cacheSize: string = '计算中...'
+  @Local versionText: string = 'v1.0.0'
 
   authService: AuthService = AuthService.getInstance()
 
@@ -297,6 +297,7 @@ export struct SettingsPage {
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 
@@ -367,6 +368,7 @@ export struct SettingsPage {
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 
@@ -469,6 +471,7 @@ export struct SettingsPage {
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 
@@ -491,7 +494,7 @@ export struct SettingsPage {
 
         Text(this.versionText)
           .fontSize(14)
-          .fontColor($r('app.color.text_primary'))
+          .fontColor($r('app.color.text_secondary'))
           .fontWeight(FontWeight.Medium)
       }
       .width('100%')
@@ -506,7 +509,7 @@ export struct SettingsPage {
 
         Text('开发调试版')
           .fontSize(14)
-          .fontColor($r('app.color.text_primary'))
+          .fontColor($r('app.color.text_secondary'))
           .fontWeight(FontWeight.Medium)
       }
       .width('100%')
@@ -515,6 +518,7 @@ export struct SettingsPage {
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 

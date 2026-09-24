@@ -1,6 +1,6 @@
 import { popRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
-import { Dimension } from '../../common/constants/Theme'
+import { Dimension, ShadowStyle } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 import { pasteboard } from '@kit.BasicServicesKit'
@@ -13,10 +13,10 @@ interface FeedbackRequest {
   content: string
 }
 
-@Component
+@ComponentV2
 export struct HelpFeedbackPage {
-  @State feedbackText: string = ''
-  @State isSubmitting: boolean = false
+  @Local feedbackText: string = ''
+  @Local isSubmitting: boolean = false
 
   private apiService: ApiService = ApiService.getInstance()
 
@@ -151,6 +151,7 @@ export struct HelpFeedbackPage {
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
     .alignItems(HorizontalAlign.Start)
   }
@@ -183,6 +184,13 @@ export struct HelpFeedbackPage {
           .fontSize(13)
           .fontColor($r('app.color.text_on_primary'))
           .backgroundColor($r('app.color.theme_primary'))
+          // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+          .linearGradient({
+            angle: 135,
+            colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+          })
+          .borderRadius(Dimension.CardRadiusInner)
+          .shadow(ShadowStyle.Button)
           .borderRadius(16)
           .padding({ left: 16, right: 16 })
           .onClick(() => {
@@ -198,6 +206,7 @@ export struct HelpFeedbackPage {
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
     .alignItems(HorizontalAlign.Start)
   }
@@ -283,6 +292,7 @@ export struct HelpFeedbackPage {
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .alignItems(HorizontalAlign.Start)
   }
 }

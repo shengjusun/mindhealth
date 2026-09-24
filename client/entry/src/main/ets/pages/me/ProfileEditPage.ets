@@ -1,5 +1,5 @@
 import { Logger } from '../../common/utils/Logger'
-import { popRoute, resetRoute } from '../../common/state/AppState'
+import { appState, AppState, popRoute, resetRoute } from '../../common/state/AppState'
 import { AvatarService } from '../../core/services/AvatarService'
 import { AuthService, UserAuthInfo } from '../../core/auth/AppAuthService'
 import { AvatarComponent } from '../../common/components/AvatarComponent'
@@ -30,29 +30,32 @@ interface UpdateUserRequest {
   age?: number
 }
 
-@Component
+@ComponentV2
 export struct ProfileEditPage {
   // 表单当前输入状态
-  @State userName: string = ''
-  @State userGender: string = ''
-  @State userAge: string = ''
-  @State userPhone: string = ''
-  @State userSignature: string = ''
-  @State avatarUrl: string = ''
+  @Local userName: string = ''
+  @Local userGender: string = ''
+  @Local userAge: string = ''
+  @Local userPhone: string = ''
+  @Local userSignature: string = ''
+  @Local avatarUrl: string = ''
 
   // 保存按钮 loading 状态，防止重复点击
-  @State isSaving: boolean = false
+  @Local isSaving: boolean = false
 
   // 手机号是否处于可编辑状态
-  @State isPhoneEditable: boolean = false
+  @Local isPhoneEditable: boolean = false
 
   // 原始表单数据，用来判断用户是否修改过资料
-  @State originalUserName: string = ''
-  @State originalUserGender: string = ''
-  @State originalUserAge: string = ''
-  @State originalUserPhone: string = ''
-  @State originalUserSignature: string = ''
-  @State originalAvatarUrl: string = ''
+  @Local originalUserName: string = ''
+  @Local originalUserGender: string = ''
+  @Local originalUserAge: string = ''
+  @Local originalUserPhone: string = ''
+  @Local originalUserSignature: string = ''
+  @Local originalAvatarUrl: string = ''
+
+  // 用于 @Monitor 监听路由层转发过来的返回手势
+  @Local state: AppState = appState()
 
   // 页面上展示的性别选项
   genders: string[] = ['男', '女', '其他']
@@ -128,10 +131,24 @@ export struct ProfileEditPage {
     this.syncOriginalForm()
   }
 
-  onBackPress(): boolean {
-    // 拦截系统返回键，先判断表单是否修改过
+  /**
+   * V2 组件不支持 onBackPress —— 编译器不报错，但运行时不会触发，属于静默失效。
+   * 改由 NavDestination.onBackPressed 递增 AppState.backPressedTick，这里监听后执行确认逻辑。
+   */
+  @Monitor('state.backPressedTick')
+  onBackPressed(): void {
     this.handleBack()
-    return true
+  }
+
+  // 表单任一字段变化时，把「是否脏」同步到全局，供路由层的 onBackPressed 判断是否拦截
+  @Monitor('userName', 'userGender', 'userAge', 'userPhone', 'userSignature', 'avatarUrl')
+  onFormChange(): void {
+    appState().hasUnsavedChanges = this.hasFormChanged()
+  }
+
+  aboutToDisappear(): void {
+    // 脏标记是全局共享的，离开页面必须清掉，否则会污染其他页面的返回拦截
+    appState().hasUnsavedChanges = false
   }
 
   // 安全返回上一页
@@ -297,6 +314,11 @@ export struct ProfileEditPage {
     this.originalUserPhone = this.userPhone
     this.originalUserSignature = this.userSignature
     this.originalAvatarUrl = this.avatarUrl
+
+    // 必须主动清脏标记：@Monitor 监听的是表单字段，用后端数据填充表单时会触发
+    // onFormChange，而此刻原值还是旧的、会被误判成「已修改」；
+    // 同步原值又不改变表单字段，不会再触发一次监听来纠正。
+    appState().hasUnsavedChanges = false
   }
 
   /**

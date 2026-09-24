@@ -535,7 +535,7 @@ export struct MeView {
           right: Dimension.SpaceL,
           top: 6,
           // 底部留出悬浮胶囊栏的高度，否则退出登录按钮被栏挡住
-          bottom: Dimension.PillSafeArea
+          bottom: Dimension.pillSafeArea(this.state.bottomIndicatorVp)
         })
       }
       .layoutWeight(1)
@@ -572,6 +572,13 @@ export struct MeView {
         .fontSize(16)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.theme_primary'))
+        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+        .linearGradient({
+          angle: 135,
+          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+        })
+        .borderRadius(Dimension.CardRadiusInner)
+        .shadow(ShadowStyle.Button)
         .borderRadius(24)
         .onClick(() => {
           this.handleLogin()
@@ -719,6 +726,13 @@ export struct MeView {
         .fontSize(15)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.theme_primary'))
+        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+        .linearGradient({
+          angle: 135,
+          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+        })
+        .borderRadius(Dimension.CardRadiusInner)
+        .shadow(ShadowStyle.Button)
         .borderRadius(23)
         .onClick(() => {
           pushRoute('DiaryEditPage')

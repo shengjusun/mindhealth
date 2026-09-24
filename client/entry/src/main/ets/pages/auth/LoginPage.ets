@@ -1,8 +1,8 @@
-import { pushRoute } from '../../common/state/AppState'
+import { appState, AppState, pushRoute } from '../../common/state/AppState'
 import { AuthService } from '../../core/auth/AppAuthService'
 import { replaceRoute } from '../../common/state/AppState'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension } from '../../common/constants/Theme'
+import { Dimension, ShadowStyle } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 import { window } from '@kit.ArkUI'
@@ -12,12 +12,15 @@ import { BusinessError } from '@kit.BasicServicesKit'
 
 const TAG = 'LoginPage'
 
-@Component
+@ComponentV2
 export struct LoginPage {
-  @State phone: string = ''
-  @State password: string = ''
-  @State isLoading: boolean = false
-  @State isHuaweiLoading: boolean = false
+  @Local phone: string = ''
+  @Local password: string = ''
+  @Local isLoading: boolean = false
+  @Local isHuaweiLoading: boolean = false
+
+  // 用于 @Monitor 监听路由层转发过来的返回手势
+  @Local state: AppState = appState()
   private authService: AuthService = AuthService.getInstance()
   // 华为官方登录按钮控制器：按钮被点击时通过它回调授权凭证
   private huaweiIdButtonController: loginComponentManager.LoginWithHuaweiIDButtonController =
@@ -89,15 +92,20 @@ export struct LoginPage {
     }
   }
 
-  onBackPress(): boolean {
+  /**
+   * V2 组件不支持 onBackPress —— 编译器不报错，但运行时不会触发，属于静默失效。
+   * 改由 NavDestination.onBackPressed 递增 AppState.backPressedTick，这里监听后最小化窗口。
+   * 登录页是栈底页面，返回应当最小化而不是退出 App。
+   */
+  @Monitor('state.backPressedTick')
+  onBackPressed(): void {
     try {
-      window.getLastWindow(getContext(this)).then((win) => {
+      window.getLastWindow(getContext(this)).then((win: window.Window) => {
         win.minimize()
       })
     } catch (error) {
       Logger.error(TAG, `最小化窗口失败: ${JSON.stringify(error)}`)
     }
-    return true
   }
 
   build() {
@@ -166,6 +174,7 @@ export struct LoginPage {
     .padding(20)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .alignItems(HorizontalAlign.Start)
     .margin({ bottom: 16 })
   }
@@ -215,6 +224,7 @@ export struct LoginPage {
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
   }
 
   @Builder

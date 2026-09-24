@@ -32,13 +32,13 @@ interface ArticleDetailParams {
   createTime: string
 }
 
-@Component
+@ComponentV2
 export struct ArticlesPage {
-  @State isLoading: boolean = true
-  @State isRefreshing: boolean = false
-  @State hasError: boolean = false
-  @State errorMessage: string = '加载失败'
-  @State articleList: ArticleItem[] = []
+  @Local isLoading: boolean = true
+  @Local isRefreshing: boolean = false
+  @Local hasError: boolean = false
+  @Local errorMessage: string = '加载失败'
+  @Local articleList: ArticleItem[] = []
 
   private apiService: ApiService = ApiService.getInstance()
 

@@ -1,7 +1,8 @@
 import { pushRoute, pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension } from '../../common/constants/Theme'
+import { Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { appState } from '../../common/state/AppState'
 import { LoadingComponent, EmptyComponent, ErrorComponent } from '../../common/components/StateComponents'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
@@ -33,15 +34,15 @@ interface DiaryDetailParams {
 }
 
 // 情绪日记视图：作为 MainPage 的 Tab 子组件使用（无底部导航）
-@Component
+@ComponentV2
 export struct MoodDiaryView {
-  @State isLoading: boolean = true
-  @State isRefreshing: boolean = false
-  @State hasError: boolean = false
-  @State errorMessage: string = '加载失败'
-  @State diaryList: DiaryItem[] = []
+  @Local isLoading: boolean = true
+  @Local isRefreshing: boolean = false
+  @Local hasError: boolean = false
+  @Local errorMessage: string = '加载失败'
+  @Local diaryList: DiaryItem[] = []
   // 非空表示当前列表来自本地快照，需要在界面上标注数据时间，避免用户以为是最新
-  @State snapshotHint: string = ''
+  @Local snapshotHint: string = ''
 
   private apiService: ApiService = ApiService.getInstance()
   private snapshotRepo: SnapshotRepository = SnapshotRepository.getInstance()
@@ -178,7 +179,7 @@ export struct MoodDiaryView {
               right: Dimension.SpaceL,
               top: Dimension.SpaceS,
               // 底部留出悬浮胶囊栏的高度，否则最后一篇日记被栏挡住
-              bottom: Dimension.PillSafeArea
+              bottom: Dimension.pillSafeArea(appState().bottomIndicatorVp)
             })
           }
           .width('100%')
@@ -221,6 +222,13 @@ export struct MoodDiaryView {
         .fontSize(15)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.theme_primary'))
+        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+        .linearGradient({
+          angle: 135,
+          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+        })
+        .borderRadius(Dimension.CardRadiusInner)
+        .shadow(ShadowStyle.Button)
         .borderRadius(22)
         .margin({ top: 16 })
         .onClick(() => {

@@ -20,6 +20,20 @@ struct Index {
   private stack: NavPathStack = appState().pathStack
 
   aboutToAppear(): void {
+    this.pushStartRoute()
+  }
+
+  /**
+   * 推入首屏页面。
+   *
+   * aboutToAppear 里 push 依赖 Navigation 此时已可用 —— 官方示例是这么写的，
+   * 但个别机型/时序下可能发生在 Navigation 挂载之前而被丢弃，表现为首屏白屏。
+   * 所以 Navigation 的 onAppear 里再兜底调一次；栈非空时直接返回，不会重复入栈。
+   */
+  private pushStartRoute(): void {
+    if (this.stack.size() > 0) {
+      return
+    }
     const isLoggedIn: boolean = AuthService.getInstance().isLoggedIn()
     const startRoute: string = isLoggedIn ? 'MainPage' : 'LoginPage'
 
@@ -39,5 +53,8 @@ struct Index {
     .height('100%')
     .hideNavBar(true)
     .backgroundColor($r('app.color.app_background'))
+    .onAppear(() => {
+      this.pushStartRoute()
+    })
   }
 }

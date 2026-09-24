@@ -1,13 +1,27 @@
 import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { window } from '@kit.ArkUI';
+import { display, window } from '@kit.ArkUI';
 import { AuthService } from '../core/auth/AppAuthService';
 import { ApiService } from '../core/api/ApiService';
 import { ScaleRepository } from '../core/repository/ScaleRepository';
 import { SnapshotRepository } from '../core/repository/SnapshotRepository';
-import { resetRoute } from '../common/state/AppState';
+import { appState, resetRoute } from '../common/state/AppState';
 
 const DOMAIN = 0x0000;
+
+/**
+ * 窗口避让区返回的是 px，而 Theme 里的常量和所有样式统一用 vp，这里做换算。
+ */
+class EntryAvoidArea {
+  static toVp(px: number): number {
+    try {
+      const density: number = display.getDefaultDisplaySync().densityPixels;
+      return density > 0 ? px / density : 0;
+    } catch (error) {
+      return 0;
+    }
+  }
+}
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
@@ -27,6 +41,10 @@ export default class EntryAbility extends UIAbility {
     // Main window is created, set main page for this ability
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
+    // 必须在 loadContent 之前同步完成：HomeView 等仍是 V1 组件，观察不到 @Trace 变化，
+    // 只有首帧 build 时读到的值才有效，晚于页面渲染再写入对它们不生效
+    this.syncBottomIndicator(windowStage);
+
     // 设置全屏模式
     windowStage.getMainWindow((err, mainWindow) => {
       if (err.code) {
@@ -40,12 +58,37 @@ export default class EntryAbility extends UIAbility {
 
         // 系统栏内容颜色跟随当前配色模式（浅色黑字/深色白字）
         this.updateSystemBar(false);
+
+        // 横竖屏切换、手势条显隐变化时重新同步；V2 组件（MainPage/MePage）会跟随重排
+        mainWindow.on('avoidAreaChange', (data: window.AvoidAreaOptions) => {
+          if (data.type === window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) {
+            appState().bottomIndicatorVp = EntryAvoidArea.toVp(data.area.bottomRect.height);
+          }
+        });
       } catch (error) {
         hilog.error(DOMAIN, 'testTag', 'Failed to set full screen mode. Cause: %{public}s', JSON.stringify(error));
       }
     });
 
     this.initAndLoadPage(windowStage);
+  }
+
+  /**
+   * 读取系统底部手势条高度，写入全局状态供悬浮胶囊栏避让。
+   *
+   * 悬浮栏用固定 96vp 时，在手势条较高或较低的机型上会分别偏小/偏大；
+   * 这里拿到真实避让区高度，让栏和内容预留都跟着设备走。
+   */
+  private syncBottomIndicator(windowStage: window.WindowStage): void {
+    try {
+      const mainWindow: window.Window = windowStage.getMainWindowSync();
+      const avoidArea: window.AvoidArea =
+        mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
+      appState().bottomIndicatorVp = EntryAvoidArea.toVp(avoidArea.bottomRect.height);
+      hilog.info(DOMAIN, 'testTag', `Bottom indicator height: ${appState().bottomIndicatorVp}vp`);
+    } catch (error) {
+      hilog.error(DOMAIN, 'testTag', `Failed to read avoid area. Cause: ${JSON.stringify(error)}`);
+    }
   }
 
   /**

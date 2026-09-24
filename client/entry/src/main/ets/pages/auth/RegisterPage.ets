@@ -1,7 +1,7 @@
 import { popRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension } from '../../common/constants/Theme'
+import { Dimension, ShadowStyle } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 
@@ -13,23 +13,17 @@ interface RegisterRequest {
   confirmPassword: string
 }
 
-@Component
+@ComponentV2
 export struct RegisterPage {
-  @State phone: string = ''
-  @State password: string = ''
-  @State confirmPassword: string = ''
-  @State isLoading: boolean = false
+  @Local phone: string = ''
+  @Local password: string = ''
+  @Local confirmPassword: string = ''
+  @Local isLoading: boolean = false
 
   private apiService: ApiService = ApiService.getInstance()
 
-  onBackPress(): boolean {
-    try {
-      popRoute()
-    } catch (error) {
-      Logger.error(TAG, `返回登录页失败: ${JSON.stringify(error)}`)
-    }
-    return true
-  }
+  // 原 onBackPress 只是 popRoute() 后 return true，与系统默认返回行为完全等价；
+  // V2 组件不支持该生命周期，直接移除，返回行为不变。
 
   build() {
     Column() {
@@ -93,6 +87,7 @@ export struct RegisterPage {
     .padding(20)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .alignItems(HorizontalAlign.Start)
     .margin({ bottom: 16 })
   }
@@ -160,6 +155,7 @@ export struct RegisterPage {
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
   }
 
   @Builder

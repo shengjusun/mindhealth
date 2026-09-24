@@ -18,6 +18,42 @@ export class AppState {
   @Trace meRefreshTick: number = 0
 
   /**
+   * 系统底部手势条高度（vp）。
+   *
+   * 悬浮胶囊栏的下边距、以及各 Tab 页内容底部的预留空白都要叠加这个值，
+   * 否则栏会压住系统手势条。由 EntryAbility 在 loadContent 之前同步写入，
+   * 保证页面首帧就能读到；横竖屏切换时再通过 avoidAreaChange 更新。
+   *
+   * 注意：只有 V2 组件能观察 @Trace 变化并重排，V1 组件（HomeView 等）只能拿到首帧的值。
+   */
+  @Trace bottomIndicatorVp: number = 0
+
+  /**
+   * 日记详情刷新信号。
+   *
+   * 从编辑页保存后 pop 回详情页时，详情页一直在栈里不会重建，aboutToAppear 不触发；
+   * 而 V2 组件不支持 onPageShow。所以改由 NavDestination.onShown 递增这个计数，
+   * 页面侧用 @Monitor 监听并重新拉取详情。
+   */
+  @Trace diaryDetailRefreshTick: number = 0
+
+  /**
+   * 返回拦截桥接（上）：当前页面是否有未保存内容。
+   *
+   * V2 组件不支持 onBackPress，而 NavDestination.onBackPressed 在路由层、
+   * 拿不到页面内的表单状态，所以由页面把「是否脏」写到这里，路由层读取后决定放行还是拦截。
+   */
+  @Trace hasUnsavedChanges: boolean = false
+
+  /**
+   * 返回拦截桥接（下）：路由层拦截到返回手势时递增。
+   *
+   * 不让路由层直接弹确认框，是因为确认文案和后续动作（保存 / 放弃 / 最小化窗口）
+   * 是页面自己的事。页面用 @Monitor 监听这个计数后执行自己的逻辑。
+   */
+  @Trace backPressedTick: number = 0
+
+  /**
    * Navigation 路由栈：全 App 唯一，由 Index 根容器持有同一实例。
    * 不需要 @Trace —— 我们不观察它本身，只调用它的方法，栈变化由 Navigation 自己感知。
    */

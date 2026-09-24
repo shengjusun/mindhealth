@@ -31,6 +31,12 @@ export function LoginPageBuilder() {
     LoginPage()
   }
   .hideTitleBar(true)
+  // 登录页是栈底页面，返回时最小化窗口而不是退出 App。
+  // V2 组件不支持 onBackPress，所以拦截逻辑上移到路由层，具体动作由页面监听 tick 执行
+  .onBackPressed(() => {
+    appState().backPressedTick++
+    return true
+  })
 }
 
 @Builder
@@ -60,6 +66,14 @@ export function ProfileEditPageBuilder() {
     ProfileEditPage()
   }
   .hideTitleBar(true)
+  // 表单已修改时拦截返回，由页面弹「保存 / 放弃」确认；未修改则放行默认 pop
+  .onBackPressed(() => {
+    if (appState().hasUnsavedChanges) {
+      appState().backPressedTick++
+      return true
+    }
+    return false
+  })
 }
 
 @Builder
@@ -100,10 +114,10 @@ export function ArticlesPageBuilder() {
 // （会读到 undefined）。这里用一个中间组件：先等 onReady 拿到 param，再创建页面，
 // 保证页面 aboutToAppear 执行时参数已就位。
 
-@Component
+@ComponentV2
 struct DiaryEditRoute {
-  @State routeParam: Record<string, Object> | undefined = undefined
-  @State paramReady: boolean = false
+  @Local routeParam: Record<string, Object> | undefined = undefined
+  @Local paramReady: boolean = false
 
   build() {
     NavDestination() {
@@ -116,6 +130,14 @@ struct DiaryEditRoute {
       this.routeParam = ctx.pathInfo.param as Record<string, Object> | undefined
       this.paramReady = true
     })
+    // 日记有内容时拦截返回，由页面弹确认；无内容则放行默认 pop
+    .onBackPressed(() => {
+      if (appState().hasUnsavedChanges) {
+        appState().backPressedTick++
+        return true
+      }
+      return false
+    })
   }
 }
 
@@ -124,10 +146,10 @@ export function DiaryEditPageBuilder() {
   DiaryEditRoute()
 }
 
-@Component
+@ComponentV2
 struct DiaryDetailRoute {
-  @State routeParam: Record<string, Object> | undefined = undefined
-  @State paramReady: boolean = false
+  @Local routeParam: Record<string, Object> | undefined = undefined
+  @Local paramReady: boolean = false
 
   build() {
     NavDestination() {
@@ -140,6 +162,11 @@ struct DiaryDetailRoute {
       this.routeParam = ctx.pathInfo.param as Record<string, Object> | undefined
       this.paramReady = true
     })
+    // V2 组件不支持 onPageShow：从编辑页保存返回本页面时不会重建，
+    // 靠 onShown 递增计数，页面侧用 @Monitor 监听后刷新
+    .onShown(() => {
+      appState().diaryDetailRefreshTick++
+    })
   }
 }
 
@@ -148,10 +175,10 @@ export function DiaryDetailPageBuilder() {
   DiaryDetailRoute()
 }
 
-@Component
+@ComponentV2
 struct ArticleDetailRoute {
-  @State routeParam: Record<string, Object> | undefined = undefined
-  @State paramReady: boolean = false
+  @Local routeParam: Record<string, Object> | undefined = undefined
+  @Local paramReady: boolean = false
 
   build() {
     NavDestination() {
@@ -172,10 +199,10 @@ export function ArticleDetailPageBuilder() {
   ArticleDetailRoute()
 }
 
-@Component
+@ComponentV2
 struct AssessmentQuestionRoute {
-  @State routeParam: Record<string, Object> | undefined = undefined
-  @State paramReady: boolean = false
+  @Local routeParam: Record<string, Object> | undefined = undefined
+  @Local paramReady: boolean = false
 
   build() {
     NavDestination() {

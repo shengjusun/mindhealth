@@ -1,6 +1,7 @@
 import { pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension } from '../../common/constants/Theme'
+import { Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { appState } from '../../common/state/AppState'
 import { LoadingComponent, EmptyComponent } from '../../common/components/StateComponents'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
@@ -32,10 +33,10 @@ interface AssessmentQuestionRouteParam {
 }
 
 // 状态自查视图：作为 MainPage 的 Tab 子组件使用（无底部导航）
-@Component
+@ComponentV2
 export struct AssessmentsView {
-  @State isLoading: boolean = true
-  @State assessmentList: AssessmentItem[] = []
+  @Local isLoading: boolean = true
+  @Local assessmentList: AssessmentItem[] = []
 
   private scaleRepo: ScaleRepository = ScaleRepository.getInstance()
   private authService: AuthService = AuthService.getInstance()
@@ -178,7 +179,7 @@ export struct AssessmentsView {
             right: Dimension.SpaceL,
             top: Dimension.SpaceS,
             // 底部留出悬浮胶囊栏的高度
-            bottom: Dimension.PillSafeArea
+            bottom: Dimension.pillSafeArea(appState().bottomIndicatorVp)
           })
         }
         .layoutWeight(1)
@@ -271,6 +272,13 @@ export struct AssessmentsView {
           .fontSize(14)
           .fontColor($r('app.color.text_on_primary'))
           .backgroundColor($r('app.color.theme_primary'))
+          // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
+          .linearGradient({
+            angle: 135,
+            colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
+          })
+          .borderRadius(Dimension.CardRadiusInner)
+          .shadow(ShadowStyle.Button)
           .borderRadius(18)
           .padding({ left: 14, right: 14 })
           .onClick(() => {
