@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { popRoute, pushRoute, resetRoute } from '../../common/state/AppState'
 import { AuthService } from '../../core/auth/AppAuthService'
 import { Dimension } from '../../common/constants/Theme'
 import { hilog } from '@kit.PerformanceAnalysisKit'
@@ -10,9 +10,8 @@ import { ToastUtil } from '../../common/utils/ToastUtil'
 const TAG = 'SettingsPage'
 const DOMAIN = 0xFF00
 
-@Entry
 @Component
-struct SettingsPage {
+export struct SettingsPage {
   // 开关持久化到 Preferences，重启后保留
   @State notificationEnabled: boolean = true
   @State diaryReminderEnabled: boolean = true
@@ -45,7 +44,7 @@ struct SettingsPage {
   }
 
   private goBack(): void {
-    router.back()
+    popRoute()
   }
 
   private toggleNotification(enabled: boolean): void {
@@ -168,7 +167,7 @@ struct SettingsPage {
         action: async () => {
           try {
             await this.authService.logout()
-            router.replaceUrl({ url: 'pages/auth/LoginPage' })
+            resetRoute('LoginPage')
           } catch (error) {
             hilog.error(DOMAIN, TAG, `退出登录失败: ${error}`)
           }
@@ -291,7 +290,7 @@ struct SettingsPage {
       .width('100%')
       .padding({ top: 4, bottom: 4 })
       .onClick(() => {
-        router.pushUrl({ url: 'pages/me/ProfileEditPage' })
+        pushRoute('ProfileEditPage')
       })
     }
     .width('100%')
@@ -533,3 +532,4 @@ struct SettingsPage {
       })
   }
 }
+

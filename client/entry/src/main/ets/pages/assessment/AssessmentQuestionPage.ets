@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { popRoute, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { Dimension } from '../../common/constants/Theme'
 import { SubPageHeader } from '../../common/components/SubPageHeader'
@@ -31,9 +31,11 @@ interface AssessmentSubmitRequest {
   score: number
 }
 
-@Entry
 @Component
-struct AssessmentQuestionPage {
+export struct AssessmentQuestionPage {
+  // 路由入参，由 RouteBuilders 的 AssessmentQuestionRoute 注入（取代 router.getParams()）
+  routeParam: Record<string, Object> | undefined = undefined
+
   @State assessmentId: number = 0
   @State assessmentTitle: string = '心理测评'
   @State currentIndex: number = 0
@@ -51,7 +53,7 @@ struct AssessmentQuestionPage {
   private scaleRepo: ScaleRepository = ScaleRepository.getInstance()
 
   aboutToAppear(): void {
-    const params = router.getParams() as Record<string, Object>
+    const params: Record<string, Object> = this.routeParam ?? {} as Record<string, Object>
     const idValue = params['id']
     const titleValue = params['title']
 
@@ -607,7 +609,7 @@ struct AssessmentQuestionPage {
           .backgroundColor($r('app.color.theme_primary'))
           .borderRadius(24)
           .onClick(() => {
-            router.back()
+            popRoute()
           })
       }
       .width('100%')
@@ -647,7 +649,7 @@ struct AssessmentQuestionPage {
       return true
     }
 
-    router.replaceUrl({ url: 'pages/auth/LoginPage' })
+    resetRoute('LoginPage')
     return false
   }
 }

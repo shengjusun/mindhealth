@@ -1,0 +1,64 @@
+{
+  "routerMap": [
+    {
+      "name": "LoginPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "LoginPageBuilder"
+    },
+    {
+      "name": "MainPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "MainPageBuilder"
+    },
+    {
+      "name": "SettingsPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "SettingsPageBuilder"
+    },
+    {
+      "name": "ProfileEditPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "ProfileEditPageBuilder"
+    },
+    {
+      "name": "MyRecordsPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "MyRecordsPageBuilder"
+    },
+    {
+      "name": "HelpFeedbackPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "HelpFeedbackPageBuilder"
+    },
+    {
+      "name": "RegisterPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "RegisterPageBuilder"
+    },
+    {
+      "name": "ArticlesPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "ArticlesPageBuilder"
+    },
+    {
+      "name": "DiaryEditPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "DiaryEditPageBuilder"
+    },
+    {
+      "name": "DiaryDetailPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "DiaryDetailPageBuilder"
+    },
+    {
+      "name": "ArticleDetailPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "ArticleDetailPageBuilder"
+    },
+    {
+      "name": "AssessmentQuestionPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "AssessmentQuestionPageBuilder"
+    }
+  ]
+}

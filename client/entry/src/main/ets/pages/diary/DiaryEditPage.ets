@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { popRoute, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Dimension } from '../../common/constants/Theme'
@@ -16,9 +16,12 @@ interface AddDiaryRequest {
   event?: string
 }
 
-@Entry
 @Component
-struct DiaryEditPage {
+export struct DiaryEditPage {
+  // 路由入参。由 RouteBuilders 里的 DiaryEditRoute 在 onReady 拿到 param 后注入，
+  // 所以页面 aboutToAppear 执行时它一定已经就位（取代 router.getParams()）
+  routeParam: Record<string, Object> | undefined = undefined
+
   @State diaryId: number = 0
   @State isEditMode: boolean = false
   @State title: string = ''
@@ -40,7 +43,7 @@ struct DiaryEditPage {
     }
 
     // 详情页跳转过来会带 diaryId，进入编辑模式并预填
-    const params = router.getParams() as Record<string, Object> | undefined
+    const params = this.routeParam
     if (params && params['diaryId'] !== undefined && Number(params['diaryId']) > 0) {
       this.isEditMode = true
       this.diaryId = Number(params['diaryId'])
@@ -61,7 +64,7 @@ struct DiaryEditPage {
 
   private safeBack(): void {
     try {
-      router.back()
+      popRoute()
     } catch (error) {
       Logger.error(TAG, `返回失败: ${JSON.stringify(error)}`)
     }
@@ -370,7 +373,7 @@ struct DiaryEditPage {
       return true
     }
 
-    router.replaceUrl({ url: 'pages/auth/LoginPage' })
+    resetRoute('LoginPage')
     return false
   }
 }

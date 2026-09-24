@@ -16,6 +16,12 @@ export class AppState {
 
   // 「我的」页刷新信号：从编辑资料等二级页返回时递增，MeView 监听后强制刷新
   @Trace meRefreshTick: number = 0
+
+  /**
+   * Navigation 路由栈：全 App 唯一，由 Index 根容器持有同一实例。
+   * 不需要 @Trace —— 我们不观察它本身，只调用它的方法，栈变化由 Navigation 自己感知。
+   */
+  pathStack: NavPathStack = new NavPathStack()
 }
 
 const APP_STATE_KEY: string = 'appState'
@@ -28,4 +34,43 @@ export function appState(): AppState {
     AppStorageV2.connect(AppState, APP_STATE_KEY, () => new AppState())
   // 已传入默认构造器，正常不会返回 undefined；兜底返回新实例避免空指针
   return state as AppState
+}
+
+// ===== Navigation 路由助手 =====
+// 页面不再 import router，统一走这几个函数，后续要替换实现只改这一处。
+// 目标页名必须与 resources/base/profile/route_map.json 中的 name 一致。
+
+/** 入栈跳转 */
+export function pushRoute(name: string): void {
+  appState().pathStack.pushPath({ name: name })
+}
+
+/** 带参数入栈跳转，取代 router.pushUrl({ url, params }) */
+export function pushRouteWithParam(name: string, param: Object): void {
+  appState().pathStack.pushPath({ name: name, param: param })
+}
+
+/**
+ * 替换栈顶。栈为空时退化成 push —— 401 拦截等场景可能早于 Index 建栈，
+ * 此时 replacePath 会静默失败，所以这里兜底。
+ */
+export function replaceRoute(name: string): void {
+  const stack: NavPathStack = appState().pathStack
+  if (stack.size() > 0) {
+    stack.replacePath({ name: name })
+  } else {
+    stack.pushPath({ name: name })
+  }
+}
+
+/** 清空整个栈再跳转：登出、重新登录等需要重置导航历史的场景 */
+export function resetRoute(name: string): void {
+  const stack: NavPathStack = appState().pathStack
+  stack.clear()
+  stack.pushPath({ name: name })
+}
+
+/** 返回上一页。栈内只剩根页面时 pop 是安全的空操作 */
+export function popRoute(): void {
+  appState().pathStack.pop()
 }

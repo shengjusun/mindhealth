@@ -1,5 +1,6 @@
-import router from '@ohos.router'
+import { pushRoute } from '../../common/state/AppState'
 import { AuthService } from '../../core/auth/AppAuthService'
+import { replaceRoute } from '../../common/state/AppState'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Dimension } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
@@ -11,9 +12,8 @@ import { BusinessError } from '@kit.BasicServicesKit'
 
 const TAG = 'LoginPage'
 
-@Entry
 @Component
-struct LoginPage {
+export struct LoginPage {
   @State phone: string = ''
   @State password: string = ''
   @State isLoading: boolean = false
@@ -32,7 +32,7 @@ struct LoginPage {
     // 系统栏颜色由 EntryAbility 统一按深浅色模式管理，页面不再各自覆盖
     if (this.authService.isLoggedIn()) {
       try {
-        router.replaceUrl({ url: 'pages/MainPage' })
+        replaceRoute('MainPage')
       } catch (error) {
         Logger.error(TAG, `已登录跳转首页失败: ${JSON.stringify(error)}`)
       }
@@ -82,7 +82,7 @@ struct LoginPage {
    */
   private afterLoginSuccess(): void {
     try {
-      router.replaceUrl({ url: 'pages/MainPage' })
+      replaceRoute('MainPage')
     } catch (error) {
       Logger.error(TAG, `登录成功后跳转失败: ${JSON.stringify(error)}`)
       ToastUtil.show('跳转首页失败')
@@ -305,7 +305,7 @@ struct LoginPage {
 
   private goToRegister(): void {
     try {
-      router.pushUrl({ url: 'pages/auth/RegisterPage' })
+      pushRoute('RegisterPage')
     } catch (error) {
       Logger.error(TAG, `跳转注册页失败: ${JSON.stringify(error)}`)
       this.showToast('打开注册页失败')
@@ -373,3 +373,4 @@ struct LoginPage {
     ToastUtil.show(message)
   }
 }
+

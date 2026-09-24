@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { popRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Dimension } from '../../common/constants/Theme'
@@ -13,9 +13,8 @@ interface RegisterRequest {
   confirmPassword: string
 }
 
-@Entry
 @Component
-struct RegisterPage {
+export struct RegisterPage {
   @State phone: string = ''
   @State password: string = ''
   @State confirmPassword: string = ''
@@ -25,7 +24,7 @@ struct RegisterPage {
 
   onBackPress(): boolean {
     try {
-      router.back()
+      popRoute()
     } catch (error) {
       Logger.error(TAG, `返回登录页失败: ${JSON.stringify(error)}`)
     }
@@ -209,7 +208,7 @@ struct RegisterPage {
 
   private goToLogin(): void {
     try {
-      router.back()
+      popRoute()
     } catch (error) {
       Logger.error(TAG, `返回登录页失败: ${JSON.stringify(error)}`)
       this.showToast('返回登录页失败')
@@ -267,7 +266,7 @@ struct RegisterPage {
       if (res.code === 200) {
         ToastUtil.showLong('注册成功，现在可以去登录了')
         try {
-          router.back()
+          popRoute()
         } catch (error) {
           Logger.error(TAG, `注册成功后返回登录页失败: ${JSON.stringify(error)}`)
         }

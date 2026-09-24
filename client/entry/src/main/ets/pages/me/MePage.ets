@@ -1,5 +1,5 @@
 import { Logger } from '../../common/utils/Logger'
-import router from '@ohos.router'
+import { pushRoute, resetRoute } from '../../common/state/AppState'
 import { AuthService, UserAuthInfo } from '../../core/auth/AppAuthService'
 import { ApiService } from '../../core/api/ApiService'
 import { hilog } from '@kit.PerformanceAnalysisKit'
@@ -636,7 +636,7 @@ export struct MeView {
           .backgroundColor($r('app.color.tag_blue'))
           .borderRadius(17)
           .onClick(() => {
-            router.pushUrl({ url: 'pages/me/ProfileEditPage' })
+            pushRoute('ProfileEditPage')
           })
       }
       .width('100%')
@@ -689,7 +689,7 @@ export struct MeView {
       }
       .layoutWeight(1)
       .onClick(() => {
-        router.pushUrl({ url: 'pages/me/MyRecordsPage' })
+        pushRoute('MyRecordsPage')
       })
       }
 
@@ -721,7 +721,7 @@ export struct MeView {
         .backgroundColor($r('app.color.theme_primary'))
         .borderRadius(23)
         .onClick(() => {
-          router.pushUrl({ url: 'pages/diary/DiaryEditPage' })
+          pushRoute('DiaryEditPage')
         })
 
       Blank()
@@ -825,7 +825,7 @@ export struct MeView {
 
   async handleLogin(): Promise<void> {
     try {
-      router.pushUrl({ url: 'pages/auth/LoginPage' })
+      pushRoute('LoginPage')
     } catch (error) {
       hilog.error(DOMAIN, TAG, `跳转失败: ${error}`)
     }
@@ -833,22 +833,22 @@ export struct MeView {
 
   handleMenuClick(id: string): void {
     if (id === 'profile') {
-      router.pushUrl({ url: 'pages/me/ProfileEditPage' })
+      pushRoute('ProfileEditPage')
       return
     }
 
     if (id === 'records') {
-      router.pushUrl({ url: 'pages/me/MyRecordsPage' })
+      pushRoute('MyRecordsPage')
       return
     }
 
     if (id === 'settings') {
-      router.pushUrl({ url: 'pages/me/SettingsPage' })
+      pushRoute('SettingsPage')
       return
     }
 
     if (id === 'help') {
-      router.pushUrl({ url: 'pages/me/HelpFeedbackPage' })
+      pushRoute('HelpFeedbackPage')
       return
     }
 
@@ -870,13 +870,8 @@ export struct MeView {
             await this.authService.logout()
             this.resetUserState()
 
-            try {
-              router.clear()
-            } catch (clearError) {
-              hilog.error(DOMAIN, TAG, `清空路由栈失败: ${JSON.stringify(clearError)}`)
-            }
-
-            router.replaceUrl({ url: 'pages/auth/LoginPage' })
+            // 登出后清空导航栈，避免返回键回退到已登出账号的页面
+            resetRoute('LoginPage')
           } catch (error) {
             hilog.error(DOMAIN, TAG, `退出登录失败: ${error}`)
           }
@@ -894,24 +889,8 @@ export struct MeView {
       return true
     }
 
-    router.replaceUrl({ url: 'pages/auth/LoginPage' })
+    resetRoute('LoginPage')
     return false
   }
 }
 
-// 兼容旧路由的独立入口（推荐入口为 pages/MainPage 的 Tab 容器）
-@Entry
-@ComponentV2
-struct MePage {
-  onPageShow(): void {
-    appState().meRefreshTick++
-  }
-
-  build() {
-    Column() {
-      MeView()
-    }
-    .width('100%')
-    .height('100%')
-  }
-}

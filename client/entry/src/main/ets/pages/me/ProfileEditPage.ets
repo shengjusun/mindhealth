@@ -1,5 +1,5 @@
 import { Logger } from '../../common/utils/Logger'
-import router from '@ohos.router'
+import { popRoute, resetRoute } from '../../common/state/AppState'
 import { AvatarService } from '../../core/services/AvatarService'
 import { AuthService, UserAuthInfo } from '../../core/auth/AppAuthService'
 import { AvatarComponent } from '../../common/components/AvatarComponent'
@@ -30,9 +30,8 @@ interface UpdateUserRequest {
   age?: number
 }
 
-@Entry
 @Component
-struct ProfileEditPage {
+export struct ProfileEditPage {
   // 表单当前输入状态
   @State userName: string = ''
   @State userGender: string = ''
@@ -138,7 +137,7 @@ struct ProfileEditPage {
   // 安全返回上一页
   private safeBack(): void {
     try {
-      router.back()
+      popRoute()
     } catch (error) {
       Logger.error(TAG, `返回失败: ${JSON.stringify(error)}`)
     }
@@ -346,7 +345,7 @@ struct ProfileEditPage {
       const oldUser = this.authService.getUserInfo()
 
       if (!oldUser || !oldUser.isLoggedIn) {
-        router.replaceUrl({ url: 'pages/auth/LoginPage' })
+        resetRoute('LoginPage')
         return
       }
 
@@ -838,7 +837,7 @@ struct ProfileEditPage {
       return true
     }
 
-    router.replaceUrl({ url: 'pages/auth/LoginPage' })
+    resetRoute('LoginPage')
     return false
   }
 }

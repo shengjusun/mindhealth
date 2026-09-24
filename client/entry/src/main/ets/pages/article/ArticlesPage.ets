@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Dimension } from '../../common/constants/Theme'
 import { LoadingComponent, EmptyComponent, ErrorComponent } from '../../common/components/StateComponents'
@@ -32,9 +32,8 @@ interface ArticleDetailParams {
   createTime: string
 }
 
-@Entry
 @Component
-struct ArticlesPage {
+export struct ArticlesPage {
   @State isLoading: boolean = true
   @State isRefreshing: boolean = false
   @State hasError: boolean = false
@@ -265,10 +264,7 @@ struct ArticlesPage {
           author: item.author ?? '',
           createTime: item.createTime ?? ''
         }
-        router.pushUrl({
-          url: 'pages/ArticleDetailPage',
-          params: params
-        })
+        pushRouteWithParam('ArticleDetailPage', params)
       } else {
         ToastUtil.show('当前文章缺少编号，暂无法查看详情')
       }
@@ -295,7 +291,7 @@ struct ArticlesPage {
       return true
     }
 
-    router.replaceUrl({ url: 'pages/auth/LoginPage' })
+    resetRoute('LoginPage')
     return false
   }
 }

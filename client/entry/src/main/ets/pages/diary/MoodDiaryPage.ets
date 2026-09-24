@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { pushRoute, pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Dimension } from '../../common/constants/Theme'
@@ -125,7 +125,7 @@ export struct MoodDiaryView {
 
   private goWriteDiary(): void {
     try {
-      router.pushUrl({ url: 'pages/diary/DiaryEditPage' })
+      pushRoute('DiaryEditPage')
     } catch (error) {
       Logger.error(TAG, `跳转写日记页失败: ${JSON.stringify(error)}`)
       ToastUtil.show('写日记页面暂时无法打开')
@@ -320,10 +320,7 @@ export struct MoodDiaryView {
         event: item.event ?? '',
         createTime: item.createTime ?? ''
       }
-      router.pushUrl({
-        url: 'pages/diary/DiaryDetailPage',
-        params: params
-      })
+      pushRouteWithParam('DiaryDetailPage', params)
     })
   }
 
@@ -343,15 +340,3 @@ export struct MoodDiaryView {
   }
 }
 
-// 兼容旧路由的独立入口（推荐入口为 pages/MainPage 的 Tab 容器）
-@Entry
-@Component
-struct MoodDiaryPage {
-  build() {
-    Column() {
-      MoodDiaryView()
-    }
-    .width('100%')
-    .height('100%')
-  }
-}

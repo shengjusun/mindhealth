@@ -1,23 +1,5 @@
 {
   "src": [
-    "pages/auth/LoginPage",
-    "pages/MainPage",
-    "pages/home/HomePageNew",
-    
-    "pages/ai/AIChatPage",
-    "pages/diary/MoodDiaryPage",
-    "pages/diary/DiaryEditPage",
-    "pages/assessment/AssessmentsPage",
-    "pages/me/MePage",
-    "pages/me/ProfileEditPage",
-    "pages/article/ArticlesPage",
-    "pages/assessment/AssessmentQuestionPage",
-    "pages/me/SettingsPage",
-    "pages/me/MyRecordsPage",
-    
-    "pages/me/HelpFeedbackPage",
-    "pages/auth/RegisterPage",
-    "pages/ArticleDetailPage",
-    "pages/diary/DiaryDetailPage"
+    "pages/Index"
   ]
 }

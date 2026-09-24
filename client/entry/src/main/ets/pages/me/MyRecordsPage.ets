@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { appState, popRoute, pushRoute, pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { Dimension } from '../../common/constants/Theme'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
@@ -44,9 +44,8 @@ interface MainPageTabParams {
   tab: string
 }
 
-@Entry
 @Component
-struct MyRecordsPage {
+export struct MyRecordsPage {
   @State currentTab: string = 'assessment'
   @State assessmentRecords: AssessmentRecordItem[] = []
   @State isAssessmentLoading: boolean = false
@@ -64,9 +63,9 @@ struct MyRecordsPage {
     this.loadDiaryRecords()
   }
 
-  private safePush(url: string): void {
+  private safePush(routeName: string): void {
     try {
-      router.pushUrl({ url: url })
+      pushRoute(routeName)
     } catch (error) {
       Logger.error(TAG, `跳转失败: ${JSON.stringify(error)}`)
     }
@@ -172,10 +171,7 @@ struct MyRecordsPage {
       event: item.event ?? '',
       createTime: item.createTime ?? ''
     }
-    router.pushUrl({
-      url: 'pages/diary/DiaryDetailPage',
-      params: params
-    })
+    pushRouteWithParam('DiaryDetailPage', params)
   }
 
   build() {
@@ -349,12 +345,10 @@ struct MyRecordsPage {
         .borderRadius(23)
         .margin({ top: 18 })
         .onClick(() => {
-          // 回主框架并切到自查 Tab
-          const params: MainPageTabParams = { tab: 'assess' }
-          router.replaceUrl({
-            url: 'pages/MainPage',
-            params: params
-          })
+          // 回主框架并切到自查 Tab：MainPage 是栈底页面，
+          // 先改全局 Tab 下标再出栈，MainPage 的 @Monitor 会驱动 Tabs 切换
+          appState().mainTabIndex = 3
+          popRoute()
         })
     }
     .width('100%')
@@ -523,7 +517,7 @@ struct MyRecordsPage {
       return true
     }
 
-    router.replaceUrl({ url: 'pages/auth/LoginPage' })
+    resetRoute('LoginPage')
     return false
   }
 }

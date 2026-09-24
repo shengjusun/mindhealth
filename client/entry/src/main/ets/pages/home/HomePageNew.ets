@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { pushRoute, resetRoute } from '../../common/state/AppState'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Dimension, FontLevel, ShadowStyle } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
@@ -14,7 +14,8 @@ interface HomeQuickAction {
   icon: Resource
   title: string
   subtitle: string
-  targetUrl: string
+  // 要跳转的路由名（route_map.json 里的 name）；为空表示该项只切 Tab 不入栈
+  routeName: string
   tagColor: ResourceColor
   tagBackground: ResourceColor
 }
@@ -51,13 +52,14 @@ export struct HomeView {
   private apiService: ApiService = ApiService.getInstance()
   private snapshotRepo: SnapshotRepository = SnapshotRepository.getInstance()
 
+  // 前三个是底部 Tab，点一下直接切 Tab，不入栈；只有文章页是真正的入栈跳转
   private quickActions: HomeQuickAction[] = [
     {
       id: 'chat',
       icon: $r('sys.symbol.message'),
       title: '轻心树洞',
       subtitle: '把今天的想法慢慢说出来',
-      targetUrl: 'pages/ai/AIChatPage',
+      routeName: '',
       tagColor: $r('app.color.theme_primary'),
       tagBackground: $r('app.color.tag_blue')
     },
@@ -66,7 +68,7 @@ export struct HomeView {
       icon: $r('sys.symbol.book_pages'),
       title: '心情日记',
       subtitle: '记录今天的心情与生活片段',
-      targetUrl: 'pages/diary/MoodDiaryPage',
+      routeName: '',
       tagColor: $r('app.color.theme_secondary'),
       tagBackground: $r('app.color.tag_green')
     },
@@ -75,7 +77,7 @@ export struct HomeView {
       icon: $r('sys.symbol.checkmark_clipboard'),
       title: '状态自查',
       subtitle: '简单记录今天的生活状态',
-      targetUrl: 'pages/assessment/AssessmentsPage',
+      routeName: '',
       tagColor: $r('app.color.state_warning'),
       tagBackground: $r('app.color.tag_orange')
     },
@@ -84,7 +86,7 @@ export struct HomeView {
       icon: $r('sys.symbol.doc_text'),
       title: '生活小贴士',
       subtitle: '看看适合今天的温柔提醒',
-      targetUrl: 'pages/article/ArticlesPage',
+      routeName: 'ArticlesPage',
       tagColor: $r('app.color.theme_primary'),
       tagBackground: $r('app.color.tag_blue')
     }
@@ -109,15 +111,7 @@ export struct HomeView {
       primaryButton: {
         value: '去登录',
         action: () => {
-          try {
-            router.clear()
-          } catch (error) {
-            Logger.error(TAG, `清空路由失败: ${JSON.stringify(error)}`)
-          }
-
-          router.replaceUrl({
-            url: 'pages/auth/LoginPage'
-          })
+          resetRoute('LoginPage')
         }
       }
     })
@@ -169,11 +163,9 @@ export struct HomeView {
     return null
   }
 
-  private safePush(url: string): void {
+  private safePush(routeName: string): void {
     try {
-      router.pushUrl({
-        url: url
-      })
+      pushRoute(routeName)
     } catch (error) {
       Logger.error(TAG, `跳转失败: ${JSON.stringify(error)}`)
     }
@@ -195,7 +187,7 @@ export struct HomeView {
       appState().mainTabIndex = 3
       return
     }
-    this.safePush(item.targetUrl)
+    pushRoute(item.routeName)
   }
 
   private formatTime(text: string): string {
@@ -735,15 +727,3 @@ export struct HomeView {
   }
 }
 
-// 兼容旧路由的独立入口（推荐入口为 pages/MainPage 的 Tab 容器）
-@Entry
-@Component
-struct HomePageNew {
-  build() {
-    Column() {
-      HomeView()
-    }
-    .width('100%')
-    .height('100%')
-  }
-}

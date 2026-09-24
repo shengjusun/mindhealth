@@ -1,11 +1,9 @@
-import router from '@ohos.router'
 import { HomeView } from './home/HomePageNew'
 import { AIChatView } from './ai/AIChatPage'
 import { MoodDiaryView } from './diary/MoodDiaryPage'
 import { AssessmentsView } from './assessment/AssessmentsPage'
 import { MeView } from './me/MePage'
 import { Dimension, ShadowStyle } from '../common/constants/Theme'
-import { AuthService } from '../core/auth/AppAuthService'
 import { Logger } from '../common/utils/Logger'
 import { appState, AppState } from '../common/state/AppState'
 
@@ -18,14 +16,12 @@ interface MainTabItem {
   label: string
 }
 
-@Entry
 @ComponentV2
-struct MainPage {
+export struct MainPage {
   // 全局共享状态：任何页面/视图改 appState().mainTabIndex 即可切换 Tab
   @Local state: AppState = appState()
 
   private tabController: TabsController = new TabsController()
-  private authService: AuthService = AuthService.getInstance()
 
   private tabs: MainTabItem[] = [
     { id: 'home', icon: $r('sys.symbol.house'), label: '首页' },
@@ -34,33 +30,6 @@ struct MainPage {
     { id: 'assess', icon: $r('sys.symbol.checkmark_clipboard'), label: '自查' },
     { id: 'me', icon: $r('sys.symbol.person'), label: '我的' }
   ]
-
-  aboutToAppear(): void {
-    // 登录守卫：未登录直接回登录页（App 内只在这里拦一次）
-    if (!this.authService.isLoggedIn()) {
-      try {
-        router.replaceUrl({ url: 'pages/auth/LoginPage' })
-      } catch (error) {
-        Logger.error(TAG, `未登录跳转登录页失败: ${JSON.stringify(error)}`)
-      }
-      return
-    }
-
-    // 支持通过路由参数指定初始 Tab，如 replaceUrl('pages/MainPage', { tab: 'me' })
-    const params = router.getParams() as Record<string, Object> | undefined
-    if (params && params['tab'] !== undefined) {
-      const tabId: string = String(params['tab'])
-      const index = this.tabs.findIndex((item: MainTabItem) => item.id === tabId)
-      if (index >= 0) {
-        this.state.mainTabIndex = index
-      }
-    }
-  }
-
-  onPageShow(): void {
-    // 从二级页（编辑资料/写日记等）返回时刷新「我的」页数据
-    this.state.meRefreshTick++
-  }
 
   @Monitor('state.mainTabIndex')
   onTabIndexChanged(): void {
@@ -162,3 +131,5 @@ struct MainPage {
     .margin({ bottom: Dimension.PillMarginBottom })
   }
 }
+
+

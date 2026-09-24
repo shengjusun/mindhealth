@@ -11,6 +11,7 @@
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
+    "routerMap": "$profile:route_map",
     "metadata": [
       {
         // 华为账号登录（Account Kit）必需：AGC 平台的 APP ID（应用：qingxin）

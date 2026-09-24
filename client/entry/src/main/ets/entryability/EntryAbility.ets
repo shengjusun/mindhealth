@@ -5,7 +5,7 @@ import { AuthService } from '../core/auth/AppAuthService';
 import { ApiService } from '../core/api/ApiService';
 import { ScaleRepository } from '../core/repository/ScaleRepository';
 import { SnapshotRepository } from '../core/repository/SnapshotRepository';
-import { router } from '@kit.ArkUI';
+import { resetRoute } from '../common/state/AppState';
 
 const DOMAIN = 0x0000;
 
@@ -75,7 +75,8 @@ export default class EntryAbility extends UIAbility {
         }
         redirecting = true;
         authService.logout().then(() => {
-          return router.replaceUrl({ url: 'pages/auth/LoginPage' });
+          // 401：清空导航栈重回登录页，避免栈里残留已登出账号的页面
+          resetRoute('LoginPage');
         }).catch((err: Object) => {
           hilog.error(DOMAIN, 'testTag', '401 logout failed: %{public}s', JSON.stringify(err));
         }).finally(() => {
@@ -83,31 +84,29 @@ export default class EntryAbility extends UIAbility {
         });
       });
 
-      // 检查登录状态,决定加载哪个页面
-      const isLoggedIn = authService.isLoggedIn();
-      const startPage = isLoggedIn ? 'pages/MainPage' : 'pages/auth/LoginPage';
+      // 登录分流已移到 pages/Index：Navigation 模式下 @Entry 只剩 Index 一个，
+      // 由它按登录状态 push MainPage / LoginPage
+      hilog.info(DOMAIN, 'testTag', 'Loading page: pages/Index');
 
-      hilog.info(DOMAIN, 'testTag', `Loading page: ${startPage}`);
-
-      windowStage.loadContent(startPage, (err) => {
+      windowStage.loadContent('pages/Index', (err) => {
         if (err.code) {
           hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));
-          // 加载失败时,尝试加载登录页
-          windowStage.loadContent('pages/auth/LoginPage', (err2) => {
+          // 加载失败时,重试加载唯一入口
+          windowStage.loadContent('pages/Index', (err2) => {
             if (err2.code) {
-              hilog.error(DOMAIN, 'testTag', 'Failed to load LoginPage. Cause: %{public}s', JSON.stringify(err2));
+              hilog.error(DOMAIN, 'testTag', 'Failed to load Index. Cause: %{public}s', JSON.stringify(err2));
             }
           });
           return;
         }
-        hilog.info(DOMAIN, 'testTag', `Succeeded in loading ${startPage}.`);
+        hilog.info(DOMAIN, 'testTag', 'Succeeded in loading pages/Index.');
       });
     } catch (error) {
       hilog.error(DOMAIN, 'testTag', `Init failed: ${error}`);
-      // 出错时直接加载登录页
-      windowStage.loadContent('pages/auth/LoginPage', (err) => {
+      // 出错时直接加载唯一入口
+      windowStage.loadContent('pages/Index', (err) => {
         if (err.code) {
-          hilog.error(DOMAIN, 'testTag', 'Failed to load LoginPage. Cause: %{public}s', JSON.stringify(err));
+          hilog.error(DOMAIN, 'testTag', 'Failed to load Index. Cause: %{public}s', JSON.stringify(err));
         }
       });
     }

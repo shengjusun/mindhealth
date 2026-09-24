@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Dimension } from '../../common/constants/Theme'
 import { LoadingComponent, EmptyComponent } from '../../common/components/StateComponents'
@@ -19,6 +19,16 @@ interface AssessmentItem {
   questionCount?: number
   totalQuestions?: number
   duration?: string
+}
+
+// 传给自查答题页的路由入参
+// ArkTS 不允许直接传未声明类型的对象字面量（arkts-no-untyped-obj-literals），所以显式声明
+interface AssessmentQuestionRouteParam {
+  id: number
+  assessmentId: number
+  title: string
+  questionCount: number
+  duration: string
 }
 
 // 状态自查视图：作为 MainPage 的 Tab 子组件使用（无底部导航）
@@ -122,18 +132,16 @@ export struct AssessmentsView {
       return
     }
 
-    router.pushUrl({
-      url: 'pages/assessment/AssessmentQuestionPage',
-      params: {
-        id: Number(item.id),
-        assessmentId: Number(item.id),
-        title: this.getItemTitle(item),
-        questionCount: item.questionCount !== undefined
-          ? item.questionCount
-          : (item.totalQuestions !== undefined ? item.totalQuestions : 0),
-        duration: this.getItemDuration(item)
-      }
-    })
+    const questionParam: AssessmentQuestionRouteParam = {
+      id: Number(item.id),
+      assessmentId: Number(item.id),
+      title: this.getItemTitle(item),
+      questionCount: item.questionCount !== undefined
+        ? item.questionCount
+        : (item.totalQuestions !== undefined ? item.totalQuestions : 0),
+      duration: this.getItemDuration(item)
+    }
+    pushRouteWithParam('AssessmentQuestionPage', questionParam)
   }
 
   build() {
@@ -284,20 +292,8 @@ export struct AssessmentsView {
       return true
     }
 
-    router.replaceUrl({ url: 'pages/auth/LoginPage' })
+    resetRoute('LoginPage')
     return false
   }
 }
 
-// 兼容旧路由的独立入口（推荐入口为 pages/MainPage 的 Tab 容器）
-@Entry
-@Component
-struct AssessmentsPage {
-  build() {
-    Column() {
-      AssessmentsView()
-    }
-    .width('100%')
-    .height('100%')
-  }
-}

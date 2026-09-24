@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { popRoute } from '../state/AppState'
 import { Dimension } from '../constants/Theme'
 
 @ComponentV2
@@ -15,7 +15,7 @@ export struct AppPageHeader {
     }
 
     try {
-      router.back()
+      popRoute()
     } catch (error) {
       console.error(`AppPageHeader back error: ${JSON.stringify(error)}`)
     }

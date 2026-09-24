@@ -1,4 +1,3 @@
-import router from '@ohos.router'
 import { SubPageHeader } from '../common/components/SubPageHeader'
 import { Dimension } from '../common/constants/Theme'
 import { LoadingComponent, ErrorComponent } from '../common/components/StateComponents'
@@ -17,9 +16,11 @@ interface ArticleItem {
   createTime?: string
 }
 
-@Entry
 @Component
-struct ArticleDetailPage {
+export struct ArticleDetailPage {
+  // 路由入参，由 RouteBuilders 的 ArticleDetailRoute 注入（取代 router.getParams()）
+  routeParam: Record<string, Object> | undefined = undefined
+
   @State article: ArticleItem | null = null
   @State isLoading: boolean = true
   @State loadFailed: boolean = false
@@ -28,7 +29,7 @@ struct ArticleDetailPage {
 
   aboutToAppear(): void {
     // 列表页跳转时会把整篇文章通过 params 带过来，先兜底渲染
-    const params = router.getParams() as Record<string, Object> | undefined
+    const params = this.routeParam
     if (params) {
       const idValue = params['id']
       const id: number = typeof idValue === 'number' ? idValue : Number(idValue ?? 0)

@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { popRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { Dimension } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
@@ -13,16 +13,15 @@ interface FeedbackRequest {
   content: string
 }
 
-@Entry
 @Component
-struct HelpFeedbackPage {
+export struct HelpFeedbackPage {
   @State feedbackText: string = ''
   @State isSubmitting: boolean = false
 
   private apiService: ApiService = ApiService.getInstance()
 
   private goBack(): void {
-    router.back()
+    popRoute()
   }
 
   /**

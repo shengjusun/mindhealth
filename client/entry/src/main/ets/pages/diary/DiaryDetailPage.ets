@@ -1,4 +1,4 @@
-import router from '@ohos.router'
+import { popRoute, pushRouteWithParam } from '../../common/state/AppState'
 import { SubPageHeader } from '../../common/components/SubPageHeader'
 import { Dimension } from '../../common/constants/Theme'
 import { ApiService } from '../../core/api/ApiService'
@@ -27,16 +27,18 @@ interface DiaryEditParams {
   event: string
 }
 
-@Entry
 @Component
-struct DiaryDetailPage {
+export struct DiaryDetailPage {
+  // 路由入参，由 RouteBuilders 的 DiaryDetailRoute 注入（取代 router.getParams()）
+  routeParam: Record<string, Object> | undefined = undefined
+
   @State diary: DiaryItem | null = null
   @State isDeleting: boolean = false
 
   private apiService: ApiService = ApiService.getInstance()
 
   aboutToAppear(): void {
-    const params = router.getParams() as Record<string, Object> | undefined
+    const params = this.routeParam
     if (params) {
       const idValue = params['id']
       this.diary = {
@@ -112,10 +114,7 @@ struct DiaryDetailPage {
       intensity: this.diary.intensity ?? 5,
       event: this.diary.event ?? ''
     }
-    router.pushUrl({
-      url: 'pages/diary/DiaryEditPage',
-      params: params
-    })
+    pushRouteWithParam('DiaryEditPage', params)
   }
 
   private confirmDelete(): void {
@@ -147,7 +146,7 @@ struct DiaryDetailPage {
       const res = await this.apiService.deleteDiary(String(this.diary.id))
       if (res.code === 200) {
         ToastUtil.show('日记已删除')
-        router.back()
+        popRoute()
       } else {
         ToastUtil.show(res.message ? res.message : '删除失败，请稍后重试')
       }
