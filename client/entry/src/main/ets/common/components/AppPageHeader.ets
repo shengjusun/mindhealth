@@ -33,7 +33,7 @@ export struct AppPageHeader {
         .height(40)
         .justifyContent(FlexAlign.Center)
         .alignItems(VerticalAlign.Center)
-        .borderRadius(20)
+        .borderRadius(Dimension.CardRadius)
         .backgroundColor($r('app.color.app_card'))
         .onClick(() => {
           this.handleBack()

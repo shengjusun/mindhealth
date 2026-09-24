@@ -360,7 +360,7 @@ struct MyRecordsPage {
     .width('100%')
     .padding(20)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -395,7 +395,7 @@ struct MyRecordsPage {
     .width('100%')
     .padding(20)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -418,7 +418,7 @@ struct MyRecordsPage {
     .width('100%')
     .padding(20)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
     .margin({ bottom: 16 })
     .alignItems(HorizontalAlign.Start)
   }

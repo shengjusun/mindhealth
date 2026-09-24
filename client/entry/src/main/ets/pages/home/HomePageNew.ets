@@ -1,10 +1,11 @@
 import router from '@ohos.router'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension } from '../../common/constants/Theme'
+import { Dimension, FontLevel, ShadowStyle } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
 import { AuthService } from '../../core/auth/AppAuthService'
 import { ApiService } from '../../core/api/ApiService'
 import { SnapshotRepository } from '../../core/repository/SnapshotRepository'
+import { appState } from '../../common/state/AppState'
 
 const TAG = 'HomePageNew'
 
@@ -183,15 +184,15 @@ export struct HomeView {
    */
   private openQuickAction(item: HomeQuickAction): void {
     if (item.id === 'chat') {
-      AppStorage.setOrCreate('mainTabIndex', 1)
+      appState().mainTabIndex = 1
       return
     }
     if (item.id === 'diary') {
-      AppStorage.setOrCreate('mainTabIndex', 2)
+      appState().mainTabIndex = 2
       return
     }
     if (item.id === 'assessment') {
-      AppStorage.setOrCreate('mainTabIndex', 3)
+      appState().mainTabIndex = 3
       return
     }
     this.safePush(item.targetUrl)
@@ -343,7 +344,8 @@ export struct HomeView {
           left: Dimension.SpaceL,
           right: Dimension.SpaceL,
           top: 6,
-          bottom: Dimension.SpaceXXL
+          // 底部留出悬浮胶囊栏的高度，否则最后一张卡片被栏挡住
+          bottom: Dimension.PillSafeArea
         })
       }
       .layoutWeight(1)
@@ -379,14 +381,16 @@ export struct HomeView {
           .margin({ bottom: 14 })
 
           Text(this.greetingText)
-            .fontSize(24)
+            .fontSize(FontLevel.PageTitle)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('app.color.text_primary'))
-            .lineHeight(32)
+            .lineHeight(FontLevel.titleLineHeight(FontLevel.PageTitle))
 
           Text('慢下来，先和自己待一会儿。')
-            .fontSize(14)
+            .fontSize(FontLevel.Body)
             .fontColor($r('app.color.text_secondary'))
+            // 行高 1.6：14 → 22
+            .lineHeight(FontLevel.bodyLineHeight(FontLevel.Body))
             .margin({ top: 8 })
 
           Row() {
@@ -416,9 +420,9 @@ export struct HomeView {
           })
 
           Text(this.moodTip)
-            .fontSize(14)
+            .fontSize(FontLevel.Body)
             .fontColor($r('app.color.text_secondary'))
-            .lineHeight(22)
+            .lineHeight(FontLevel.bodyLineHeight(FontLevel.Body))
             .width('100%')
         }
         .alignItems(HorizontalAlign.Start)
@@ -429,7 +433,8 @@ export struct HomeView {
     .width('100%')
     .padding(22)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 18 })
     .alignItems(HorizontalAlign.Start)
   }
@@ -545,7 +550,7 @@ export struct HomeView {
             .backgroundColor($r('app.color.theme_primary'))
             .borderRadius(21)
             .onClick(() => {
-              AppStorage.setOrCreate('mainTabIndex', 3)
+              appState().mainTabIndex = 3
             })
         }
         .width('100%')
@@ -566,14 +571,15 @@ export struct HomeView {
           .borderRadius(21)
           .margin({ top: 16 })
           .onClick(() => {
-            AppStorage.setOrCreate('mainTabIndex', 3)
+            appState().mainTabIndex = 3
           })
       }
     }
     .width('100%')
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
     .alignItems(HorizontalAlign.Start)
   }

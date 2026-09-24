@@ -227,7 +227,7 @@ struct SettingsPage {
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
       .backgroundColor($r('app.color.app_card'))
-      .borderRadius(20)
+      .borderRadius(Dimension.CardRadius)
       .onClick(() => {
         this.goBack()
       })
@@ -297,7 +297,7 @@ struct SettingsPage {
     .width('100%')
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
     .margin({ bottom: 16 })
   }
 
@@ -367,7 +367,7 @@ struct SettingsPage {
     .width('100%')
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
     .margin({ bottom: 16 })
   }
 
@@ -469,7 +469,7 @@ struct SettingsPage {
     .width('100%')
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
     .margin({ bottom: 16 })
   }
 
@@ -515,7 +515,7 @@ struct SettingsPage {
     .width('100%')
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
     .margin({ bottom: 16 })
   }
 

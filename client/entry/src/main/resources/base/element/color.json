@@ -82,11 +82,15 @@
     },
     {
       "name": "nav_inactive",
-      "value": "#93A0AA"
+      "value": "#ACB5BC"
     },
     {
       "name": "nav_active",
-      "value": "#7FA9C9"
+      "value": "#4A7EA8"
+    },
+    {
+      "name": "pill_glass",
+      "value": "#CCFFFDF9"
     },
     {
       "name": "tag_blue",

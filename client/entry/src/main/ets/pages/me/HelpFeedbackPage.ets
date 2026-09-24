@@ -102,7 +102,7 @@ struct HelpFeedbackPage {
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
       .backgroundColor($r('app.color.app_card'))
-      .borderRadius(20)
+      .borderRadius(Dimension.CardRadius)
       .onClick(() => {
         this.goBack()
       })
@@ -151,7 +151,7 @@ struct HelpFeedbackPage {
     .width('100%')
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
     .margin({ bottom: 16 })
     .alignItems(HorizontalAlign.Start)
   }
@@ -198,7 +198,7 @@ struct HelpFeedbackPage {
     .width('100%')
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
     .margin({ bottom: 16 })
     .alignItems(HorizontalAlign.Start)
   }
@@ -283,7 +283,7 @@ struct HelpFeedbackPage {
     .width('100%')
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
     .alignItems(HorizontalAlign.Start)
   }
 }

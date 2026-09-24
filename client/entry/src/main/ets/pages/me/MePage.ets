@@ -5,9 +5,10 @@ import { ApiService } from '../../core/api/ApiService'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { AvatarComponent } from '../../common/components/AvatarComponent'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension } from '../../common/constants/Theme'
+import { Dimension, ShadowStyle } from '../../common/constants/Theme'
 import { ApiConfig } from '../../common/constants/apiConfig'
 import { SnapshotRepository } from '../../core/repository/SnapshotRepository'
+import { appState, AppState } from '../../common/state/AppState'
 
 function getAvatarServerOrigin(): string {
   const apiBase: string = ApiConfig.API_BASE_URL
@@ -141,27 +142,28 @@ interface PageResultData {
 }
 
 // 「我的」视图：作为 MainPage 的 Tab 子组件使用（状态常驻）
-// refreshTick 变化时（如从编辑资料页返回）会强制刷新用户信息
-@Component
+// MainPage / 兼容壳递增 appState().meRefreshTick 时，会强制刷新用户信息
+@ComponentV2
 export struct MeView {
-  @Prop @Watch('onRefreshTickChange') refreshTick: number = 0
+  // 全局共享状态：不再通过父组件 @Prop 传值，改为监听全局刷新信号
+  @Local state: AppState = appState()
 
-  @State userName: string = getInitialUserName()
-  @State avatarUrl: string = getInitialAvatarUrl()
-  @State userPhone: string = getInitialUserPhone()
-  @State userAge: number = 0
-  @State userGender: string = ''
+  @Local userName: string = getInitialUserName()
+  @Local avatarUrl: string = getInitialAvatarUrl()
+  @Local userPhone: string = getInitialUserPhone()
+  @Local userAge: number = 0
+  @Local userGender: string = ''
 
-  @State isLoggedIn: boolean = getInitialLoginState()
+  @Local isLoggedIn: boolean = getInitialLoginState()
 
-  @State diaryCount: number = mePageStatsCache.diaryCount
-  @State assessmentCount: number = mePageStatsCache.assessmentCount
-  @State isStatsLoaded: boolean = mePageStatsCache.isLoaded
+  @Local diaryCount: number = mePageStatsCache.diaryCount
+  @Local assessmentCount: number = mePageStatsCache.assessmentCount
+  @Local isStatsLoaded: boolean = mePageStatsCache.isLoaded
 
-  @State backendUserId: number = 0
-  @State isUserInfoLoading: boolean = false
+  @Local backendUserId: number = 0
+  @Local isUserInfoLoading: boolean = false
   // 非空表示当前统计数字来自本地快照，需要在界面上标注数据时间
-  @State statsSnapshotHint: string = ''
+  @Local statsSnapshotHint: string = ''
 
   private authService: AuthService = AuthService.getInstance()
   private apiService: ApiService = ApiService.getInstance()
@@ -182,7 +184,8 @@ export struct MeView {
     this.refreshMePage(false)
   }
 
-  // 父组件（MainPage/兼容壳）通过递增 refreshTick 通知本视图刷新
+  // MainPage / 兼容壳递增 appState().meRefreshTick 通知本视图刷新
+  @Monitor('state.meRefreshTick')
   onRefreshTickChange(): void {
     this.refreshMePage(true)
   }
@@ -531,7 +534,8 @@ export struct MeView {
           left: Dimension.SpaceL,
           right: Dimension.SpaceL,
           top: 6,
-          bottom: Dimension.SpaceXXL
+          // 底部留出悬浮胶囊栏的高度，否则退出登录按钮被栏挡住
+          bottom: Dimension.PillSafeArea
         })
       }
       .layoutWeight(1)
@@ -576,7 +580,8 @@ export struct MeView {
     .width('100%')
     .padding({ top: 64, bottom: 64 })
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
   }
 
   @Builder
@@ -645,7 +650,8 @@ export struct MeView {
     .width('100%')
     .padding(20)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 
@@ -667,7 +673,7 @@ export struct MeView {
       .layoutWeight(1)
       .onClick(() => {
         // 切到日记 Tab（保留 Tab 状态），不再整页替换
-        AppStorage.setOrCreate('mainTabIndex', 2)
+        appState().mainTabIndex = 2
       })
 
       Column() {
@@ -699,7 +705,8 @@ export struct MeView {
     .width('100%')
     .padding({ top: 18, bottom: 18 })
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 
@@ -729,13 +736,14 @@ export struct MeView {
         .borderRadius(23)
         .onClick(() => {
           // 切到自查 Tab（保留 Tab 状态），不再整页替换
-          AppStorage.setOrCreate('mainTabIndex', 3)
+          appState().mainTabIndex = 3
         })
     }
     .width('100%')
     .padding(16)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 
@@ -796,7 +804,8 @@ export struct MeView {
     }
     .width('100%')
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 
@@ -892,17 +901,15 @@ export struct MeView {
 
 // 兼容旧路由的独立入口（推荐入口为 pages/MainPage 的 Tab 容器）
 @Entry
-@Component
+@ComponentV2
 struct MePage {
-  @State refreshTick: number = 0
-
   onPageShow(): void {
-    this.refreshTick++
+    appState().meRefreshTick++
   }
 
   build() {
     Column() {
-      MeView({ refreshTick: this.refreshTick })
+      MeView()
     }
     .width('100%')
     .height('100%')

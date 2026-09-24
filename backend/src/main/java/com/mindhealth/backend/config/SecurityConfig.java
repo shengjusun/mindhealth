@@ -45,7 +45,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/user/login", "/user/register", "/user/huawei/login").permitAll()
                         .requestMatchers("/admin/login").permitAll()
-                        .requestMatchers("/admin", "/admin/index.html").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/doc.html", "/swagger-ui.html").permitAll()
 
@@ -60,6 +59,9 @@ public class SecurityConfig {
 
                         // 题库静态文件（classpath:static/scales/**），可由 Nginx/CDN 直接托管
                         .requestMatchers("/scales/**").permitAll()
+
+                        // 心理科普文章：公开只读内容，未登录也可浏览（客户端进入科普 Tab 即拉取）
+                        .requestMatchers("/article/**").permitAll()
 
                         // 必须登录
                         .requestMatchers("/user/info", "/user/update", "/user/phone").authenticated()

@@ -1,4 +1,5 @@
 import { AppPageHeader } from '../../common/components/AppPageHeader'
+import { Dimension } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
 import { AuthService } from '../../core/auth/AppAuthService'
 import router from '@ohos.router'
@@ -209,6 +210,8 @@ export struct AIChatView {
     .width('100%')
     .padding(12)
     .backgroundColor(Color.White)
+    // 输入区是固定底栏，需要整体抬到悬浮胶囊栏上方，否则被栏盖住
+    .margin({ bottom: Dimension.PillHeight + Dimension.PillMarginBottom })
   }
 
   private buildAiChatMessages(currentUserMsg: ChatMessage): AiChatMessage[] {

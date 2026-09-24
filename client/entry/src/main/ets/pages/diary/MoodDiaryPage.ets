@@ -177,7 +177,8 @@ export struct MoodDiaryView {
               left: Dimension.SpaceL,
               right: Dimension.SpaceL,
               top: Dimension.SpaceS,
-              bottom: Dimension.SpaceXXL
+              // 底部留出悬浮胶囊栏的高度，否则最后一篇日记被栏挡住
+              bottom: Dimension.PillSafeArea
             })
           }
           .width('100%')

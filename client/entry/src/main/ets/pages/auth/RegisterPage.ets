@@ -93,7 +93,7 @@ struct RegisterPage {
     .width('100%')
     .padding(20)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
     .alignItems(HorizontalAlign.Start)
     .margin({ bottom: 16 })
   }
@@ -160,7 +160,7 @@ struct RegisterPage {
     .width('100%')
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(20)
+    .borderRadius(Dimension.CardRadius)
   }
 
   @Builder

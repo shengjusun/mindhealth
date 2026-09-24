@@ -61,7 +61,7 @@ export struct EmptyComponent {
           .fontSize(14)
           .fontColor($r('app.color.text_on_primary'))
           .backgroundColor($r('app.color.theme_primary'))
-          .borderRadius(20)
+          .borderRadius(Dimension.CardRadius)
           .onClick(() => {
             this.onRetry()
           })
@@ -97,7 +97,7 @@ export struct ErrorComponent {
         .fontSize(14)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.theme_primary'))
-        .borderRadius(20)
+        .borderRadius(Dimension.CardRadius)
         .onClick(() => {
           this.onRetry()
         })
@@ -137,7 +137,7 @@ export struct NetworkErrorComponent {
         .fontSize(14)
         .fontColor($r('app.color.text_on_primary'))
         .backgroundColor($r('app.color.theme_primary'))
-        .borderRadius(20)
+        .borderRadius(Dimension.CardRadius)
         .onClick(() => {
           this.onRetry()
         })
