@@ -1,3 +1,4 @@
+# ===== 通用忽略 =====
 /node_modules
 /oh_modules
 /local.properties
@@ -10,38 +11,36 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
-
-# ===== 签名与密钥材料（严禁入库）=====
-health/signing/
-*.p12
-*.p7b
-*.cer
-*.csr
-*.keystore
-*.jks
-health/build-profile.json5.bak
-
-# ===== 后端构建产物与运行数据 =====
-backend/target/
-backend/uploads/
-backend/test.txt
-
-# ===== 本机私有配置（数据库/华为密钥）=====
-backend/src/main/resources/application-local.yaml
-.env
-*.env
-
-# ===== 数据库文件与临时杂物 =====
-*.db
-mindhealth.db
-*.log
-
-# ===== 前端构建与预览产物 =====
-health/entry/.preview
-health/.codeartsdoer/cache
-
-# ===== IDE =====
 .idea/
 *.iml
 .DS_Store
 Thumbs.db
+*.log
+*.db
+
+# ===== 1. 鸿蒙客户端 (client) 专属 =====
+client/signing/
+client/*.p12
+client/*.p7b
+client/*.cer
+client/*.csr
+client/*.keystore
+client/*.jks
+client/build-profile.json5.bak
+client/entry/.preview
+client/.codeartsdoer/cache
+
+# ===== 2. 后端 (backend) 专属 =====
+backend/target/
+backend/uploads/
+backend/test.txt
+backend/src/main/resources/application-local.yaml
+.env
+*.env
+mindhealth.db
+
+# ===== 3. 管理后台 (admin - 预留) =====
+admin/node_modules/
+admin/dist/
+admin/.env.local
+admin/.env.*.local
