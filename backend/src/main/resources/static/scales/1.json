@@ -1,0 +1,14 @@
+{
+  "id": 1,
+  "name": "SCL-90症状自评量表",
+  "type": "SCL-90",
+  "version": 1,
+  "maxScore": 15,
+  "questions": [
+    {"id":1,"title":"最近一周，你是否经常感到情绪低落或烦躁？","options":[{"key":"A","text":"几乎没有","score":0},{"key":"B","text":"偶尔有","score":1},{"key":"C","text":"经常有","score":2},{"key":"D","text":"几乎每天都有","score":3}]},
+    {"id":2,"title":"最近一周，你是否容易因为小事紧张或担心？","options":[{"key":"A","text":"完全不会","score":0},{"key":"B","text":"偶尔会","score":1},{"key":"C","text":"经常会","score":2},{"key":"D","text":"非常明显","score":3}]},
+    {"id":3,"title":"最近一周，你的睡眠情况如何？","options":[{"key":"A","text":"很好","score":0},{"key":"B","text":"偶尔睡不好","score":1},{"key":"C","text":"经常睡不好","score":2},{"key":"D","text":"严重影响休息","score":3}]},
+    {"id":4,"title":"最近一周，你做事时是否难以集中注意力？","options":[{"key":"A","text":"没有影响","score":0},{"key":"B","text":"轻微影响","score":1},{"key":"C","text":"明显影响","score":2},{"key":"D","text":"非常严重","score":3}]},
+    {"id":5,"title":"最近一周，你是否愿意主动与他人交流？","options":[{"key":"A","text":"很愿意","score":0},{"key":"B","text":"还可以","score":1},{"key":"C","text":"不太愿意","score":2},{"key":"D","text":"完全不想","score":3}]}
+  ]
+}

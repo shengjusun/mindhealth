@@ -1,0 +1,104 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#000000"
+    },
+    {
+      "name": "theme_primary",
+      "value": "#8FB8D6"
+    },
+    {
+      "name": "primary_light",
+      "value": "#26333D"
+    },
+    {
+      "name": "primary_pressed",
+      "value": "#7CA6C4"
+    },
+    {
+      "name": "theme_secondary",
+      "value": "#93B893"
+    },
+    {
+      "name": "secondary_light",
+      "value": "#26332A"
+    },
+    {
+      "name": "app_background",
+      "value": "#1A1C20"
+    },
+    {
+      "name": "app_surface",
+      "value": "#24262B"
+    },
+    {
+      "name": "surface_soft",
+      "value": "#2B2E34"
+    },
+    {
+      "name": "app_card",
+      "value": "#24262B"
+    },
+    {
+      "name": "text_primary",
+      "value": "#E7EAEE"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#A6ADB5"
+    },
+    {
+      "name": "text_tertiary",
+      "value": "#7D848C"
+    },
+    {
+      "name": "text_on_primary",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "state_success",
+      "value": "#82C28B"
+    },
+    {
+      "name": "state_warning",
+      "value": "#DBB379"
+    },
+    {
+      "name": "state_error",
+      "value": "#E08C8C"
+    },
+    {
+      "name": "app_border",
+      "value": "#34373D"
+    },
+    {
+      "name": "app_divider",
+      "value": "#33363C"
+    },
+    {
+      "name": "nav_background",
+      "value": "#F51A1C20"
+    },
+    {
+      "name": "nav_inactive",
+      "value": "#8B939B"
+    },
+    {
+      "name": "nav_active",
+      "value": "#8FB8D6"
+    },
+    {
+      "name": "tag_blue",
+      "value": "#26333D"
+    },
+    {
+      "name": "tag_green",
+      "value": "#26332A"
+    },
+    {
+      "name": "tag_orange",
+      "value": "#362F24"
+    }
+  ]
+}

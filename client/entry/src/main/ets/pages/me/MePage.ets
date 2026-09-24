@@ -1,0 +1,848 @@
+import { Logger } from '../../common/utils/Logger'
+import router from '@ohos.router'
+import { AuthService, UserAuthInfo } from '../../core/auth/AppAuthService'
+import { ApiService } from '../../core/api/ApiService'
+import { hilog } from '@kit.PerformanceAnalysisKit'
+import { AvatarComponent } from '../../common/components/AvatarComponent'
+import { AppPageHeader } from '../../common/components/AppPageHeader'
+import { Dimension } from '../../common/constants/Theme'
+import { ApiConfig } from '../../common/constants/apiConfig'
+
+function getAvatarServerOrigin(): string {
+  const apiBase: string = ApiConfig.API_BASE_URL
+  if (apiBase.endsWith('/api')) {
+    return apiBase.substring(0, apiBase.length - 4)
+  }
+  return apiBase
+}
+
+function stripAvatarQuery(url: string): string {
+  if (!url || url.trim().length === 0) {
+    return ''
+  }
+
+  const qIndex: number = url.indexOf('?')
+  return qIndex >= 0 ? url.substring(0, qIndex) : url
+}
+
+function normalizeAvatarUrlForDisplay(rawAvatar: string): string {
+  if (!rawAvatar || rawAvatar.trim().length === 0) {
+    return ''
+  }
+
+  const cleanAvatar: string = stripAvatarQuery(rawAvatar)
+  const serverOrigin: string = getAvatarServerOrigin()
+
+  if (cleanAvatar.startsWith('http://') || cleanAvatar.startsWith('https://')) {
+    return cleanAvatar
+  }
+
+  if (cleanAvatar.startsWith('/api/')) {
+    return serverOrigin + cleanAvatar
+  }
+
+  if (cleanAvatar.startsWith('/uploads/')) {
+    return serverOrigin + '/api' + cleanAvatar
+  }
+
+  const apiUploadIndex: number = cleanAvatar.indexOf('/api/uploads/')
+  if (apiUploadIndex >= 0) {
+    return serverOrigin + cleanAvatar.substring(apiUploadIndex)
+  }
+
+  const uploadIndex: number = cleanAvatar.indexOf('/uploads/')
+  if (uploadIndex >= 0) {
+    return serverOrigin + '/api' + cleanAvatar.substring(uploadIndex)
+  }
+
+  if (cleanAvatar.indexOf('/') < 0) {
+    return serverOrigin + '/api/uploads/avatars/' + cleanAvatar
+  }
+
+  if (cleanAvatar.startsWith('/')) {
+    return serverOrigin + cleanAvatar
+  }
+
+  return serverOrigin + '/api/' + cleanAvatar
+}
+
+function getInitialAvatarUrl(): string {
+  const localUser = AuthService.getInstance().getUserInfo()
+  if (!localUser || !localUser.photoUrl || localUser.photoUrl.trim().length === 0) {
+    return ''
+  }
+  return normalizeAvatarUrlForDisplay(localUser.photoUrl)
+}
+
+function getInitialUserName(): string {
+  const localUser = AuthService.getInstance().getUserInfo()
+  if (!localUser || !localUser.displayName || localUser.displayName.trim().length === 0) {
+    return '用户'
+  }
+  return localUser.displayName
+}
+
+function getInitialUserPhone(): string {
+  const localUser = AuthService.getInstance().getUserInfo()
+  if (!localUser || !localUser.phoneNumber) {
+    return ''
+  }
+  return localUser.phoneNumber
+}
+
+function getInitialLoginState(): boolean {
+  return AuthService.getInstance().isLoggedIn()
+}
+
+const TAG = 'MePage'
+const DOMAIN = 0xFF00
+const USER_INFO_REFRESH_INTERVAL: number = 5 * 60 * 1000
+
+interface MePageStatsCache {
+  diaryCount: number
+  assessmentCount: number
+  isLoaded: boolean
+}
+
+// 模块级缓存：replaceUrl 重建页面后仍能保留，避免统计数字从 0 跳到真实值
+let mePageStatsCache: MePageStatsCache = {
+  diaryCount: 0,
+  assessmentCount: 0,
+  isLoaded: false
+}
+
+// 模块级刷新时间：避免页面重建后每次都强制请求后端
+let mePageLastUserInfoRefreshTime: number = 0
+
+interface MenuItem {
+  id: string
+  icon: Resource
+  title: string
+  subtitle?: string
+  showArrow: boolean
+}
+
+interface UserProfileData {
+  id?: number
+  phone?: string
+  nickname?: string
+  age?: number
+  gender?: string
+  avatar?: string
+  signature?: string
+}
+
+interface PageResultData {
+  total?: number
+  records?: Object[]
+  list?: Object[]
+  items?: Object[]
+}
+
+// 「我的」视图：作为 MainPage 的 Tab 子组件使用（状态常驻）
+// refreshTick 变化时（如从编辑资料页返回）会强制刷新用户信息
+@Component
+export struct MeView {
+  @Prop @Watch('onRefreshTickChange') refreshTick: number = 0
+
+  @State userName: string = getInitialUserName()
+  @State avatarUrl: string = getInitialAvatarUrl()
+  @State userPhone: string = getInitialUserPhone()
+  @State userAge: number = 0
+  @State userGender: string = ''
+
+  @State isLoggedIn: boolean = getInitialLoginState()
+
+  @State diaryCount: number = mePageStatsCache.diaryCount
+  @State assessmentCount: number = mePageStatsCache.assessmentCount
+  @State isStatsLoaded: boolean = mePageStatsCache.isLoaded
+
+  @State backendUserId: number = 0
+  @State isUserInfoLoading: boolean = false
+
+  private authService: AuthService = AuthService.getInstance()
+  private apiService: ApiService = ApiService.getInstance()
+
+  private isRefreshingUserInfo: boolean = false
+  private isStatisticsRefreshing: boolean = false
+
+  menuItems: MenuItem[] = [
+    { id: 'profile', icon: $r('sys.symbol.square_and_pencil'), title: '个人资料', subtitle: '完善昵称、头像和基础信息', showArrow: true },
+    { id: 'records', icon: $r('sys.symbol.doc_text'), title: '我的记录', subtitle: '日记记录、测评结果', showArrow: true },
+    { id: 'settings', icon: $r('sys.symbol.gearshape'), title: '设置', subtitle: '账号、缓存与通用配置', showArrow: true },
+    { id: 'help', icon: $r('sys.symbol.ellipsis_bubble'), title: '帮助与反馈', subtitle: '问题反馈与使用帮助', showArrow: true },
+    { id: 'about', icon: $r('sys.symbol.heart'), title: '关于我们', subtitle: '项目介绍与版本信息', showArrow: true }
+  ]
+
+  aboutToAppear(): void {
+    this.refreshMePage(false)
+  }
+
+  // 父组件（MainPage/兼容壳）通过递增 refreshTick 通知本视图刷新
+  onRefreshTickChange(): void {
+    this.refreshMePage(true)
+  }
+
+  private refreshMePage(forceRemoteRefresh: boolean = false): void {
+    this.isLoggedIn = this.authService.isLoggedIn()
+
+    if (!this.isLoggedIn) {
+      this.resetUserState()
+      return
+    }
+
+    this.applyLocalUserInfo()
+
+    const now: number = Date.now()
+    const needRemoteRefresh: boolean =
+      forceRemoteRefresh ||
+        mePageLastUserInfoRefreshTime <= 0 ||
+        now - mePageLastUserInfoRefreshTime > USER_INFO_REFRESH_INTERVAL
+
+    if (!needRemoteRefresh) {
+      return
+    }
+
+    this.isUserInfoLoading = this.avatarUrl.length === 0
+    this.loadUserInfo()
+  }
+
+  private applyLocalUserInfo(): void {
+    const localUser = this.authService.getUserInfo()
+
+    if (!localUser) {
+      return
+    }
+
+    this.userName = localUser.displayName || '用户'
+    this.userPhone = localUser.phoneNumber || ''
+
+    const localAvatarUrl: string = this.normalizeAvatarUrl(localUser.photoUrl || '')
+    if (localAvatarUrl && !this.isSameAvatar(localAvatarUrl)) {
+      this.avatarUrl = localAvatarUrl
+    }
+  }
+
+  private resetUserState(): void {
+    this.isUserInfoLoading = false
+    this.isRefreshingUserInfo = false
+    this.isStatisticsRefreshing = false
+    this.isStatsLoaded = false
+
+    this.diaryCount = 0
+    this.assessmentCount = 0
+    this.backendUserId = 0
+    this.userName = '用户'
+    this.userPhone = ''
+    this.userAge = 0
+    this.userGender = ''
+    this.avatarUrl = ''
+
+    mePageStatsCache = {
+      diaryCount: 0,
+      assessmentCount: 0,
+      isLoaded: false
+    }
+
+    mePageLastUserInfoRefreshTime = 0
+  }
+
+  private normalizeAvatarUrl(rawAvatar: string): string {
+    return normalizeAvatarUrlForDisplay(rawAvatar)
+  }
+
+  private isSameAvatar(nextUrl: string): boolean {
+    return stripAvatarQuery(this.avatarUrl) === stripAvatarQuery(nextUrl)
+  }
+
+  private parseCount(data: Object): number {
+    if (Array.isArray(data)) {
+      return (data as Object[]).length
+    }
+
+    const pageData = data as PageResultData
+
+    if (pageData.total !== undefined && pageData.total !== null) {
+      return Number(pageData.total)
+    }
+
+    if (pageData.records && Array.isArray(pageData.records)) {
+      return pageData.records.length
+    }
+
+    if (pageData.list && Array.isArray(pageData.list)) {
+      return pageData.list.length
+    }
+
+    if (pageData.items && Array.isArray(pageData.items)) {
+      return pageData.items.length
+    }
+
+    return 0
+  }
+
+  async loadUserInfo(): Promise<void> {
+    if (this.isRefreshingUserInfo) {
+      return
+    }
+
+    this.isRefreshingUserInfo = true
+
+    try {
+      this.isLoggedIn = this.authService.isLoggedIn()
+
+      if (!this.isLoggedIn) {
+        this.resetUserState()
+        return
+      }
+
+      const localUser = this.authService.getUserInfo()
+      this.applyLocalUserInfo()
+
+      const res = await this.apiService.getUserInfo()
+
+      if (res.code === 200 && res.data) {
+        const user: UserProfileData = res.data as UserProfileData
+
+        const latestName: string = user.nickname ? user.nickname : '用户'
+        const latestPhone: string = user.phone ? user.phone : ''
+        const backendAvatarPath: string = user.avatar ? String(user.avatar) : ''
+        const backendAvatarUrl: string = this.normalizeAvatarUrl(backendAvatarPath)
+
+        this.userName = latestName
+        this.userPhone = latestPhone
+        this.userAge = user.age ? user.age : 0
+        this.userGender = user.gender !== undefined && user.gender !== null ? String(user.gender) : ''
+        this.backendUserId = user.id ? Number(user.id) : 0
+
+        Logger.info(TAG, `当前后端用户ID: ${this.backendUserId}, phone=${this.userPhone}`)
+
+        if (backendAvatarUrl && !this.isSameAvatar(backendAvatarUrl)) {
+          this.avatarUrl = backendAvatarUrl
+        }
+
+        if (localUser) {
+          const newUserInfo: UserAuthInfo = {
+            uid: localUser.uid,
+            displayName: latestName,
+            photoUrl: backendAvatarPath || localUser.photoUrl || '',
+            email: localUser.email,
+            phoneNumber: latestPhone,
+            accessToken: localUser.accessToken,
+            refreshToken: localUser.refreshToken,
+            isLoggedIn: localUser.isLoggedIn
+          }
+          await this.authService.updateUserInfo(newUserInfo)
+        }
+
+        this.loadStatistics()
+        Logger.info(TAG, `后端用户信息: ${this.userName}, phone: ${this.userPhone}, avatar: ${this.avatarUrl}`)
+      } else {
+        Logger.error(TAG, `加载用户信息失败: code=${res.code}`)
+      }
+    } catch (error) {
+      Logger.error(TAG, `加载用户信息失败: ${JSON.stringify(error)}`)
+    } finally {
+      this.isUserInfoLoading = false
+      this.isRefreshingUserInfo = false
+      mePageLastUserInfoRefreshTime = Date.now()
+    }
+  }
+
+  async loadStatistics(): Promise<void> {
+    if (this.isStatisticsRefreshing) {
+      return
+    }
+
+    if (!this.isLoggedIn || this.backendUserId <= 0) {
+      this.diaryCount = 0
+      this.assessmentCount = 0
+      this.isStatsLoaded = false
+
+      mePageStatsCache = {
+        diaryCount: 0,
+        assessmentCount: 0,
+        isLoaded: false
+      }
+      return
+    }
+
+    this.isStatisticsRefreshing = true
+
+    let nextDiaryCount: number = this.diaryCount
+    let nextAssessmentCount: number = this.assessmentCount
+
+    try {
+      try {
+        const diaryRes = await this.apiService.getDiaryList()
+        if (diaryRes.code === 200 && diaryRes.data) {
+          nextDiaryCount = this.parseCount(diaryRes.data as Object)
+        }
+      } catch (error) {
+        hilog.error(DOMAIN, TAG, `加载日记统计失败: ${JSON.stringify(error)}`)
+      }
+
+      try {
+        const assessmentRes = await this.apiService.getAssessmentResults()
+
+        if (Array.isArray(assessmentRes)) {
+          nextAssessmentCount = assessmentRes.length
+        } else if (assessmentRes.code === 200 && assessmentRes.data && Array.isArray(assessmentRes.data)) {
+          nextAssessmentCount = assessmentRes.data.length
+        }
+      } catch (error) {
+        hilog.error(DOMAIN, TAG, `加载测评记录统计失败: ${JSON.stringify(error)}`)
+      }
+
+      this.diaryCount = nextDiaryCount
+      this.assessmentCount = nextAssessmentCount
+      this.isStatsLoaded = true
+
+      mePageStatsCache = {
+        diaryCount: nextDiaryCount,
+        assessmentCount: nextAssessmentCount,
+        isLoaded: true
+      }
+    } finally {
+      this.isStatisticsRefreshing = false
+    }
+  }
+
+  private getGenderText(): string {
+    const value: string = this.userGender.trim().toLowerCase()
+
+    if (value === 'male' || value === 'm' || value === 'man' || value === '1' || value === '男') {
+      return '男'
+    }
+
+    if (value === 'female' || value === 'f' || value === 'woman' || value === '2' || value === '女') {
+      return '女'
+    }
+
+    return '未填写'
+  }
+
+  private getMenuBadgeBg(id: string): ResourceColor {
+    switch (id) {
+      case 'profile':
+        return $r('app.color.tag_blue')
+      case 'records':
+        return $r('app.color.tag_green')
+      case 'settings':
+        return $r('app.color.surface_soft')
+      case 'help':
+        return $r('app.color.tag_orange')
+      case 'about':
+        return $r('app.color.tag_blue')
+      default:
+        return $r('app.color.surface_soft')
+    }
+  }
+
+  private getMenuBadgeColor(id: string): ResourceColor {
+    switch (id) {
+      case 'profile':
+        return $r('app.color.theme_primary')
+      case 'records':
+        return $r('app.color.theme_secondary')
+      case 'settings':
+        return $r('app.color.text_secondary')
+      case 'help':
+        return $r('app.color.state_warning')
+      case 'about':
+        return $r('app.color.theme_primary')
+      default:
+        return $r('app.color.text_secondary')
+    }
+  }
+
+  build() {
+    Column() {
+      AppPageHeader({
+        title: '我的',
+        subtitle: '把状态看见，也把自己照顾好'
+      })
+
+      Scroll() {
+        Column() {
+          if (this.isLoggedIn) {
+            this.buildUserCard()
+            this.buildStatsCard()
+            this.buildQuickActionCard()
+            this.buildMenuList()
+            this.buildLogoutButton()
+          } else {
+            this.buildLoginPrompt()
+          }
+        }
+        .width('100%')
+        .padding({
+          left: Dimension.SpaceL,
+          right: Dimension.SpaceL,
+          top: 6,
+          bottom: Dimension.SpaceXXL
+        })
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.app_background'))
+  }
+
+  @Builder
+  buildLoginPrompt() {
+    Column() {
+      Column() {
+        Text('欢迎回来')
+          .fontSize(22)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+
+        Text('登录后查看个人资料和记录')
+          .fontSize(14)
+          .fontColor($r('app.color.text_secondary'))
+          .margin({ top: 10 })
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Center)
+      .margin({ bottom: 28 })
+
+      Button('去登录')
+        .width('76%')
+        .height(Dimension.ButtonHeight)
+        .fontSize(16)
+        .fontColor($r('app.color.text_on_primary'))
+        .backgroundColor($r('app.color.theme_primary'))
+        .borderRadius(24)
+        .onClick(() => {
+          this.handleLogin()
+        })
+    }
+    .width('100%')
+    .padding({ top: 64, bottom: 64 })
+    .backgroundColor($r('app.color.app_card'))
+    .borderRadius(20)
+  }
+
+  @Builder
+  buildAvatarView() {
+    if (this.avatarUrl || !this.isUserInfoLoading) {
+      AvatarComponent({
+        avatarUrl: this.avatarUrl,
+        avatarSize: 60,
+        shape: 'circle'
+      })
+    } else {
+      Stack() {}
+      .width(60)
+      .height(60)
+      .borderRadius(30)
+      .backgroundColor($r('app.color.surface_soft'))
+    }
+  }
+
+  @Builder
+  buildUserCard() {
+    Column() {
+      Row() {
+        this.buildAvatarView()
+
+        Column() {
+          Text(this.userName)
+            .fontSize(21)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'))
+
+          if (this.userPhone) {
+            Text(this.userPhone)
+              .fontSize(13)
+              .fontColor($r('app.color.text_secondary'))
+              .margin({ top: 6 })
+          }
+
+          Text(`年龄：${this.userAge > 0 ? this.userAge.toString() : '未填写'}   性别：${this.getGenderText()}`)
+            .fontSize(12)
+            .fontColor($r('app.color.text_tertiary'))
+            .margin({ top: 6 })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .margin({ left: 16 })
+        .layoutWeight(1)
+
+        Button('编辑资料')
+          .height(34)
+          .fontSize(13)
+          .fontColor($r('app.color.theme_primary'))
+          .backgroundColor($r('app.color.tag_blue'))
+          .borderRadius(17)
+          .onClick(() => {
+            router.pushUrl({ url: 'pages/me/ProfileEditPage' })
+          })
+      }
+      .width('100%')
+
+      Text('把状态看见，也把自己照顾好')
+        .fontSize(13)
+        .fontColor($r('app.color.text_secondary'))
+        .width('100%')
+        .margin({ top: 16 })
+    }
+    .width('100%')
+    .padding(20)
+    .backgroundColor($r('app.color.app_card'))
+    .borderRadius(20)
+    .margin({ bottom: 16 })
+  }
+
+  @Builder
+  buildStatsCard() {
+    Row() {
+      Column() {
+        Text(this.isStatsLoaded ? `${this.diaryCount}` : '—')
+          .fontSize(26)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.theme_primary'))
+
+        Text('日记')
+          .fontSize(12)
+          .fontColor($r('app.color.text_tertiary'))
+          .margin({ top: 6 })
+      }
+      .layoutWeight(1)
+      .onClick(() => {
+        // 切到日记 Tab（保留 Tab 状态），不再整页替换
+        AppStorage.setOrCreate('mainTabIndex', 2)
+      })
+
+      Column() {
+        Text(this.isStatsLoaded ? `${this.assessmentCount}` : '—')
+          .fontSize(26)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.theme_secondary'))
+
+        Text('测评记录')
+          .fontSize(12)
+          .fontColor($r('app.color.text_tertiary'))
+          .margin({ top: 6 })
+      }
+      .layoutWeight(1)
+      .onClick(() => {
+        router.pushUrl({ url: 'pages/me/MyRecordsPage' })
+      })
+    }
+    .width('100%')
+    .padding({ top: 18, bottom: 18 })
+    .backgroundColor($r('app.color.app_card'))
+    .borderRadius(20)
+    .margin({ bottom: 16 })
+  }
+
+  @Builder
+  buildQuickActionCard() {
+    Row() {
+      Button('写日记')
+        .layoutWeight(1)
+        .height(46)
+        .fontSize(15)
+        .fontColor($r('app.color.text_on_primary'))
+        .backgroundColor($r('app.color.theme_primary'))
+        .borderRadius(23)
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/diary/DiaryEditPage' })
+        })
+
+      Blank()
+        .width(12)
+
+      Button('做测评')
+        .layoutWeight(1)
+        .height(46)
+        .fontSize(15)
+        .fontColor($r('app.color.theme_primary'))
+        .backgroundColor($r('app.color.surface_soft'))
+        .borderRadius(23)
+        .onClick(() => {
+          // 切到自查 Tab（保留 Tab 状态），不再整页替换
+          AppStorage.setOrCreate('mainTabIndex', 3)
+        })
+    }
+    .width('100%')
+    .padding(16)
+    .backgroundColor($r('app.color.app_card'))
+    .borderRadius(20)
+    .margin({ bottom: 16 })
+  }
+
+  @Builder
+  buildMenuList() {
+    Column() {
+      ForEach(this.menuItems, (item: MenuItem, index: number) => {
+        Row() {
+          Row() {
+            SymbolGlyph(item.icon)
+              .fontSize(15)
+              .fontColor([this.getMenuBadgeColor(item.id)])
+          }
+          .width(34)
+          .height(34)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .backgroundColor(this.getMenuBadgeBg(item.id))
+          .borderRadius(17)
+
+          Column() {
+            Text(item.title)
+              .fontSize(16)
+              .fontColor($r('app.color.text_primary'))
+              .fontWeight(FontWeight.Medium)
+
+            if (item.subtitle) {
+              Text(item.subtitle)
+                .fontSize(12)
+                .fontColor($r('app.color.text_tertiary'))
+                .margin({ top: 4 })
+            }
+          }
+          .alignItems(HorizontalAlign.Start)
+          .margin({ left: 12 })
+          .layoutWeight(1)
+
+          if (item.showArrow) {
+            Text('›')
+              .fontSize(20)
+              .fontColor($r('app.color.text_tertiary'))
+          }
+        }
+        .width('100%')
+        .padding(16)
+        .onClick(() => {
+          this.handleMenuClick(item.id)
+        })
+
+        if (index < this.menuItems.length - 1) {
+          Divider()
+            .width('100%')
+            .height(1)
+            .color($r('app.color.app_divider'))
+            .margin({ left: 62 })
+        }
+      })
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.app_card'))
+    .borderRadius(20)
+    .margin({ bottom: 16 })
+  }
+
+  @Builder
+  buildLogoutButton() {
+    Button('退出登录')
+      .width('100%')
+      .height(Dimension.ButtonHeight)
+      .fontSize(16)
+      .fontColor($r('app.color.state_error'))
+      .backgroundColor($r('app.color.app_card'))
+      .borderRadius(18)
+      .onClick(() => {
+        this.handleLogout()
+      })
+  }
+
+  async handleLogin(): Promise<void> {
+    try {
+      router.pushUrl({ url: 'pages/auth/LoginPage' })
+    } catch (error) {
+      hilog.error(DOMAIN, TAG, `跳转失败: ${error}`)
+    }
+  }
+
+  handleMenuClick(id: string): void {
+    if (id === 'profile') {
+      router.pushUrl({ url: 'pages/me/ProfileEditPage' })
+      return
+    }
+
+    if (id === 'records') {
+      router.pushUrl({ url: 'pages/me/MyRecordsPage' })
+      return
+    }
+
+    if (id === 'settings') {
+      router.pushUrl({ url: 'pages/me/SettingsPage' })
+      return
+    }
+
+    if (id === 'help') {
+      router.pushUrl({ url: 'pages/me/HelpFeedbackPage' })
+      return
+    }
+
+    AlertDialog.show({
+      title: '关于我们',
+      message: '这是一个情绪记录、状态自查与 AI 陪伴的 HarmonyOS NEXT 全栈项目。',
+      primaryButton: { value: '知道了', action: () => {} }
+    })
+  }
+
+  handleLogout(): void {
+    AlertDialog.show({
+      title: '退出登录',
+      message: '确定要退出登录吗？',
+      primaryButton: {
+        value: '确定',
+        action: async () => {
+          try {
+            await this.authService.logout()
+            this.resetUserState()
+
+            try {
+              router.clear()
+            } catch (clearError) {
+              hilog.error(DOMAIN, TAG, `清空路由栈失败: ${JSON.stringify(clearError)}`)
+            }
+
+            router.replaceUrl({ url: 'pages/auth/LoginPage' })
+          } catch (error) {
+            hilog.error(DOMAIN, TAG, `退出登录失败: ${error}`)
+          }
+        }
+      },
+      secondaryButton: {
+        value: '取消',
+        action: () => {}
+      }
+    })
+  }
+
+  private ensureLogin(): boolean {
+    if (this.authService.isLoggedIn()) {
+      return true
+    }
+
+    router.replaceUrl({ url: 'pages/auth/LoginPage' })
+    return false
+  }
+}
+
+// 兼容旧路由的独立入口（推荐入口为 pages/MainPage 的 Tab 容器）
+@Entry
+@Component
+struct MePage {
+  @State refreshTick: number = 0
+
+  onPageShow(): void {
+    this.refreshTick++
+  }
+
+  build() {
+    Column() {
+      MeView({ refreshTick: this.refreshTick })
+    }
+    .width('100%')
+    .height('100%')
+  }
+}

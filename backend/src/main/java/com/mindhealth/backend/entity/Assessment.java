@@ -15,6 +15,11 @@ public class Assessment {
     private String name;
     private String description;
     private String type;
+    /**
+     * 题库 JSON：[{"id":1,"title":"...","options":[{"key":"A","text":"...","score":0}]}]
+     * 由迁移脚本/管理侧维护，接口原样返回给前端渲染
+     */
+    private String questions;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

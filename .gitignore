@@ -1,0 +1,47 @@
+/node_modules
+/oh_modules
+/local.properties
+/.idea
+**/build
+/.hvigor
+.cxx
+/.clangd
+/.clang-format
+/.clang-tidy
+**/.test
+/.appanalyzer
+
+# ===== 签名与密钥材料（严禁入库）=====
+health/signing/
+*.p12
+*.p7b
+*.cer
+*.csr
+*.keystore
+*.jks
+health/build-profile.json5.bak
+
+# ===== 后端构建产物与运行数据 =====
+backend/target/
+backend/uploads/
+backend/test.txt
+
+# ===== 本机私有配置（数据库/华为密钥）=====
+backend/src/main/resources/application-local.yaml
+.env
+*.env
+
+# ===== 数据库文件与临时杂物 =====
+*.db
+mindhealth.db
+*.log
+
+# ===== 前端构建与预览产物 =====
+health/entry/.preview
+health/.codeartsdoer/cache
+
+# ===== IDE =====
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

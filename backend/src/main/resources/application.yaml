@@ -1,11 +1,14 @@
 spring:
   application:
     name: mindhealth-backend
+  profiles:
+    # local 配置文件（application-local.yaml）存放华为登录密钥等私有信息，不进 git
+    active: local
   datasource:
     url: jdbc:mysql://localhost:3306/mindhealth?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: 111111
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
@@ -50,12 +53,18 @@ knife4j:
 
 logging:
   level:
-    org.springframework.security: DEBUG
+    org.springframework.security: INFO
 
 jwt:
-  secret: REMOVED
+  secret: ${JWT_SECRET:REMOVED}
   expire: 86400
   refresh-expire: 604800
+
+# 华为账号登录（Account Kit），生产环境必须通过环境变量注入
+huawei:
+  client-id: ${HUAWEI_CLIENT_ID:}
+  client-secret: ${HUAWEI_CLIENT_SECRET:}
+  token-url: https://oauth-login.cloud.huawei.com/oauth2/v3/token
 
 # 文件上传配置
 file:

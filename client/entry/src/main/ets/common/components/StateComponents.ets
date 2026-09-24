@@ -1,0 +1,150 @@
+/**
+ * 通用状态组件：加载 / 空状态 / 错误 / 网络错误
+ * 统一使用主题资源配色（浅/深色自适应），错误类组件支持 onRetry 回调
+ */
+import { Dimension } from '../constants/Theme'
+
+@Component
+export struct LoadingComponent {
+  @Prop message: string = '加载中...'
+  @Prop loadingSize: number = 40
+
+  build() {
+    Column() {
+      LoadingProgress()
+        .width(this.loadingSize)
+        .height(this.loadingSize)
+        .color($r('app.color.theme_primary'))
+
+      Text(this.message)
+        .fontSize(14)
+        .fontColor($r('app.color.text_secondary'))
+        .margin({ top: 12 })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor($r('app.color.app_background'))
+  }
+}
+
+@Component
+export struct EmptyComponent {
+  @Prop icon: string = '📭'
+  // 优先使用系统符号图标；未传时回退 emoji
+  symbol: Resource | null = null
+  @Prop message: string = '暂无数据'
+  @Prop buttonText: string = ''
+  onRetry: () => void = () => {}
+
+  build() {
+    Column() {
+      if (this.symbol !== null) {
+        SymbolGlyph(this.symbol)
+          .fontSize(52)
+          .fontColor([$r('app.color.text_tertiary')])
+          .margin({ bottom: 16 })
+      } else {
+        Text(this.icon)
+          .fontSize(64)
+          .margin({ bottom: 16 })
+      }
+
+      Text(this.message)
+        .fontSize(16)
+        .fontColor($r('app.color.text_secondary'))
+        .margin({ bottom: 16 })
+
+      if (this.buttonText.length > 0) {
+        Button(this.buttonText)
+          .height(40)
+          .fontSize(14)
+          .fontColor($r('app.color.text_on_primary'))
+          .backgroundColor($r('app.color.theme_primary'))
+          .borderRadius(20)
+          .onClick(() => {
+            this.onRetry()
+          })
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor($r('app.color.app_background'))
+  }
+}
+
+@Component
+export struct ErrorComponent {
+  @Prop message: string = '加载失败'
+  @Prop buttonText: string = '重试'
+  onRetry: () => void = () => {}
+
+  build() {
+    Column() {
+      SymbolGlyph($r('sys.symbol.arrow_counterclockwise'))
+        .fontSize(44)
+        .fontColor([$r('app.color.state_warning')])
+        .margin({ bottom: 16 })
+
+      Text(this.message)
+        .fontSize(16)
+        .fontColor($r('app.color.text_secondary'))
+        .margin({ bottom: 16 })
+
+      Button(this.buttonText)
+        .height(40)
+        .fontSize(14)
+        .fontColor($r('app.color.text_on_primary'))
+        .backgroundColor($r('app.color.theme_primary'))
+        .borderRadius(20)
+        .onClick(() => {
+          this.onRetry()
+        })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor($r('app.color.app_background'))
+  }
+}
+
+@Component
+export struct NetworkErrorComponent {
+  onRetry: () => void = () => {}
+
+  build() {
+    Column() {
+      SymbolGlyph($r('sys.symbol.globe_badge_message'))
+        .fontSize(44)
+        .fontColor([$r('app.color.text_tertiary')])
+        .margin({ bottom: 16 })
+
+      Text('网络连接失败')
+        .fontSize(16)
+        .fontColor($r('app.color.text_primary'))
+        .fontWeight(FontWeight.Medium)
+        .margin({ bottom: 8 })
+
+      Text('请检查网络设置后重试')
+        .fontSize(14)
+        .fontColor($r('app.color.text_secondary'))
+        .margin({ bottom: 16 })
+
+      Button('重试')
+        .height(40)
+        .width(120)
+        .fontSize(14)
+        .fontColor($r('app.color.text_on_primary'))
+        .backgroundColor($r('app.color.theme_primary'))
+        .borderRadius(20)
+        .onClick(() => {
+          this.onRetry()
+        })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor($r('app.color.app_background'))
+  }
+}

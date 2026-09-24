@@ -1,0 +1,56 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\10735\\.ohos\\config\\default_Project_9KfT7gJexAc-PSGtfLrPUHhBjMZDZIK1gXplqeJbmHo=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BF2A19A9EF14DD425C26C9A8B4BB5D0D089A5648A779FE8A09A78112C502FE848DE3957CD40F2A9",
+          "profile": "C:\\Users\\10735\\.ohos\\config\\default_Project_9KfT7gJexAc-PSGtfLrPUHhBjMZDZIK1gXplqeJbmHo=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\10735\\.ohos\\config\\default_Project_9KfT7gJexAc-PSGtfLrPUHhBjMZDZIK1gXplqeJbmHo=.p12",
+          "storePassword": "0000001B39D60C08402A0F56ED05268E00F4D0F0941572377BD0702F4CC91D2E8B1266F41763CB366FC7DF"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "targetSdkVersion": "6.0.2(22)",
+        "compatibleSdkVersion": "6.0.2(22)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug",
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

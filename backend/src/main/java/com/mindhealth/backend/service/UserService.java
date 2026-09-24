@@ -7,6 +7,7 @@ import com.mindhealth.backend.entity.User;
 
 public interface UserService {
     LoginResponse login(LoginRequest request);
+    LoginResponse loginWithHuaweiId(String authorizationCode);
     void register(RegisterRequest request);
     User getUserByPhone(String phone);
     User getUserById(Long id);

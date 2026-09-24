@@ -8,7 +8,6 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,30 +37,36 @@ public class SecurityConfig {
     }
 
     @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return web -> web.ignoring().requestMatchers("/uploads/**");
-    }
-
-    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/user/login", "/user/register").permitAll()
+                        .requestMatchers("/user/login", "/user/register", "/user/huawei/login").permitAll()
+                        .requestMatchers("/admin/login").permitAll()
+                        .requestMatchers("/admin", "/admin/index.html").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/doc.html", "/swagger-ui.html").permitAll()
 
-                        // 可公开访问
-                        .requestMatchers("/assessment/list", "/assessment/*").permitAll()
-                        .requestMatchers("/ai/**").permitAll()
+                        // 头像等静态资源：保留 Security 过滤链，仅匿名放行
+                        .requestMatchers("/uploads/**").permitAll()
+
+                        // 量表浏览公开
+                        .requestMatchers("/assessment/list", "/assessment/{id}").permitAll()
+
+                        // 量表题库静态化接口：题库是公开只读配置，未登录也应可拉取（客户端首次启动预缓存）
+                        .requestMatchers("/assessment/manifest", "/assessment/{id}/questions").permitAll()
+
+                        // 题库静态文件（classpath:static/scales/**），可由 Nginx/CDN 直接托管
+                        .requestMatchers("/scales/**").permitAll()
 
                         // 必须登录
                         .requestMatchers("/user/info", "/user/update", "/user/phone").authenticated()
                         .requestMatchers("/user/avatar/**").authenticated()
                         .requestMatchers("/assessment/results", "/assessment/submit").authenticated()
                         .requestMatchers("/diary/**").authenticated()
+                        .requestMatchers("/ai/**").authenticated()
 
                         .anyRequest().authenticated()
                 )

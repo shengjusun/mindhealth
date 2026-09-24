@@ -4,6 +4,7 @@ import com.mindhealth.backend.common.Result;
 import com.mindhealth.backend.entity.User;
 import com.mindhealth.backend.service.UserService;
 import com.mindhealth.backend.utils.FileUploadUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
+@Slf4j
 @RestController
 @RequestMapping("/user/avatar")
 public class AvatarController {
@@ -48,11 +50,15 @@ public class AvatarController {
                 return Result.error("只支持JPG、JPEG、PNG、WEBP格式");
             }
 
+            // 校验文件魔数，防止伪造扩展名
+            if (!FileUploadUtil.isRealImage(file)) {
+                return Result.error("文件内容不是有效的图片");
+            }
+
             String fileName = FileUploadUtil.saveFile(uploadDir, originalFileName, file);
 
             // 只存相对路径，不存死IP
             String avatarPath = "/api/" + uploadDir + fileName;
-            System.out.println("avatarPath = " + avatarPath);
 
             User user = new User();
             user.setId(userId);
@@ -62,11 +68,11 @@ public class AvatarController {
             return Result.success(avatarPath);
 
         } catch (IOException e) {
-            e.printStackTrace();
-            return Result.error("文件上传失败: " + e.getMessage());
+            log.error("头像文件写入失败: {}", e.getMessage());
+            return Result.error("文件上传失败");
         } catch (Exception e) {
-            e.printStackTrace();
-            return Result.error("头像更新失败: " + e.getMessage());
+            log.error("头像更新失败: {}", e.getMessage());
+            return Result.error("头像更新失败");
         }
     }
 }
