@@ -2,12 +2,12 @@
  * 通用头像组件
  */
 
-@Component
+@ComponentV2
 export struct AvatarComponent {
-  @Prop avatarUrl: string = ''
-  @Prop avatarSize: number = 48
-  @Prop shape: 'circle' | 'square' = 'circle'
-  @Prop showBorder: boolean = false
+  @Param avatarUrl: string = ''
+  @Param avatarSize: number = 48
+  @Param shape: 'circle' | 'square' = 'circle'
+  @Param showBorder: boolean = false
 
   private defaultAvatar: Resource = $r('app.media.ic_avatar_default')
 

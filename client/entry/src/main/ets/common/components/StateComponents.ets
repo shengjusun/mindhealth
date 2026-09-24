@@ -4,10 +4,10 @@
  */
 import { Dimension } from '../constants/Theme'
 
-@Component
+@ComponentV2
 export struct LoadingComponent {
-  @Prop message: string = '加载中...'
-  @Prop loadingSize: number = 40
+  @Param message: string = '加载中...'
+  @Param loadingSize: number = 40
 
   build() {
     Column() {
@@ -28,14 +28,14 @@ export struct LoadingComponent {
   }
 }
 
-@Component
+@ComponentV2
 export struct EmptyComponent {
-  @Prop icon: string = '📭'
+  @Param icon: string = '📭'
   // 优先使用系统符号图标；未传时回退 emoji
-  symbol: Resource | null = null
-  @Prop message: string = '暂无数据'
-  @Prop buttonText: string = ''
-  onRetry: () => void = () => {}
+  @Param symbol: Resource | null = null
+  @Param message: string = '暂无数据'
+  @Param buttonText: string = ''
+  @Event onRetry: () => void = () => {}
 
   build() {
     Column() {
@@ -74,11 +74,11 @@ export struct EmptyComponent {
   }
 }
 
-@Component
+@ComponentV2
 export struct ErrorComponent {
-  @Prop message: string = '加载失败'
-  @Prop buttonText: string = '重试'
-  onRetry: () => void = () => {}
+  @Param message: string = '加载失败'
+  @Param buttonText: string = '重试'
+  @Event onRetry: () => void = () => {}
 
   build() {
     Column() {
@@ -109,9 +109,9 @@ export struct ErrorComponent {
   }
 }
 
-@Component
+@ComponentV2
 export struct NetworkErrorComponent {
-  onRetry: () => void = () => {}
+  @Event onRetry: () => void = () => {}
 
   build() {
     Column() {

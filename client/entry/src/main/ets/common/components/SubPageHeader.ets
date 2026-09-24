@@ -1,10 +1,10 @@
 import { AppPageHeader } from './AppPageHeader'
 
-@Component
+@ComponentV2
 export struct SubPageHeader {
-  @Prop title: string = ''
-  @Prop subtitle: string = ''
-  @Prop rightText: string = ''
+  @Param title: string = ''
+  @Param subtitle: string = ''
+  @Param rightText: string = ''
 
   build() {
     AppPageHeader({

@@ -1,13 +1,13 @@
 import router from '@ohos.router'
 import { Dimension } from '../constants/Theme'
 
-@Component
+@ComponentV2
 export struct AppPageHeader {
-  @Prop title: string = ''
-  @Prop subtitle: string = ''
-  @Prop showBack: boolean = false
-  @Prop actionText: string = ''
-  @Prop useDefaultBack: boolean = true
+  @Param title: string = ''
+  @Param subtitle: string = ''
+  @Param showBack: boolean = false
+  @Param actionText: string = ''
+  @Param useDefaultBack: boolean = true
 
   private handleBack(): void {
     if (!this.useDefaultBack) {
