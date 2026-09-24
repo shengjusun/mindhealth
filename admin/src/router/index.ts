@@ -44,6 +44,12 @@ const routes = [
         component: () => import('../views/Feedback.vue'),
         meta: { title: '用户反馈' },
       },
+      {
+        path: 'profile',
+        name: 'profile',
+        component: () => import('../views/Profile.vue'),
+        meta: { title: '个人资料' },
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/dashboard' },

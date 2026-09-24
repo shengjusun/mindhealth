@@ -133,7 +133,12 @@ export function fetchFeedbacks(params: {
   size: number
   handled?: boolean
 }): Promise<PageResult<FeedbackRow>> {
-  return get<PageResult<FeedbackRow>>('/admin/feedbacks', params as unknown as Record<string, unknown>)
+  // 后端 handled 是 Integer（0/1），不能直接传布尔值
+  const query: Record<string, unknown> = { page: params.page, size: params.size }
+  if (params.handled !== undefined) {
+    query.handled = params.handled ? 1 : 0
+  }
+  return get<PageResult<FeedbackRow>>('/admin/feedbacks', query)
 }
 
 export function handleFeedback(id: number): Promise<unknown> {
@@ -142,4 +147,86 @@ export function handleFeedback(id: number): Promise<unknown> {
 
 export function deleteFeedback(id: number): Promise<unknown> {
   return remove(`/admin/feedbacks/${id}`)
+}
+
+export interface AdminProfile {
+  id: number
+  username: string
+  role: string | null
+  createTime: string | null
+}
+
+export function fetchProfile(): Promise<AdminProfile> {
+  return get<AdminProfile>('/admin/profile')
+}
+
+export function changePassword(oldPassword: string, newPassword: string): Promise<unknown> {
+  return put('/admin/password', { oldPassword, newPassword })
+}
+
+/* ===== 仪表盘统计 ===== */
+
+export interface TrendData {
+  labels: string[]
+  users: number[]
+  diaries: number[]
+  feedbacks: number[]
+}
+
+export interface DistributionItem {
+  name: string
+  value: number
+}
+
+export function fetchTrend(days = 14): Promise<TrendData> {
+  return get<TrendData>('/admin/stats/trend', { days })
+}
+
+export function fetchEmotionDistribution(): Promise<DistributionItem[]> {
+  return get<DistributionItem[]>('/admin/stats/emotion')
+}
+
+export function fetchFeedbackTypes(): Promise<DistributionItem[]> {
+  return get<DistributionItem[]>('/admin/stats/feedback-types')
+}
+
+/* ===== 用户详情 ===== */
+
+export interface UserDetail {
+  user: AdminUser & { signature: string | null; updateTime: string | null }
+  diaryCount: number
+  feedbackCount: number
+  assessmentCount: number
+  chatCount: number
+  recentDiaries: Array<{
+    id: number
+    title: string
+    emotion: string | null
+    intensity: number | null
+    createTime: string
+  }>
+  assessmentResults: Array<{
+    id: number
+    title: string | null
+    score: number | null
+    level: string | null
+    createTime: string
+  }>
+}
+
+export function fetchUserDetail(id: number): Promise<UserDetail> {
+  return get<UserDetail>(`/admin/users/${id}/detail`)
+}
+
+/* ===== 批量操作 ===== */
+
+export type BatchType = 'user' | 'diary' | 'feedback'
+export type BatchAction = 'delete' | 'enable' | 'disable' | 'handle'
+
+export function batchOperate(
+  type: BatchType,
+  action: BatchAction,
+  ids: number[],
+): Promise<{ affected: number }> {
+  return post<{ affected: number }>('/admin/batch', { type, action, ids })
 }
