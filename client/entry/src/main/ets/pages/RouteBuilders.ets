@@ -10,6 +10,7 @@ import { ArticleDetailPage } from './ArticleDetailPage'
 import { DiaryEditPage } from './diary/DiaryEditPage'
 import { DiaryDetailPage } from './diary/DiaryDetailPage'
 import { AssessmentQuestionPage } from './assessment/AssessmentQuestionPage'
+import { ContentPage } from './ContentPage'
 import { appState } from '../common/state/AppState'
 
 /**
@@ -90,6 +91,14 @@ export function HelpFeedbackPageBuilder() {
     HelpFeedbackPage()
   }
   .hideTitleBar(true)
+  // 反馈内容未提交时拦截返回，由页面弹确认（审计 C-5-1）
+  .onBackPressed(() => {
+    if (appState().hasUnsavedChanges) {
+      appState().backPressedTick++
+      return true
+    }
+    return false
+  })
 }
 
 @Builder
@@ -98,6 +107,14 @@ export function RegisterPageBuilder() {
     RegisterPage()
   }
   .hideTitleBar(true)
+  // 注册表单已填写时拦截返回，由页面弹确认
+  .onBackPressed(() => {
+    if (appState().hasUnsavedChanges) {
+      appState().backPressedTick++
+      return true
+    }
+    return false
+  })
 }
 
 @Builder
@@ -200,6 +217,30 @@ export function ArticleDetailPageBuilder() {
 }
 
 @ComponentV2
+struct ContentRoute {
+  @Local routeParam: Record<string, Object> | undefined = undefined
+  @Local paramReady: boolean = false
+
+  build() {
+    NavDestination() {
+      if (this.paramReady) {
+        ContentPage({ routeParam: this.routeParam })
+      }
+    }
+    .hideTitleBar(true)
+    .onReady((ctx: NavDestinationContext) => {
+      this.routeParam = ctx.pathInfo.param as Record<string, Object> | undefined
+      this.paramReady = true
+    })
+  }
+}
+
+@Builder
+export function ContentPageBuilder() {
+  ContentRoute()
+}
+
+@ComponentV2
 struct AssessmentQuestionRoute {
   @Local routeParam: Record<string, Object> | undefined = undefined
   @Local paramReady: boolean = false
@@ -214,6 +255,14 @@ struct AssessmentQuestionRoute {
     .onReady((ctx: NavDestinationContext) => {
       this.routeParam = ctx.pathInfo.param as Record<string, Object> | undefined
       this.paramReady = true
+    })
+    // 答题中（已答任意一题且未出结果）拦截返回，由页面弹放弃确认
+    .onBackPressed(() => {
+      if (appState().hasUnsavedChanges) {
+        appState().backPressedTick++
+        return true
+      }
+      return false
     })
   }
 }

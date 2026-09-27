@@ -1,9 +1,12 @@
 import { pushRoute, pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { brand, Dimension, FontLevel, ShadowStyle } from '../../common/constants/Theme'
 import { appState } from '../../common/state/AppState'
 import { LoadingComponent, EmptyComponent, ErrorComponent } from '../../common/components/StateComponents'
+import { AppButton } from '../../common/components/AppButton'
+import { AppChip } from '../../common/components/AppChip'
+import { softIntensity, emotionChipKind } from '../../common/utils/AssessmentTone'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 import { SnapshotRepository } from '../../core/repository/SnapshotRepository'
@@ -71,8 +74,26 @@ export struct MoodDiaryView {
       this.snapshotHint = SnapshotRepository.formatAgoText(ts)
       Logger.info(TAG, `日记命中本地快照，共 ${this.diaryList.length} 条 ${this.snapshotHint}`)
     }
-    this.isLoading = false
+    // 有快照：立即展示快照数据（SWR）；无快照：保持 loading 直到网络返回，
+    // 避免空列表的假空态闪现（审计 C-1-5）
+    if (hasSnapshot) {
+      this.isLoading = false
+    }
 
+    if (showLoading) {
+      // 进入页面时的自动加载：静默刷新不 await，网络回来再覆盖列表
+      this.refreshFromServer(hasSnapshot)
+    } else {
+      // 下拉刷新是用户主动触发的，必须等他等到结果，转圈停下来才有意义
+      await this.refreshFromServer(hasSnapshot)
+    }
+  }
+
+  /**
+   * 拉网络并覆盖列表。
+   * 失败时：本地有快照就保留快照，本地也没有才转成错误态（避免假空态）。
+   */
+  private async refreshFromServer(hasSnapshot: boolean): Promise<void> {
     try {
       const res = await this.apiService.getDiaryList()
       if (res.code === 200 && res.data && Array.isArray(res.data)) {
@@ -88,9 +109,12 @@ export struct MoodDiaryView {
       Logger.error(TAG, `刷新日记失败:${JSON.stringify(error)}`)
       if (!hasSnapshot) {
         this.hasError = true
-        this.errorMessage = '网络异常， 请稍后重试'
+        this.errorMessage = '网络好像不太顺畅，稍后再试试'
         this.diaryList = []
       }
+    } finally {
+      // 无快照场景下 loading 一直亮到网络返回（有快照时已在上面提前清掉）
+      this.isLoading = false
     }
   }
 
@@ -108,20 +132,12 @@ export struct MoodDiaryView {
   }
 
   private getIntensityText(intensity?: number): string {
-    if (intensity === undefined) {
-      return '情绪强度未知'
-    }
-    return `情绪强度 ${intensity}/10`
+    return softIntensity(intensity ?? 0)
   }
 
-  private getEmotionColor(emotion: string): ResourceColor {
-    if (emotion.indexOf('开心') >= 0 || emotion.indexOf('平静') >= 0) {
-      return $r('app.color.theme_secondary')
-    }
-    if (emotion.indexOf('焦虑') >= 0 || emotion.indexOf('难过') >= 0 || emotion.indexOf('生气') >= 0) {
-      return $r('app.color.state_warning')
-    }
-    return $r('app.color.theme_primary')
+  /** D5 语义色映射收编到 AssessmentTone（详情/记录卡共用） */
+  private getEmotionChipKind(emotion: string): string {
+    return emotionChipKind(emotion)
   }
 
   private goWriteDiary(): void {
@@ -129,7 +145,7 @@ export struct MoodDiaryView {
       pushRoute('DiaryEditPage')
     } catch (error) {
       Logger.error(TAG, `跳转写日记页失败: ${JSON.stringify(error)}`)
-      ToastUtil.show('写日记页面暂时无法打开')
+      ToastUtil.show('页面没打开成功，再试一次吧')
     }
   }
 
@@ -185,6 +201,7 @@ export struct MoodDiaryView {
           .width('100%')
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
         }
         .layoutWeight(1)
         .width('100%')
@@ -205,41 +222,34 @@ export struct MoodDiaryView {
     Column() {
       Text('记录今天的感受')
         .fontSize(20)
-        .fontWeight(FontWeight.Bold)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
 
       Text('记录不是为了评判自己，而是为了更温柔地理解自己。')
-        .fontSize(14)
+        .fontSize(FontLevel.Body)
         .fontColor($r('app.color.text_secondary'))
-        .lineHeight(22)
+        .lineHeight(FontLevel.bodyLineHeight(FontLevel.Body))
         .width('100%')
-        .margin({ top: 8 })
+        .margin({ top: Dimension.SpaceS })
 
-      Button('写日记')
-        .width('100%')
-        .height(44)
-        .fontSize(15)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor($r('app.color.theme_primary'))
-        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-        .linearGradient({
-          angle: 135,
-          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-        })
-        .borderRadius(Dimension.CardRadiusInner)
-        .shadow(ShadowStyle.Button)
-        .borderRadius(22)
-        .margin({ top: 16 })
-        .onClick(() => {
+      // HTML 设计稿：日记引导卡的「写日记」为次按钮
+      AppButton({
+        label: '写日记',
+        kind: 'secondary',
+        block: true,
+        outerMargin: { top: Dimension.SpaceL },
+        onPress: () => {
           this.goWriteDiary()
-        })
+        }
+      })
     }
     .width('100%')
-    .padding(18)
+    .padding(Dimension.CardPaddingHero)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(16)
-    .margin({ bottom: 16 })
+    .borderRadius(Dimension.HeroCardRadius)
+    .shadow(ShadowStyle.Card)
+    .margin({ bottom: Dimension.SpaceXXL })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -257,66 +267,92 @@ export struct MoodDiaryView {
   buildDiaryCard(item: DiaryItem, index: number) {
     Column() {
       Row() {
-        Text(item.emotion ? item.emotion : '情绪记录')
-          .fontSize(12)
-          .fontColor(this.getEmotionColor(item.emotion ? item.emotion : ''))
-          .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-          .backgroundColor($r('app.color.surface_soft'))
-          .borderRadius(10)
+        // 情绪语义色标签（D5 映射）
+        AppChip({
+          label: item.emotion ? item.emotion : '情绪记录',
+          kind: this.getEmotionChipKind(item.emotion ? item.emotion : '')
+        })
 
         Blank()
 
         Text(this.getDiaryDateText(item.createTime ? item.createTime : ''))
-          .fontSize(12)
-          .fontColor($r('app.color.text_tertiary'))
+          .fontSize(FontLevel.Caption)
+          .fontColor($r('app.color.text_quaternary'))
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .margin({ bottom: Dimension.SpaceS })
 
       Text(item.title ? item.title : '未命名日记')
-        .fontSize(17)
-        .fontWeight(FontWeight.Bold)
+        .fontSize(FontLevel.SectionTitle)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
 
       if (item.event && item.event.length > 0) {
-        Text(`事件：${item.event}`)
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
-          .width('100%')
-          .margin({ top: 8 })
+        // HTML：「事件：」标签 13fp t4 弱化，内容 13fp t3
+        Text() {
+          Span('事件：')
+            .fontColor($r('app.color.text_quaternary'))
+          Span(item.event)
+            .fontColor($r('app.color.text_tertiary'))
+        }
+        .fontSize(FontLevel.Aux)
+        .lineHeight(20)
+        .width('100%')
+        .margin({ top: Dimension.SpaceM })
       }
 
       if (item.content && item.content.length > 0) {
         Text(item.content)
-          .fontSize(14)
+          .fontSize(FontLevel.Body)
           .fontColor($r('app.color.text_secondary'))
-          .lineHeight(22)
+          .lineHeight(FontLevel.bodyLineHeight(FontLevel.Body))
           .maxLines(3)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
-          .margin({ top: 8, bottom: 12 })
+          .margin({ top: Dimension.SpaceS, bottom: Dimension.SpaceM })
       }
 
       Row() {
-        Text(this.getIntensityText(item.intensity))
-          .fontSize(12)
-          .fontColor($r('app.color.text_tertiary'))
+        // 情绪温度：描述语 + 小刻度条（替代 X/10 的体检感）
+        Column() {
+          Text(this.getIntensityText(item.intensity))
+            .fontSize(FontLevel.Caption)
+            .fontColor($r('app.color.text_quaternary'))
+
+          Row() {
+            Row()
+              .width(Dimension.Space4XL * 2 * (item.intensity ?? 0) / 10)
+              .height(3)
+              .backgroundColor(brand().primary)
+              .opacity(0.45)
+          }
+          .width(Dimension.Space4XL * 2)
+          .height(3)
+          .borderRadius(2)
+          .backgroundColor($r('app.color.surface_soft'))
+          .margin({ top: Dimension.Space2XS })
+        }
+        .alignItems(HorizontalAlign.Start)
 
         Blank()
 
         Text('查看详情')
-          .fontSize(14)
-          .fontColor($r('app.color.theme_primary'))
+          .fontSize(FontLevel.Body)
+          .fontColor(brand().primary)
           .fontWeight(FontWeight.Medium)
       }
       .width('100%')
+      .padding({ top: Dimension.SpaceM })
+      .margin({ top: Dimension.SpaceS })
+      .border({ width: { top: 1 }, color: $r('app.color.app_divider') })
     }
     .width('100%')
-    .padding(16)
+    .padding(Dimension.CardPadding)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(16)
-    .margin({ bottom: index === this.diaryList.length - 1 ? 0 : 12 })
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
+    .margin({ bottom: index === this.diaryList.length - 1 ? 0 : Dimension.SpaceXXL })
     .onClick(() => {
       // 跳转独立详情页，整条日记通过 params 传过去
       const params: DiaryDetailParams = {

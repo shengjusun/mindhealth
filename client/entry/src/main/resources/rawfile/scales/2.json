@@ -1,14 +1,268 @@
 {
-  "id": 2,
-  "name": "SDS抑郁自评量表",
-  "type": "SDS",
-  "version": 1,
-  "maxScore": 15,
-  "questions": [
-    {"id":1,"title":"最近一周，你是否感到情绪低落、开心不起来？","options":[{"key":"A","text":"几乎没有","score":0},{"key":"B","text":"偶尔有","score":1},{"key":"C","text":"经常有","score":2},{"key":"D","text":"几乎每天都有","score":3}]},
-    {"id":2,"title":"最近一周，你对以前喜欢的事情还有兴趣吗？","options":[{"key":"A","text":"和以前一样","score":0},{"key":"B","text":"兴趣少了一些","score":1},{"key":"C","text":"明显没兴趣","score":2},{"key":"D","text":"完全提不起兴趣","score":3}]},
-    {"id":3,"title":"最近一周，你是否觉得自己没什么价值或容易自责？","options":[{"key":"A","text":"没有","score":0},{"key":"B","text":"偶尔有","score":1},{"key":"C","text":"经常有","score":2},{"key":"D","text":"总是如此","score":3}]},
-    {"id":4,"title":"最近一周，你的食欲和精力怎么样？","options":[{"key":"A","text":"正常","score":0},{"key":"B","text":"稍微下降","score":1},{"key":"C","text":"明显下降","score":2},{"key":"D","text":"非常差","score":3}]},
-    {"id":5,"title":"最近一周，早晨醒来时你的心情如何？","options":[{"key":"A","text":"比较平静","score":0},{"key":"B","text":"有点低落","score":1},{"key":"C","text":"比较低落","score":2},{"key":"D","text":"非常低落","score":3}]}
-  ]
+  "id" : 2,
+  "name" : "压力水平测试",
+  "type" : "stress",
+  "description" : "评估最近一周学习、工作与生活带来的压力程度，帮助识别压力来源与身体反应。",
+  "version" : 1790496890,
+  "maxScore" : 36,
+  "scoring" : {
+    "bands" : [ {
+      "max" : 8,
+      "level" : "压力较低",
+      "suggestion" : "最近一周你承受的压力在可应对范围内。可以继续保持现有的节奏，同时留一点固定的放松时间作为缓冲。"
+    }, {
+      "max" : 16,
+      "level" : "轻度压力",
+      "suggestion" : "最近一周你有一些压力积累。建议把任务按优先级拆小，先完成最要紧的一件；每天留 20 分钟不被打扰的放松时间。"
+    }, {
+      "max" : 24,
+      "level" : "压力偏高",
+      "suggestion" : "最近一周压力已经比较明显，可能伴随睡眠或情绪变化。建议主动和上级、家人沟通调整任务量，并安排一次真正断开的休息。"
+    }, {
+      "max" : 36,
+      "level" : "压力过载",
+      "suggestion" : "最近一周你的压力已接近或超出承受范围。请优先减负而不是硬撑，尽快向身边人求助；如果身体出现明显不适，建议同时就医排查。"
+    } ]
+  },
+  "questions" : [ {
+    "id" : 1,
+    "title" : "最近一周，你是否感到手头的事情超出了自己能应对的范围？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "完全没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "一直如此",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 2,
+    "title" : "最近一周，你是否因为任务太多而感到喘不过气？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "不会",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常会",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 3,
+    "title" : "最近一周，你是否因为压力而变得急躁或容易发火？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "不会",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常会",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "非常频繁",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 4,
+    "title" : "最近一周，压力是否影响到你的睡眠或食欲？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有影响",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "轻微影响",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "明显影响",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "严重影响",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 5,
+    "title" : "最近一周，你是否觉得自己没有时间休息或做喜欢的事？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "时间充足",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔没有时间",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常没有时间",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "完全没有时间",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 6,
+    "title" : "最近一周，你是否感到身体紧绷、肩颈酸痛等压力反应？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天都有",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 7,
+    "title" : "最近一周，你是否因为担心做不好而反复检查或拖延？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "不会",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常会",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每次都会",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 8,
+    "title" : "最近一周，你是否很难在工作和生活之间划清界限？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "界限很清楚",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会混在一起",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常混在一起",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "完全没有界限",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 9,
+    "title" : "最近一周，你是否感到被期待或责任压得难以放松？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有这种感觉",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "一直有",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 10,
+    "title" : "最近一周，你是否会因为小事而感到格外烦躁？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "很少",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 11,
+    "title" : "最近一周，你是否觉得自己一直在硬撑？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "一直如此",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 12,
+    "title" : "最近一周，你是否有办法安排时间来放松自己？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "经常能安排",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔能安排",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "很少能安排",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "完全安排不出来",
+      "score" : 3
+    } ]
+  } ]
 }

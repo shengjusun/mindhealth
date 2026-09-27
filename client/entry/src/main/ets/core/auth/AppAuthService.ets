@@ -6,8 +6,8 @@
  * 3. 从本地恢复登录状态
  * 4. 把 token 同步给 ApiService，让后续接口请求能带 token
  */
-import { hilog } from '@kit.PerformanceAnalysisKit'
 import { preferences } from '@kit.ArkData'
+import { Logger } from '../../common/utils/Logger'
 import { common } from '@kit.AbilityKit'
 import { http } from '@kit.NetworkKit'
 import { ApiConfig  } from '../../common/constants/apiConfig'
@@ -15,7 +15,6 @@ import { ApiService } from '../api/ApiService'
 import { HuaweiIdService } from './HuaweiIdService'
 import { SnapshotRepository } from '../repository/SnapshotRepository'
 
-const DOMAIN = 0xFF00
 const TAG = 'AuthService'
 
 export interface UserAuthInfo {
@@ -98,9 +97,9 @@ export class AuthService {
     this.context = context
     try {
       await this.loadUserInfo()
-      hilog.info(DOMAIN, TAG, 'AuthService 初始化完成')
+      Logger.info(TAG, 'AuthService 初始化完成')
     } catch (error) {
-      hilog.error(DOMAIN, TAG, `AuthService 初始化失败: ${JSON.stringify(error)}`)
+      Logger.error(TAG, `AuthService 初始化失败: ${JSON.stringify(error)}`)
     }
   }
 
@@ -115,7 +114,7 @@ export class AuthService {
     callback?: LoginCallback
   ): Promise<void> {
     try {
-      hilog.info(DOMAIN, TAG, `开始登录: phone=${phone}`)
+      Logger.info(TAG, '开始登录')
 
       // 先请求后端登录接口
       const result = await this.requestLogin(phone, password)
@@ -124,7 +123,7 @@ export class AuthService {
       await this.handleLoginResult(result, callback)
     } catch (error) {
       const errorMsg = `登录流程异常: ${JSON.stringify(error)}`
-      hilog.error(DOMAIN, TAG, errorMsg)
+      Logger.error(TAG, errorMsg)
       callback?.(false, undefined, errorMsg)
     }
   }
@@ -145,10 +144,7 @@ export class AuthService {
       const url = `${ApiConfig .API_BASE_URL}${ApiConfig .ENDPOINTS.LOGIN}`
 
       // 打印请求地址，方便看前端到底请求到哪里
-      hilog.info(DOMAIN, TAG, `Login URL: ${url}`)
-
-      // 调试用：只打印手机号，不打印密码，避免敏感信息泄露
-      hilog.info(DOMAIN, TAG, `Login data: phone=${phone}`)
+      Logger.info(TAG, `Login URL: ${url}`)
 
       // 真正发登录请求
       // 登录是提交数据，所以这里用 POST
@@ -163,9 +159,8 @@ export class AuthService {
         readTimeout: 10000
       })
 
-      // 打印后端返回，方便联调时看状态码和返回内容
-      hilog.info(DOMAIN, TAG, `Response code: ${response.responseCode}`)
-      hilog.info(DOMAIN, TAG, `Response result: ${response.result}`)
+      // 只打印状态码：完整响应体含 accessToken/refreshToken，绝不能进日志
+      Logger.info(TAG, `Response code: ${response.responseCode}`)
 
       // 第一层判断：HTTP 状态码
       // 不是 200 说明请求层面就失败了，比如接口不存在、后端报错等
@@ -183,8 +178,8 @@ export class AuthService {
       // HTTP 200 只代表请求成功，不代表登录业务一定成功
       if (result.code === 200 && result.data) {
         // 这里只打印 token 长度，不直接打印完整 token
-        hilog.info(DOMAIN, TAG, `登录接口返回成功, tokenLength=${(result.data.token || '').length}`)
-        hilog.info(DOMAIN, TAG, `后端用户信息: ${JSON.stringify(result.data.userInfo)}`)
+        Logger.info(TAG, `登录接口返回成功, tokenLength=${(result.data.token || '').length}`)
+        Logger.info(TAG, `后端用户信息: ${JSON.stringify(result.data.userInfo)}`)
 
         // 把后端返回的内容整理成前端内部统一使用的 LoginResult
         return {
@@ -202,7 +197,7 @@ export class AuthService {
       }
     } catch (error) {
       // 网络异常、JSON 解析异常等都会进这里
-      hilog.error(DOMAIN, TAG, `登录请求异常: ${JSON.stringify(error)}`)
+      Logger.error(TAG, `登录请求异常: ${JSON.stringify(error)}`)
       return {
         success: false,
         error: `网络错误: ${JSON.stringify(error)}`
@@ -212,7 +207,7 @@ export class AuthService {
         // 请求结束后释放 httpRequest
         httpRequest.destroy()
       } catch (error) {
-        hilog.warn(DOMAIN, TAG, `释放 httpRequest 失败: ${JSON.stringify(error)}`)
+        Logger.warn(TAG, `释放 httpRequest 失败: ${JSON.stringify(error)}`)
       }
     }
   }
@@ -224,7 +219,7 @@ export class AuthService {
    */
   public async loginWithHuaweiId(callback?: LoginCallback): Promise<void> {
     try {
-      hilog.info(DOMAIN, TAG, '开始华为账号登录')
+      Logger.info(TAG, '开始华为账号登录')
 
       // 第一步：拉起华为账号授权，拿一次性 code
       const authorizationCode = await HuaweiIdService.getAuthorizationCode()
@@ -233,7 +228,7 @@ export class AuthService {
       await this.loginWithHuaweiCode(authorizationCode, callback)
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : `华为登录流程异常: ${JSON.stringify(error)}`
-      hilog.error(DOMAIN, TAG, `华为登录失败: ${errorMsg}`)
+      Logger.error(TAG, `华为登录失败: ${errorMsg}`)
       callback?.(false, undefined, errorMsg)
     }
   }
@@ -249,12 +244,12 @@ export class AuthService {
     }
 
     try {
-      hilog.info(DOMAIN, TAG, '开始华为账号 code 登录')
+      Logger.info(TAG, '开始华为账号 code 登录')
       const result = await this.requestHuaweiLogin(authorizationCode.trim())
       await this.handleLoginResult(result, callback)
     } catch (error) {
       const errorMsg = `华为登录流程异常: ${JSON.stringify(error)}`
-      hilog.error(DOMAIN, TAG, errorMsg)
+      Logger.error(TAG, errorMsg)
       callback?.(false, undefined, errorMsg)
     }
   }
@@ -267,7 +262,7 @@ export class AuthService {
     const httpRequest = http.createHttp()
     try {
       const url = `${ApiConfig.API_BASE_URL}${ApiConfig.ENDPOINTS.HUAWEI_LOGIN}`
-      hilog.info(DOMAIN, TAG, `Huawei Login URL: ${url}`)
+      Logger.info(TAG, `Huawei Login URL: ${url}`)
 
       const response = await httpRequest.request(url, {
         method: http.RequestMethod.POST,
@@ -283,7 +278,7 @@ export class AuthService {
 
       const result: LoginResponse = JSON.parse(response.result as string)
       if (result.code === 200 && result.data) {
-        hilog.info(DOMAIN, TAG, `华为登录成功, userId=${result.data.userInfo.id}`)
+        Logger.info(TAG, `华为登录成功, userId=${result.data.userInfo.id}`)
         return {
           success: true,
           user: result.data.userInfo,
@@ -294,13 +289,13 @@ export class AuthService {
 
       return { success: false, error: result.message || '华为登录失败' }
     } catch (error) {
-      hilog.error(DOMAIN, TAG, `华为登录请求异常: ${JSON.stringify(error)}`)
+      Logger.error(TAG, `华为登录请求异常: ${JSON.stringify(error)}`)
       return { success: false, error: `网络错误: ${JSON.stringify(error)}` }
     } finally {
       try {
         httpRequest.destroy()
       } catch (error) {
-        hilog.warn(DOMAIN, TAG, `释放 httpRequest 失败: ${JSON.stringify(error)}`)
+        Logger.warn(TAG, `释放 httpRequest 失败: ${JSON.stringify(error)}`)
       }
     }
   }
@@ -330,12 +325,12 @@ export class AuthService {
       // 把用户信息保存到本地，方便下次启动恢复登录态
       await this.saveUserInfo()
 
-      hilog.info(DOMAIN, TAG, `登录成功: ${this.userInfo.displayName}`)
+      Logger.info(TAG, `登录成功: ${this.userInfo.displayName}`)
       callback?.(true, this.userInfo)
       return
     }
 
-    hilog.error(DOMAIN, TAG, `登录失败: ${result.error}`)
+    Logger.error(TAG, `登录失败: ${result.error}`)
     callback?.(false, undefined, result.error)
   }
 
@@ -346,7 +341,7 @@ export class AuthService {
    */
   private syncTokenToApiService(token: string): void {
     ApiService.getInstance().setToken(token || '')
-    hilog.info(DOMAIN, TAG, `ApiService token 已同步, tokenLength=${(token || '').length}`)
+    Logger.info(TAG, `ApiService token 已同步, tokenLength=${(token || '').length}`)
   }
 
   /**
@@ -358,14 +353,14 @@ export class AuthService {
       if (this.userInfo && this.userInfo.isLoggedIn) {
         // 如果内存里有登录态，就重新同步 token 给 ApiService
         this.syncTokenToApiService(this.userInfo.accessToken)
-        hilog.info(DOMAIN, TAG, '静默登录成功')
+        Logger.info(TAG, '静默登录成功')
         return true
       }
 
-      hilog.info(DOMAIN, TAG, '静默登录失败: 当前没有可用登录态')
+      Logger.info(TAG, '静默登录失败: 当前没有可用登录态')
       return false
     } catch (error) {
-      hilog.error(DOMAIN, TAG, `静默登录异常: ${JSON.stringify(error)}`)
+      Logger.error(TAG, `静默登录异常: ${JSON.stringify(error)}`)
       return false
     }
   }
@@ -381,9 +376,9 @@ export class AuthService {
       await this.clearUserInfo()
       // 清空动态数据快照，避免下一个账号看到上一个人的日记 / 测评记录
       await SnapshotRepository.getInstance().clearAll()
-      hilog.info(DOMAIN, TAG, '退出登录成功')
+      Logger.info(TAG, '退出登录成功')
     } catch (error) {
-      hilog.error(DOMAIN, TAG, `退出登录失败: ${JSON.stringify(error)}`)
+      Logger.error(TAG, `退出登录失败: ${JSON.stringify(error)}`)
     }
   }
 
@@ -398,9 +393,9 @@ export class AuthService {
       this.userInfo = userInfo
       this.syncTokenToApiService(this.userInfo.accessToken)
       await this.saveUserInfo()
-      hilog.info(DOMAIN, TAG, '用户信息更新成功')
+      Logger.info(TAG, '用户信息更新成功')
     } catch (error) {
-      hilog.error(DOMAIN, TAG, `更新用户信息失败: ${JSON.stringify(error)}`)
+      Logger.error(TAG, `更新用户信息失败: ${JSON.stringify(error)}`)
     }
   }
 
@@ -436,9 +431,9 @@ export class AuthService {
       // flush 表示真正写入本地
       await this.preferencesStore.flush()
 
-      hilog.info(DOMAIN, TAG, '用户信息已保存到本地')
+      Logger.info(TAG, '用户信息已保存到本地')
     } catch (error) {
-      hilog.error(DOMAIN, TAG, `保存用户信息失败: ${JSON.stringify(error)}`)
+      Logger.error(TAG, `保存用户信息失败: ${JSON.stringify(error)}`)
     }
   }
 
@@ -458,14 +453,14 @@ export class AuthService {
 
       const userInfoStr = await this.preferencesStore.get('user_info', '') as string
       if (!userInfoStr) {
-        hilog.info(DOMAIN, TAG, '本地没有保存的用户信息')
+        Logger.info(TAG, '本地没有保存的用户信息')
         return
       }
 
       const restoredUserInfo = JSON.parse(userInfoStr) as UserAuthInfo
 
       if (!restoredUserInfo.accessToken || restoredUserInfo.accessToken.trim().length === 0) {
-        hilog.warn(DOMAIN, TAG, '本地用户信息缺少 token，清理登录态')
+        Logger.warn(TAG, '本地用户信息缺少 token，清理登录态')
         this.userInfo = null
         this.syncTokenToApiService('')
         await this.clearUserInfo()
@@ -473,7 +468,7 @@ export class AuthService {
       }
 
       if (!restoredUserInfo.isLoggedIn) {
-        hilog.warn(DOMAIN, TAG, '本地用户信息不是登录状态，清理登录态')
+        Logger.warn(TAG, '本地用户信息不是登录状态，清理登录态')
         this.userInfo = null
         this.syncTokenToApiService('')
         await this.clearUserInfo()
@@ -483,9 +478,9 @@ export class AuthService {
       this.userInfo = restoredUserInfo
       this.syncTokenToApiService(this.userInfo.accessToken)
 
-      hilog.info(DOMAIN, TAG, `本地登录态恢复成功, tokenLength=${this.userInfo.accessToken.length}`)
+      Logger.info(TAG, `本地登录态恢复成功, tokenLength=${this.userInfo.accessToken.length}`)
     } catch (error) {
-      hilog.error(DOMAIN, TAG, `加载本地用户信息失败: ${JSON.stringify(error)}`)
+      Logger.error(TAG, `加载本地用户信息失败: ${JSON.stringify(error)}`)
 
       this.userInfo = null
       this.syncTokenToApiService('')
@@ -511,9 +506,9 @@ export class AuthService {
       await this.preferencesStore.delete('user_info')
       await this.preferencesStore.flush()
 
-      hilog.info(DOMAIN, TAG, '本地用户信息已清除')
+      Logger.info(TAG, '本地用户信息已清除')
     } catch (error) {
-      hilog.error(DOMAIN, TAG, `清除本地用户信息失败: ${JSON.stringify(error)}`)
+      Logger.error(TAG, `清除本地用户信息失败: ${JSON.stringify(error)}`)
     }
   }
 }

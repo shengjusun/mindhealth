@@ -127,6 +127,24 @@ INSERT OR IGNORE INTO "diary" ("user_id", "title", "content", "emotion", "intens
 (1, '周末的放松时光', '周末和朋友一起去爬山，感觉心情好多了。大自然真的很治愈。', '开心', 8, '和朋友去郊外爬山'),
 (2, '最近的情绪波动', '最近情绪起伏比较大，可能是因为工作压力和生活琐事。需要好好调整一下。', '平静', 4, '工作和生活中的一些小挫折');
 
+-- 创建管理员操作日志表（审计留痕）
+CREATE TABLE IF NOT EXISTS "admin_operation_log" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "admin_id" INTEGER DEFAULT NULL COMMENT '操作管理员ID',
+  "admin_username" TEXT DEFAULT NULL COMMENT '操作管理员用户名快照',
+  "method" TEXT NOT NULL COMMENT 'HTTP方法',
+  "path" TEXT NOT NULL COMMENT '请求路径(已去context-path)',
+  "action_desc" TEXT DEFAULT NULL COMMENT '操作摘要',
+  "target_desc" TEXT DEFAULT NULL COMMENT '操作对象标识',
+  "ip" TEXT DEFAULT NULL COMMENT '来源IP',
+  "status" INTEGER DEFAULT NULL COMMENT 'HTTP状态码',
+  "duration_ms" INTEGER DEFAULT NULL COMMENT '处理耗时(ms)',
+  "create_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间'
+);
+
+CREATE INDEX IF NOT EXISTS "idx_admin_op_log_admin_id" ON "admin_operation_log" ("admin_id");
+CREATE INDEX IF NOT EXISTS "idx_admin_op_log_create_time" ON "admin_operation_log" ("create_time");
+
 -- 插入测评结果测试数据
 INSERT OR IGNORE INTO "assessment_result" ("user_id", "assessment_id", "score", "result") VALUES 
 (1, 1, 45, '您的心理健康状况良好，但需要注意一些轻微的症状。建议保持良好的生活习惯，适当放松。'),

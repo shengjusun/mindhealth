@@ -8,6 +8,8 @@
  * 注意：只有被 @Trace 装饰的字段才具备观察能力，新增字段不要漏掉装饰器。
  */
 import { AppStorageV2 } from '@kit.ArkUI'
+import { Logger } from '../utils/Logger'
+import { ToastUtil } from '../utils/ToastUtil'
 
 @ObservedV2
 export class AppState {
@@ -27,6 +29,24 @@ export class AppState {
    * 注意：只有 V2 组件能观察 @Trace 变化并重排，V1 组件（HomeView 等）只能拿到首帧的值。
    */
   @Trace bottomIndicatorVp: number = 0
+  /** 顶部状态栏避让高度（vp），EntryAbility 从窗口避让区读出，AppPageHeader 等头部使用 */
+  @Trace topAvoidVp: number = 0
+
+  /**
+   * 当前主题 id（对应 THEMES[].id，见 Theme.ets）。
+   * 换主题只需改这个字段，brand() 的所有引用处会自动重渲染。
+   * 取自 Preferences 的用户选择，默认晨雾蓝。
+   */
+  @Trace themeId: string = 'misty'
+
+  /**
+   * 当前是否深色模式。
+   *
+   * 中性色靠资源系统自动切深浅，但品牌色是我们自己的常量，
+   * 必须在深浅两套色板间手动选一份，所以要单独记这个标记。
+   * 由 EntryAbility.onConfigurationUpdate 跟随系统同步。
+   */
+  @Trace isDark: boolean = false
 
   /**
    * 日记详情刷新信号。
@@ -76,9 +96,28 @@ export function appState(): AppState {
 // 页面不再 import router，统一走这几个函数，后续要替换实现只改这一处。
 // 目标页名必须与 resources/base/profile/route_map.json 中的 name 一致。
 
-/** 入栈跳转 */
+const ROUTE_TAG = 'AppState'
+
+/**
+ * 入栈跳转。
+ *
+ * 页面名写错（例如写成 'pages/me/MyRecordsPage' 这种带目录前缀的形式）时，
+ * pushPath 既不一定抛错、也不会真正入栈，表现为「按钮点了没反应」且没有任何提示。
+ * 这类死按钮排查成本极高，所以这里主动校验栈是否真的增长了，失败就报出来。
+ */
 export function pushRoute(name: string): void {
-  appState().pathStack.pushPath({ name: name })
+  const stack: NavPathStack = appState().pathStack
+  try {
+    const sizeBefore: number = stack.size()
+    stack.pushPath({ name: name })
+    if (stack.size() === sizeBefore) {
+      Logger.error(ROUTE_TAG, `路由跳转失败，页面名未注册: ${name}（须与 route_map.json 的 name 一致）`)
+      ToastUtil.show('页面打开失败')
+    }
+  } catch (error) {
+    Logger.error(ROUTE_TAG, `路由跳转异常: ${name}, ${JSON.stringify(error)}`)
+    ToastUtil.show('页面打开失败')
+  }
 }
 
 /** 带参数入栈跳转，取代 router.pushUrl({ url, params }) */

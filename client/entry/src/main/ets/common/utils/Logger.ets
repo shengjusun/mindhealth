@@ -23,7 +23,12 @@ enum LogLevel {
  * 日志工具类
  */
 export class Logger {
-  private static isDebugMode: boolean = true;  // 是否调试模式
+  /**
+   * 是否调试模式。默认 false —— release 包里 info/debug 一律不输出，
+   * 避免 token、手机号、完整响应体这类敏感内容随日志外泄（hdc hilog 可直接读到）。
+   * 本地排查时用 Logger.setDebugMode(true) 临时打开，warn/error 不受此开关影响。
+   */
+  private static isDebugMode: boolean = false;
 
   /**
    * 设置调试模式
@@ -45,7 +50,9 @@ export class Logger {
    * 信息日志
    */
   static info(tag: string, message: string, ...args: Object[]): void {
-    hilog.info(LOG_DOMAIN, tag, `${LOG_PREFIX}: ${message}`, ...args);
+    if (Logger.isDebugMode) {
+      hilog.info(LOG_DOMAIN, tag, `${LOG_PREFIX}: ${message}`, ...args);
+    }
   }
 
   /**

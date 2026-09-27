@@ -1,11 +1,13 @@
 import { pushRoute, resetRoute } from '../../common/state/AppState'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension, FontLevel, ShadowStyle } from '../../common/constants/Theme'
+import { brand, Dimension, FontLevel, ShadowStyle } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
 import { AuthService } from '../../core/auth/AppAuthService'
 import { ApiService } from '../../core/api/ApiService'
 import { SnapshotRepository } from '../../core/repository/SnapshotRepository'
 import { appState } from '../../common/state/AppState'
+import { AppButton } from '../../common/components/AppButton'
+import { Skeleton } from '../../common/components/Skeleton'
 
 const TAG = 'HomePageNew'
 
@@ -16,8 +18,6 @@ interface HomeQuickAction {
   subtitle: string
   // 要跳转的路由名（route_map.json 里的 name）；为空表示该项只切 Tab 不入栈
   routeName: string
-  tagColor: ResourceColor
-  tagBackground: ResourceColor
 }
 
 interface AssessmentRecordItem {
@@ -47,6 +47,11 @@ export struct HomeView {
   @Local isAssessmentLoading: boolean = false
   // 非空表示当前卡片来自本地快照，需要标注数据时间
   @Local assessmentSnapshotHint: string = ''
+  // 无快照且网络失败：骨架屏转错误态（不再伪装成"还没有记录"）
+  @Local assessmentLoadError: boolean = false
+  // 分数滚动计数的当前显示值（easeOutCubic 600ms）
+  @Local displayScore: number = 0
+  private scoreTimerId: number = -1
 
   private authService: AuthService = AuthService.getInstance()
   private apiService: ApiService = ApiService.getInstance()
@@ -59,36 +64,28 @@ export struct HomeView {
       icon: $r('sys.symbol.message'),
       title: '轻心树洞',
       subtitle: '把今天的想法慢慢说出来',
-      routeName: '',
-      tagColor: $r('app.color.theme_primary'),
-      tagBackground: $r('app.color.tag_blue')
+      routeName: ''
     },
     {
       id: 'diary',
       icon: $r('sys.symbol.book_pages'),
       title: '心情日记',
       subtitle: '记录今天的心情与生活片段',
-      routeName: '',
-      tagColor: $r('app.color.theme_secondary'),
-      tagBackground: $r('app.color.tag_green')
+      routeName: ''
     },
     {
       id: 'assessment',
       icon: $r('sys.symbol.checkmark_clipboard'),
       title: '状态自查',
       subtitle: '简单记录今天的生活状态',
-      routeName: '',
-      tagColor: $r('app.color.state_warning'),
-      tagBackground: $r('app.color.tag_orange')
+      routeName: ''
     },
     {
       id: 'article',
       icon: $r('sys.symbol.doc_text'),
       title: '生活小贴士',
       subtitle: '看看适合今天的温柔提醒',
-      routeName: 'ArticlesPage',
-      tagColor: $r('app.color.theme_primary'),
-      tagBackground: $r('app.color.tag_blue')
+      routeName: 'ArticlesPage'
     }
   ]
 
@@ -98,6 +95,14 @@ export struct HomeView {
     }
 
     this.loadLatestAssessment()
+  }
+
+  aboutToDisappear(): void {
+    // Tab 视图常驻基本不销毁，清理仅为完整性
+    if (this.scoreTimerId >= 0) {
+      clearInterval(this.scoreTimerId)
+      this.scoreTimerId = -1
+    }
   }
 
   private ensureLogin(): boolean {
@@ -124,16 +129,28 @@ export struct HomeView {
    */
   private async loadLatestAssessment(): Promise<void> {
     this.isAssessmentLoading = true
+    this.assessmentLoadError = false
 
     const cached: Object[] | null = await this.snapshotRepo.getAssessmentResults()
-    if (cached && cached.length > 0) {
+    if (cached !== null && cached.length > 0) {
       this.latestAssessment = cached[0] as AssessmentRecordItem
       const ts: number = await this.snapshotRepo.getAssessmentTimestamp()
       this.assessmentSnapshotHint = SnapshotRepository.formatAgoText(ts)
       Logger.info(TAG, `最近状态记录命中本地快照 ${this.assessmentSnapshotHint}`)
+      this.updateScoreTarget()
+      // 有快照：立即展示快照数据（SWR），不阻塞在网络上
+      this.isAssessmentLoading = false
     }
-    this.isAssessmentLoading = false
 
+    // 静默刷新不 await：本地快照已经渲染出来了，网络失败也不该让调用方等；
+    // 无快照时骨架屏保持到网络返回，失败转错误态（审计 C-1-5 / C-1-6）
+    this.refreshInBackground().then(() => {
+      this.isAssessmentLoading = false
+    })
+  }
+
+  /** 后台静默刷新最近一次状态记录 */
+  private async refreshInBackground(): Promise<void> {
     try {
       const rawResult = await this.apiService.getAssessmentResults() as Object
       const list: AssessmentRecordItem[] | null = this.extractAssessmentList(rawResult)
@@ -141,11 +158,45 @@ export struct HomeView {
       if (list) {
         this.latestAssessment = list.length > 0 ? list[0] : null
         this.assessmentSnapshotHint = ''
+        this.updateScoreTarget()
         await this.snapshotRepo.saveAssessmentResults(list as Object[])
+      } else if (!this.latestAssessment) {
+        this.assessmentLoadError = true
       }
     } catch (error) {
       Logger.error(TAG, `刷新最近状态记录失败: ${JSON.stringify(error)}`)
+      if (!this.latestAssessment) {
+        this.assessmentLoadError = true
+      }
     }
+  }
+
+  /** 分数滚动计数：easeOutCubic 600ms（24 步 × 25ms），结束自动清理 */
+  private startScoreCountUp(target: number): void {
+    if (this.scoreTimerId >= 0) {
+      clearInterval(this.scoreTimerId)
+    }
+    let step: number = 0
+    const steps: number = 24
+    this.scoreTimerId = setInterval(() => {
+      step++
+      const t: number = Math.min(step / steps, 1)
+      this.displayScore = Math.round(target * (1 - Math.pow(1 - t, 3)))
+      if (t >= 1) {
+        clearInterval(this.scoreTimerId)
+        this.scoreTimerId = -1
+      }
+    }, 25)
+  }
+
+  /** 以 latestAssessment.score 为目标触发滚动 */
+  private updateScoreTarget(): void {
+    const score: number | null | undefined = this.latestAssessment ? this.latestAssessment.score : undefined
+    if (score === undefined || score === null) {
+      this.displayScore = 0
+      return
+    }
+    this.startScoreCountUp(score)
   }
 
   /**
@@ -220,12 +271,12 @@ export struct HomeView {
       return $r('app.color.tag_orange')
     }
 
-    return $r('app.color.tag_blue')
+    return brand().tagBlue
   }
 
   private getLevelColor(level: string): ResourceColor {
     if (level.indexOf('良好') >= 0 || level.indexOf('稳定') >= 0) {
-      return $r('app.color.theme_secondary')
+      return brand().secondary
     }
 
     if (level.indexOf('轻度') >= 0 || level.indexOf('起伏') >= 0) {
@@ -236,7 +287,7 @@ export struct HomeView {
       return $r('app.color.state_error')
     }
 
-    return $r('app.color.theme_primary')
+    return brand().primary
   }
 
   private getDisplayLevel(level: string): string {
@@ -317,6 +368,14 @@ export struct HomeView {
     return String(this.latestAssessment.score)
   }
 
+  /** 实际渲染值：数据就位后走滚动计数，无数据回退 '--' */
+  private getScoreDisplay(): string {
+    if (!this.latestAssessment || this.latestAssessment.score === undefined || this.latestAssessment.score === null) {
+      return this.getScoreText()
+    }
+    return String(this.displayScore)
+  }
+
   build() {
     Column() {
       AppPageHeader({
@@ -344,6 +403,7 @@ export struct HomeView {
       .width('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
     }
     .width('100%')
     .height('100%')
@@ -360,14 +420,14 @@ export struct HomeView {
           Row() {
             Text('今日心情')
               .fontSize(12)
-              .fontColor($r('app.color.theme_primary'))
+              .fontColor(brand().primary)
               .padding({
                 left: 10,
                 right: 10,
                 top: 5,
                 bottom: 5
               })
-              .backgroundColor($r('app.color.tag_blue'))
+              .backgroundColor(brand().tagBlue)
               .borderRadius(12)
           }
           .margin({ bottom: 14 })
@@ -395,14 +455,14 @@ export struct HomeView {
 
             Text('轻呼吸')
               .fontSize(12)
-              .fontColor($r('app.color.theme_primary'))
+              .fontColor(brand().primary)
               .padding({
                 left: 10,
                 right: 10,
                 top: 4,
                 bottom: 4
               })
-              .backgroundColor($r('app.color.tag_blue'))
+              .backgroundColor(brand().tagBlue)
               .borderRadius(12)
           }
           .width('100%')
@@ -423,134 +483,142 @@ export struct HomeView {
       .width('100%')
     }
     .width('100%')
-    .padding(22)
+    .padding(Dimension.CardPaddingHero)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(Dimension.CardRadius)
+    .borderRadius(Dimension.HeroCardRadius)
     .shadow(ShadowStyle.Card)
-    .margin({ bottom: 18 })
+    .margin({ bottom: Dimension.SpaceXXL })
     .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
   buildLatestAssessmentCard() {
     Column() {
-      Row() {
-        Text('最近一次状态记录')
-          .fontSize(17)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
-
-        Blank()
-
-        Text('查看记录')
-          .fontSize(12)
-          .fontColor($r('app.color.theme_primary'))
-          .onClick(() => {
-            this.safePush('pages/me/MyRecordsPage')
-          })
-      }
-      .width('100%')
-      .margin({ bottom: 14 })
-
       if (this.isAssessmentLoading) {
-        Text('正在加载状态记录...')
-          .fontSize(14)
-          .fontColor($r('app.color.text_secondary'))
+        // 骨架屏：镜像状态卡的排版（标题条 + 灰块建议区 + 右下按钮位）
+        Column({ space: Dimension.SpaceM }) {
+          Skeleton({ blockWidth: '40%', blockHeight: 18 })
+          Skeleton({ blockWidth: '100%', blockHeight: 64, radius: Dimension.RadiusM })
+          Row() {
+            Skeleton({ blockWidth: 128, blockHeight: 48, radius: Dimension.RadiusFull })
+          }
           .width('100%')
+          .justifyContent(FlexAlign.End)
+        }
+        .width('100%')
+      } else if (this.assessmentLoadError && !this.latestAssessment) {
+        // 错误态：明确告知 + 重试（不再把网络失败伪装成"还没有记录"，审计 C-1-6）
+        Column({ space: Dimension.SpaceM }) {
+          Text('状态记录加载失败')
+            .fontSize(FontLevel.SubTitle)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_primary'))
+
+          Text('网络似乎不太顺畅，稍后再试试。')
+            .fontSize(FontLevel.Aux)
+            .fontColor($r('app.color.text_tertiary'))
+
+          AppButton({
+            label: '重试',
+            kind: 'secondary',
+            onPress: () => {
+              this.loadLatestAssessment()
+            }
+          })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
       } else if (this.latestAssessment) {
+        // 信息层级（HTML）：量表名 15fp t2 居左，分数 28fp Bold text-1 居右
         Row() {
-          Column() {
-            Text(this.getDisplayTitle(this.latestAssessment.assessmentTitle ? this.latestAssessment.assessmentTitle : ''))
-              .fontSize(18)
+          Text(this.getDisplayTitle(this.latestAssessment.assessmentTitle ? this.latestAssessment.assessmentTitle : ''))
+            .fontSize(15)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_secondary'))
+            .layoutWeight(1)
+
+          Row() {
+            Text(this.getScoreDisplay())
+              .fontSize(FontLevel.Stat)
               .fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.text_primary'))
-              .width('100%')
 
-            Text(`完成时间：${this.formatTime(this.latestAssessment.createTime ? this.latestAssessment.createTime : '')}`)
-              .fontSize(12)
-              .fontColor($r('app.color.text_tertiary'))
-              .width('100%')
-              .margin({ top: 8 })
+            Text('分')
+              .fontSize(FontLevel.Caption)
+              .fontColor($r('app.color.text_quaternary'))
+              .margin({ left: Dimension.Space2XS })
+          }
+          .alignItems(VerticalAlign.Bottom)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Top)
+
+        // 建议文案：卡内灰块（HTML inner-block：bg-subtle / radius 12 / padding 12）
+        Text(this.getSuggestionText(this.latestAssessment.suggestion ? this.latestAssessment.suggestion : ''))
+          .fontSize(FontLevel.Body)
+          .fontColor($r('app.color.text_secondary'))
+          .lineHeight(FontLevel.bodyLineHeight(FontLevel.Body))
+          .width('100%')
+          .padding(Dimension.CardPaddingInner)
+          .backgroundColor($r('app.color.surface_soft'))
+          .borderRadius(Dimension.RadiusM)
+          .margin({ top: Dimension.SpaceM })
+
+        // 底部：等级 chip 居左，完成时间与快照标注 12fp 极灰居右
+        Row() {
+          Text(this.getDisplayLevel(this.latestAssessment.level ? this.latestAssessment.level : ''))
+            .fontSize(FontLevel.Caption)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.getLevelColor(this.latestAssessment.level ? this.latestAssessment.level : ''))
+            .padding({
+              left: Dimension.SpaceS,
+              right: Dimension.SpaceS,
+              top: 3,
+              bottom: 3
+            })
+            .backgroundColor(this.getLevelBg(this.latestAssessment.level ? this.latestAssessment.level : ''))
+            .borderRadius(Dimension.RadiusXS)
+
+          Blank()
+
+          Column() {
+            Text(this.formatTime(this.latestAssessment.createTime ? this.latestAssessment.createTime : ''))
+              .fontSize(FontLevel.Caption)
+              .fontColor($r('app.color.text_quaternary'))
 
             if (this.assessmentSnapshotHint.length > 0) {
               Text(this.assessmentSnapshotHint)
-                .fontSize(12)
-                .fontColor($r('app.color.text_tertiary'))
-                .width('100%')
-                .margin({ top: 4 })
+                .fontSize(FontLevel.Caption)
+                .fontColor($r('app.color.text_quaternary'))
+                .margin({ top: Dimension.Space2XS })
             }
-
-            Text(this.getSuggestionText(this.latestAssessment.suggestion ? this.latestAssessment.suggestion : ''))
-              .fontSize(14)
-              .fontColor($r('app.color.text_secondary'))
-              .lineHeight(22)
-              .width('100%')
-              .margin({ top: 12 })
           }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-
-          Column() {
-            Text(this.getScoreText())
-              .fontSize(24)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.text_primary'))
-
-            Text('分数')
-              .fontSize(12)
-              .fontColor($r('app.color.text_tertiary'))
-              .margin({ top: 4 })
-
-            Text(this.getDisplayLevel(this.latestAssessment.level ? this.latestAssessment.level : ''))
-              .fontSize(12)
-              .fontColor(this.getLevelColor(this.latestAssessment.level ? this.latestAssessment.level : ''))
-              .padding({
-                left: 10,
-                right: 10,
-                top: 5,
-                bottom: 5
-              })
-              .backgroundColor(this.getLevelBg(this.latestAssessment.level ? this.latestAssessment.level : ''))
-              .borderRadius(12)
-              .margin({ top: 12 })
-          }
-          .width(88)
-          .alignItems(HorizontalAlign.Center)
+          .alignItems(HorizontalAlign.End)
         }
         .width('100%')
+        .margin({ top: Dimension.SpaceM })
 
         Row() {
-          Button('查看记录')
-            .layoutWeight(1)
-            .height(42)
-            .fontSize(14)
-            .fontColor($r('app.color.theme_primary'))
-            .backgroundColor($r('app.color.surface_soft'))
-            .borderRadius(21)
-            .onClick(() => {
-              this.safePush('pages/me/MyRecordsPage')
-            })
+          AppButton({
+            label: '查看记录',
+            kind: 'text',
+            weight: 1,
+            onPress: () => {
+              this.safePush('MyRecordsPage')
+            }
+          })
 
           Blank()
             .width(12)
 
-          Button('再记一次')
-            .layoutWeight(1)
-            .height(42)
-            .fontSize(14)
-            .fontColor($r('app.color.text_on_primary'))
-            .backgroundColor($r('app.color.theme_primary'))
-            // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-            .linearGradient({
-              angle: 135,
-              colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-            })
-            .borderRadius(Dimension.CardRadiusInner)
-            .shadow(ShadowStyle.Button)
-            .borderRadius(21)
-            .onClick(() => {
+          AppButton({
+            label: '再记一次',
+            kind: 'primary',
+            fixedWidth: 128,
+            onPress: () => {
               appState().mainTabIndex = 3
-            })
+            }
+          })
         }
         .width('100%')
         .margin({ top: 16 })
@@ -561,32 +629,23 @@ export struct HomeView {
           .lineHeight(22)
           .width('100%')
 
-        Button('去做自查')
-          .width('100%')
-          .height(42)
-          .fontSize(14)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.theme_primary'))
-          // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-          .linearGradient({
-            angle: 135,
-            colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-          })
-          .borderRadius(Dimension.CardRadiusInner)
-          .shadow(ShadowStyle.Button)
-          .borderRadius(21)
-          .margin({ top: 16 })
-          .onClick(() => {
+        AppButton({
+          label: '去了解自己',
+          kind: 'primary',
+          block: true,
+          outerMargin: { top: 16 },
+          onPress: () => {
             appState().mainTabIndex = 3
-          })
+          }
+        })
       }
     }
     .width('100%')
-    .padding(18)
+    .padding(Dimension.CardPadding)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(Dimension.CardRadius)
     .shadow(ShadowStyle.Card)
-    .margin({ bottom: 16 })
+    .margin({ bottom: Dimension.SpaceXXL })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -595,27 +654,21 @@ export struct HomeView {
     Column() {
       Row() {
         Text('常用功能')
-          .fontSize(17)
-          .fontWeight(FontWeight.Bold)
+          .fontSize(FontLevel.SectionTitle)
+          .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.text_primary'))
-
-        Blank()
-
-        Text('快速进入')
-          .fontSize(12)
-          .fontColor($r('app.color.text_tertiary'))
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .margin({ bottom: Dimension.SpaceM })
 
-      Row() {
+      Flex({ direction: FlexDirection.Row, alignItems: ItemAlign.Stretch }) {
         this.buildQuickActionCard(this.quickActions[0], true)
         this.buildQuickActionCard(this.quickActions[1], false)
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .margin({ bottom: Dimension.SpaceM })
 
-      Row() {
+      Flex({ direction: FlexDirection.Row, alignItems: ItemAlign.Stretch }) {
         this.buildQuickActionCard(this.quickActions[2], true)
         this.buildQuickActionCard(this.quickActions[3], false)
       }
@@ -627,46 +680,51 @@ export struct HomeView {
 
   @Builder
   buildQuickActionCard(item: HomeQuickAction, withRightMargin: boolean) {
+    // HTML mini-card：图标 40 主色浅底 / 标题 17fp Medium / 描述 13fp t3 两行截断 / 等高 min 148
     Column() {
       Row() {
         Row() {
           SymbolGlyph(item.icon)
-            .fontSize(15)
-            .fontColor([item.tagColor])
+            .fontSize(20)
+            .fontColor([brand().primary])
         }
-        .width(32)
-        .height(32)
+        .width(40)
+        .height(40)
         .justifyContent(FlexAlign.Center)
         .alignItems(VerticalAlign.Center)
-        .backgroundColor(item.tagBackground)
-        .borderRadius(16)
+        .backgroundColor(brand().primaryWeak)
+        .borderRadius(Dimension.RadiusL)
 
         Blank()
 
         Text('›')
           .fontSize(18)
-          .fontColor($r('app.color.text_tertiary'))
+          .fontColor($r('app.color.text_quaternary'))
       }
       .width('100%')
-      .margin({ bottom: 14 })
+      .margin({ bottom: Dimension.SpaceL })
 
       Text(item.title)
-        .fontSize(16)
-        .fontWeight(FontWeight.Bold)
+        .fontSize(FontLevel.SectionTitle)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
 
       Text(item.subtitle)
-        .fontSize(13)
-        .fontColor($r('app.color.text_secondary'))
+        .fontSize(FontLevel.Aux)
+        .fontColor($r('app.color.text_tertiary'))
         .lineHeight(20)
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
-        .margin({ top: 8 })
+        .margin({ top: Dimension.SpaceS })
     }
     .width('48%')
-    .padding(16)
+    .constraintSize({ minHeight: 148 })
+    .padding(Dimension.CardPadding)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(18)
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .margin({ right: withRightMargin ? '4%' : 0 })
     .alignItems(HorizontalAlign.Start)
     .onClick(() => {
@@ -693,6 +751,7 @@ export struct HomeView {
       .padding(16)
       .backgroundColor($r('app.color.app_card'))
       .borderRadius(18)
+      .shadow(ShadowStyle.Card)
     }
     .width('100%')
   }
@@ -703,14 +762,14 @@ export struct HomeView {
       Row() {
         Text(tag)
           .fontSize(12)
-          .fontColor($r('app.color.theme_primary'))
+          .fontColor(brand().primary)
           .padding({
             left: 10,
             right: 10,
             top: 4,
             bottom: 4
           })
-          .backgroundColor($r('app.color.tag_blue'))
+          .backgroundColor(brand().tagBlue)
           .borderRadius(10)
           .margin({ right: 10 })
 

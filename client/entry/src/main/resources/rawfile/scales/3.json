@@ -1,14 +1,268 @@
 {
-  "id": 3,
-  "name": "SAS焦虑自评量表",
-  "type": "SAS",
-  "version": 1,
-  "maxScore": 15,
-  "questions": [
-    {"id":1,"title":"最近一周，你是否经常感到紧张、不安或担心？","options":[{"key":"A","text":"几乎没有","score":0},{"key":"B","text":"偶尔有","score":1},{"key":"C","text":"经常有","score":2},{"key":"D","text":"几乎每天都有","score":3}]},
-    {"id":2,"title":"最近一周，你是否会因为担心而难以放松？","options":[{"key":"A","text":"不会","score":0},{"key":"B","text":"偶尔会","score":1},{"key":"C","text":"经常会","score":2},{"key":"D","text":"一直如此","score":3}]},
-    {"id":3,"title":"最近一周，你是否出现过心跳加快、手心出汗等身体反应？","options":[{"key":"A","text":"没有","score":0},{"key":"B","text":"偶尔有","score":1},{"key":"C","text":"经常有","score":2},{"key":"D","text":"非常频繁","score":3}]},
-    {"id":4,"title":"最近一周，你是否会回避让你感到紧张的场合？","options":[{"key":"A","text":"不会回避","score":0},{"key":"B","text":"偶尔回避","score":1},{"key":"C","text":"经常回避","score":2},{"key":"D","text":"完全回避","score":3}]},
-    {"id":5,"title":"最近一周，担心的念头是否影响到你的工作或生活？","options":[{"key":"A","text":"没有影响","score":0},{"key":"B","text":"轻微影响","score":1},{"key":"C","text":"明显影响","score":2},{"key":"D","text":"严重影响","score":3}]}
-  ]
+  "id" : 3,
+  "name" : "焦虑倾向筛查",
+  "type" : "anxiety",
+  "description" : "用于初步评估最近一周是否存在焦虑倾向与紧张反应，包含担心、躯体反应与回避行为。",
+  "version" : 1790496890,
+  "maxScore" : 36,
+  "scoring" : {
+    "bands" : [ {
+      "max" : 8,
+      "level" : "焦虑不明显",
+      "suggestion" : "最近一周你的紧张感在常见范围内。可以在容易紧张的时刻试几次缓慢的腹式呼吸（吸 4 秒、呼 6 秒），作为日常调节手段。"
+    }, {
+      "max" : 16,
+      "level" : "轻度焦虑",
+      "suggestion" : "最近一周你有一些焦虑反应。建议减少睡前的信息刺激，把担心的事写在纸上而不是反复在脑中过；如果某个场合让你回避，尝试先短时间暴露而不是完全躲开。"
+    }, {
+      "max" : 24,
+      "level" : "焦虑偏高",
+      "suggestion" : "最近一周焦虑反应比较明显，可能已经影响工作或睡眠。建议规律作息、减少咖啡因，并把焦虑的具体内容和频率记录下来，这会是咨询时很有用的材料。"
+    }, {
+      "max" : 36,
+      "level" : "焦虑明显",
+      "suggestion" : "最近一周你的焦虑程度较高，若伴随明显的躯体症状（心悸、胸闷、呼吸困难），建议先就医排除身体原因，同时寻求专业心理支持。"
+    } ]
+  },
+  "questions" : [ {
+    "id" : 1,
+    "title" : "最近一周，你是否经常感到紧张、不安或担心？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "几乎没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天都有",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 2,
+    "title" : "最近一周，你是否会因为担心而难以放松下来？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "不会",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常会",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "一直如此",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 3,
+    "title" : "最近一周，你是否出现过心跳加快、手心出汗等身体反应？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "非常频繁",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 4,
+    "title" : "最近一周，你是否会回避让你感到紧张的场合？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "不会回避",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔回避",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常回避",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "完全回避",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 5,
+    "title" : "最近一周，担心的念头是否影响到你的工作或生活？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有影响",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "轻微影响",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "明显影响",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "严重影响",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 6,
+    "title" : "最近一周，你是否会反复想到还没发生的最坏结果？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "很少",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎停不下来",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 7,
+    "title" : "最近一周，你是否很难让自己安静地待一会儿？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "可以安静下来",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔难以安静",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常坐不住",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "完全静不下来",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 8,
+    "title" : "最近一周，你是否会因为不确定的事情而坐立不安？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "不会",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常会",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "一直如此",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 9,
+    "title" : "最近一周，你是否比平时更容易被吓到或惊跳？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "非常明显",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 10,
+    "title" : "最近一周，你是否觉得喉咙发紧、呼吸不畅或胸口发闷？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天都有",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 11,
+    "title" : "最近一周，你是否需要反复确认才能放心？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "不需要",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔需要",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常需要",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎事事都要确认",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 12,
+    "title" : "最近一周，担心是否让你难以入睡或夜里容易醒？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有影响",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔影响",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常影响",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每晚都受影响",
+      "score" : 3
+    } ]
+  } ]
 }

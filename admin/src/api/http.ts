@@ -21,14 +21,21 @@ http.interceptors.request.use((config) => {
   return config
 })
 
-async function sessionExpired(message: string): Promise<void> {
-  clearAuth()
-  ElMessage.error(message)
+async function sessionExpired(status: number): Promise<void> {
   const { router } = await import('../router')
   const current = router.currentRoute.value
-  if (current.path !== '/login') {
-    router.replace({ path: '/login', query: { redirect: current.fullPath } })
+
+  // 已经在登录页：这里的 401/403 不是「会话失效」（此处根本没有登录态），
+  // 而是请求本身被后端拒绝（例如验证码接口未放行、后端未带上最新代码）。
+  // 此时清 token 没有意义，提示「登录已失效」更会把用户带偏，如实报状态码即可。
+  if (current.path === '/login') {
+    ElMessage.error(`请求被拒绝（HTTP ${status}），请检查后端接口配置或确认已重启`)
+    return
   }
+
+  clearAuth()
+  ElMessage.error('登录已失效，请重新登录')
+  router.replace({ path: '/login', query: { redirect: current.fullPath } })
 }
 
 http.interceptors.response.use(
@@ -39,7 +46,7 @@ http.interceptors.response.use(
         return body.data as unknown as AxiosResponse
       }
       if (body.code === 401) {
-        void sessionExpired('登录已失效，请重新登录')
+        void sessionExpired(401)
         return Promise.reject(new Error(body.message || '登录已失效'))
       }
       ElMessage.error(body.message || '请求失败')
@@ -51,7 +58,7 @@ http.interceptors.response.use(
     const status = error?.response?.status
     // 当前后端未配置 AuthenticationEntryPoint，令牌失效返回 403；两种都按会话失效处理
     if (status === 401 || status === 403) {
-      await sessionExpired('登录已失效，请重新登录')
+      await sessionExpired(status)
     } else if (error?.code === 'ECONNABORTED') {
       ElMessage.error('请求超时，请确认后端服务是否已启动')
     } else {

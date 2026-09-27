@@ -2,28 +2,53 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { clearAuth, getAdminName, getAdminRole } from '../auth'
+import { clearAuth, getAdminName, getAdminRole, isPasswordNeverChanged, isSuperAdmin } from '../auth'
+import { formatRole } from '../utils/format'
 
 const route = useRoute()
 const router = useRouter()
 
-const menus = [
+const baseMenus = [
   { path: '/dashboard', label: '数据概览', icon: 'DataLine' },
   { path: '/users', label: '用户管理', icon: 'User' },
   { path: '/diaries', label: '日记管理', icon: 'Notebook' },
   { path: '/assessments', label: '测评题库', icon: 'Document' },
+  { path: '/assessment-results', label: '测评结果', icon: 'TrendCharts' },
   { path: '/feedback', label: '用户反馈', icon: 'ChatDotRound' },
 ]
 
-const activeMenu = computed(() => route.path)
+// 账号管理只对超级管理员开放（后端 /admin/accounts/** 是同样的限制），
+// 普通管理员不显示入口，免得点进去只拿到 403
+const menus = computed(() =>
+  isSuperAdmin()
+    ? [
+        ...baseMenus,
+        { path: '/logs', label: '操作日志', icon: 'Tickets' },
+        { path: '/accounts', label: '管理员账号', icon: 'UserFilled' },
+      ]
+    : baseMenus,
+)
+
+// 从未改过初始密码 → 顶部提示条（改密后由 auth 里的 ref 触发消失）
+const pwdNeverChanged = computed(() => isPasswordNeverChanged())
+
+// 二级页用 meta.activeMenu 指回所属的一级菜单，否则侧边栏会整块失去高亮
+const activeMenu = computed(() => (route.meta.activeMenu as string) || route.path)
 const currentTitle = computed(() => (route.meta.title as string) || '')
 const isHome = computed(() => route.path === '/dashboard')
-const adminName = computed(() => getAdminName() || '管理员')
-const adminRole = computed(() => {
-  const role = getAdminRole()
-  if (!role) return '管理员账号'
-  return role.toLowerCase() === 'admin' ? '超级管理员' : role
+
+interface Crumb {
+  title: string
+  path: string
+}
+
+/** 二级页的上一级面包屑；没有就只显示「首页 / 当前页」 */
+const parentCrumb = computed<Crumb | null>(() => {
+  const raw = route.meta.parent as Crumb | undefined
+  return raw ?? null
 })
+const adminName = computed(() => getAdminName() || '管理员')
+const adminRole = computed(() => formatRole(getAdminRole()))
 const initial = computed(() => adminName.value.charAt(0).toUpperCase())
 
 async function onLogout(): Promise<void> {
@@ -79,6 +104,9 @@ function onCommand(command: string): void {
       <el-header class="header" height="var(--header-h)">
         <el-breadcrumb separator="/">
           <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
+          <el-breadcrumb-item v-if="parentCrumb" :to="{ path: parentCrumb.path }">
+            {{ parentCrumb.title }}
+          </el-breadcrumb-item>
           <el-breadcrumb-item v-if="!isHome && currentTitle">{{ currentTitle }}</el-breadcrumb-item>
         </el-breadcrumb>
 
@@ -110,6 +138,12 @@ function onCommand(command: string): void {
           </template>
         </el-dropdown>
       </el-header>
+
+      <div v-if="pwdNeverChanged" class="pwd-warning">
+        <el-icon><WarningFilled /></el-icon>
+        <span>当前账号仍在使用初始密码，建议立即修改</span>
+        <el-button link type="warning" @click="router.push('/profile')">去修改</el-button>
+      </div>
 
       <el-main class="main">
         <div class="main-aura main-aura--a" />
@@ -393,6 +427,18 @@ function onCommand(command: string): void {
 .caret {
   font-size: 12px;
   color: var(--text-3);
+}
+
+.pwd-warning {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 22px;
+  font-size: 12.5px;
+  color: #f0b96b;
+  background: rgba(240, 185, 107, 0.1);
+  border-bottom: 1px solid rgba(240, 185, 107, 0.24);
+  flex: none;
 }
 
 .main {

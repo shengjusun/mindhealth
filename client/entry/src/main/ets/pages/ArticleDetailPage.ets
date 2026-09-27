@@ -1,5 +1,5 @@
 import { SubPageHeader } from '../common/components/SubPageHeader'
-import { Dimension } from '../common/constants/Theme'
+import { brand, Dimension } from '../common/constants/Theme'
 import { LoadingComponent, ErrorComponent } from '../common/components/StateComponents'
 import { ApiService } from '../core/api/ApiService'
 import { Logger } from '../common/utils/Logger'
@@ -123,9 +123,9 @@ export struct ArticleDetailPage {
             Row() {
               Text(this.getCategory())
                 .fontSize(12)
-                .fontColor($r('app.color.theme_primary'))
+                .fontColor(brand().primary)
                 .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                .backgroundColor($r('app.color.tag_blue'))
+                .backgroundColor(brand().tagBlue)
                 .borderRadius(10)
 
               Blank()
@@ -181,7 +181,7 @@ export struct ArticleDetailPage {
             }
             .width('100%')
             .padding(16)
-            .backgroundColor($r('app.color.tag_blue'))
+            .backgroundColor(brand().tagBlue)
             .borderRadius(14)
             .margin({ top: 10 })
           }
@@ -197,6 +197,7 @@ export struct ArticleDetailPage {
         .width('100%')
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
       }
     }
     .width('100%')

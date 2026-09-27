@@ -3,134 +3,106 @@ import { AIChatView } from './ai/AIChatPage'
 import { MoodDiaryView } from './diary/MoodDiaryPage'
 import { AssessmentsView } from './assessment/AssessmentsPage'
 import { MeView } from './me/MePage'
-import { Dimension, ShadowStyle } from '../common/constants/Theme'
-import { Logger } from '../common/utils/Logger'
+import { brand, Dimension } from '../common/constants/Theme'
 import { appState, AppState } from '../common/state/AppState'
+import { HdsTabs, HdsTabsController, hdsMaterial } from '@kit.UIDesignKit'
+import { SymbolGlyphModifier } from '@kit.ArkUI'
 
-const TAG = 'MainPage'
-
-// 与 Tab 顺序一一对应（可通过 appState().mainTabIndex 从任意视图切换）
 interface MainTabItem {
-  id: string
-  icon: Resource // 系统符号图标（SymbolGlyph），引用 SDK 内置符号库
+  icon: Resource
+  iconFill: Resource
   label: string
 }
 
+/**
+ * 主框架：华为官方 HdsTabs 浮动栏（UIDesignKit）
+ * - ADAPTIVE 系统材质：官方的沉浸光感底，替代手绘毛玻璃胶囊
+ * - 选中态（填充图标/主色/官方动效）由 HdsTabs 自带，无需自绘滑块
+ * - 底部间距沿用动态避让：pillMarginBottom(手势条高度)
+ */
 @ComponentV2
 export struct MainPage {
-  // 全局共享状态：任何页面/视图改 appState().mainTabIndex 即可切换 Tab
   @Local state: AppState = appState()
-
-  private tabController: TabsController = new TabsController()
+  private tabsController: HdsTabsController = new HdsTabsController()
 
   private tabs: MainTabItem[] = [
-    { id: 'home', icon: $r('sys.symbol.house'), label: '首页' },
-    { id: 'chat', icon: $r('sys.symbol.message'), label: '树洞' },
-    { id: 'diary', icon: $r('sys.symbol.book_pages'), label: '日记' },
-    { id: 'assess', icon: $r('sys.symbol.checkmark_clipboard'), label: '自查' },
-    { id: 'me', icon: $r('sys.symbol.person'), label: '我的' }
+    { icon: $r('sys.symbol.house'), iconFill: $r('sys.symbol.house_fill'), label: '首页' },
+    { icon: $r('sys.symbol.message'), iconFill: $r('sys.symbol.message_fill'), label: '树洞' },
+    { icon: $r('sys.symbol.book_pages'), iconFill: $r('sys.symbol.book_pages_fill'), label: '日记' },
+    { icon: $r('sys.symbol.checkmark_clipboard'), iconFill: $r('sys.symbol.checkmark_clipboard_fill'), label: '自查' },
+    { icon: $r('sys.symbol.person'), iconFill: $r('sys.symbol.person_fill'), label: '我的' }
   ]
 
   @Monitor('state.mainTabIndex')
-  onTabIndexChanged(): void {
-    Logger.info(TAG, `Tab 切换到 index=${this.state.mainTabIndex}`)
+  onMainTabIndexChanged(): void {
+    // 页面侧直接改 appState().mainTabIndex（跨页切 Tab）时，驱动 HdsTabs 切换
+    this.tabsController.changeIndex(this.state.mainTabIndex)
   }
 
   build() {
-    // Tabs 铺满整屏，胶囊栏叠在内容之上（内容会穿过栏下方，毛玻璃才有东西可模糊）
-    Stack({ alignContent: Alignment.Bottom }) {
-      Tabs({
-        barPosition: BarPosition.End,
-        index: this.state.mainTabIndex,
-        controller: this.tabController
-      }) {
-        TabContent() {
-          HomeView()
-        }
-
-        TabContent() {
-          AIChatView()
-        }
-
-        TabContent() {
-          MoodDiaryView()
-        }
-
-        TabContent() {
-          AssessmentsView()
-        }
-
-        TabContent() {
-          MeView()
-        }
+    HdsTabs({ controller: this.tabsController }) {
+      TabContent() {
+        HomeView()
       }
-      .width('100%')
-      .height('100%')
-      .scrollable(true)
-      // 原生底部栏隐藏，改由 floatingTabBar 自己画
-      .barHeight(0)
-      .barMode(BarMode.Fixed)
-      .onChange((index: number) => {
-        this.state.mainTabIndex = index
-      })
+      .tabBar(this.tabBar(0))
 
-      this.floatingTabBar()
+      TabContent() {
+        AIChatView()
+      }
+      .tabBar(this.tabBar(1))
+
+      TabContent() {
+        MoodDiaryView()
+      }
+      .tabBar(this.tabBar(2))
+
+      TabContent() {
+        AssessmentsView()
+      }
+      .tabBar(this.tabBar(3))
+
+      TabContent() {
+        MeView()
+      }
+      .tabBar(this.tabBar(4))
     }
+    .barOverlap(true)
+    .barPosition(BarPosition.End)
+    .vertical(false)
+    // 用户偏好：小一点、扁一点、再往下移（少占空间）
+    .barHeight(Dimension.PillHeight)
+    .barWidth(320)
+    // 浮动栏：底部动态避让手势条 + ADAPTIVE 系统材质（沉浸光感）
+    .barFloatingStyle({
+      barBottomMargin: Dimension.pillMarginBottom(this.state.bottomIndicatorVp),
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.ADAPTIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      }
+    })
+    .onChange((index: number) => {
+      if (index >= 0 && index < this.tabs.length) {
+        this.state.mainTabIndex = index
+      }
+    })
     .width('100%')
     .height('100%')
-    .backgroundColor($r('app.color.app_background'))
   }
 
-  /**
-   * 悬浮胶囊 Tab 栏
-   * - 原生 bar 已隐藏，这里自己画一个浮在内容之上的胶囊，点击走 tabController.changeIndex
-   * - backgroundBlurStyle 提供毛玻璃：内容滚动时从胶囊下方穿过，模糊才有效果
-   * - 不再经过 .tabBar() 插槽，因此不存在 @LocalBuilder 内容被丢弃的问题
-   */
-  @Builder
-  floatingTabBar() {
-    Row() {
-      ForEach(this.tabs, (item: MainTabItem, index: number) => {
-        Column() {
-          SymbolGlyph(item.icon)
-            .fontSize(23)
-            .fontColor([this.state.mainTabIndex === index
-              ? $r('app.color.nav_active')
-              : $r('app.color.nav_inactive')])
-
-          Text(item.label)
-            .fontSize(Dimension.FontXS)
-            .fontColor(this.state.mainTabIndex === index
-              ? $r('app.color.nav_active')
-              : $r('app.color.nav_inactive'))
-            .fontWeight(this.state.mainTabIndex === index ? FontWeight.Medium : FontWeight.Normal)
-            .margin({ top: 2 })
-        }
-        .layoutWeight(1)
-        .height(Dimension.PillHeight - 10)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-        .borderRadius((Dimension.PillHeight - 10) / 2)
-        .backgroundColor(this.state.mainTabIndex === index ? $r('app.color.tag_blue') : Color.Transparent)
-        .onClick(() => {
-          if (this.state.mainTabIndex !== index) {
-            this.state.mainTabIndex = index
-            this.tabController.changeIndex(index)
-          }
-        })
-      }, (item: MainTabItem) => item.id)
-    }
-    .width('90%')
-    .height(Dimension.PillHeight)
-    .padding({ left: 6, right: 6 })
-    .borderRadius(Dimension.PillHeight / 2)
-    // 半透明底 + 背景模糊 = 毛玻璃；底色用资源色，深浅色模式各自成立
-    .backgroundColor($r('app.color.pill_glass'))
-    .backgroundBlurStyle(BlurStyle.Thin)
-    .shadow(ShadowStyle.Pill)
-    // 叠加系统手势条高度，否则胶囊栏会压在手势条上
-    .margin({ bottom: Dimension.pillMarginBottom(this.state.bottomIndicatorVp) })
+  /** 官方 BottomTabBarStyle：未选中描边符号 t3 色，选中同族填充符号跟当前主题主色 */
+  private tabBar(index: number): BottomTabBarStyle {
+    const item: MainTabItem = this.tabs[index]
+    const selected: boolean = this.state.mainTabIndex === index
+    const normalIcon: SymbolGlyphModifier = new SymbolGlyphModifier(item.icon)
+      .fontColor([$r('app.color.text_tertiary')])
+    const selectedIcon: SymbolGlyphModifier = new SymbolGlyphModifier(item.iconFill)
+      .fontColor([brand().primary])
+    return new BottomTabBarStyle(
+      {
+        normal: normalIcon,
+        selected: selected ? selectedIcon : normalIcon
+      },
+      item.label
+    )
   }
 }
-
-

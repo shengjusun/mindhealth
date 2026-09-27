@@ -44,3 +44,7 @@ admin/node_modules/
 admin/dist/
 admin/.env.local
 admin/.env.*.local
+
+# ===== 本地验证产物与工具目录 =====
+docs/_shots/
+.workbuddy/

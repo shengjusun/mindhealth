@@ -3,8 +3,10 @@ import { appState, AppState, popRoute, resetRoute } from '../../common/state/App
 import { AvatarService } from '../../core/services/AvatarService'
 import { AuthService, UserAuthInfo } from '../../core/auth/AppAuthService'
 import { AvatarComponent } from '../../common/components/AvatarComponent'
+import { AppButton } from '../../common/components/AppButton'
 import { ApiService } from '../../core/api/ApiService'
-import { Dimension } from '../../common/constants/Theme'
+import { brand, ShadowStyle, Dimension, FontLevel } from '../../common/constants/Theme'
+import { ToastUtil } from '../../common/utils/ToastUtil'
 import { ApiConfig } from '../../common/constants/apiConfig'
 
 const TAG = 'ProfileEditPage'
@@ -80,7 +82,7 @@ export struct ProfileEditPage {
           left: Dimension.SpaceL,
           right: Dimension.SpaceL,
           top: Dimension.SpaceS,
-          bottom: Dimension.SpaceXL
+          bottom: Dimension.SpaceXXL + this.state.bottomIndicatorVp
         })
       }
       .layoutWeight(1)
@@ -502,48 +504,40 @@ export struct ProfileEditPage {
     }
   }
 
-  // 顶部标题栏和返回按钮
+  // 顶部标题栏（HTML navbar：56vp 内容高 + 返回 + 居中标题；顶部避让动态化 D7）
   @Builder
   buildHeader() {
     Row() {
       Row() {
         SymbolGlyph($r('sys.symbol.chevron_left'))
-          .fontSize(20)
+          .fontSize(22)
           .fontColor([$r('app.color.text_primary')])
       }
       .width(40)
       .height(40)
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
-      .borderRadius(Dimension.CardRadius)
-      .backgroundColor($r('app.color.app_card'))
       .onClick(() => {
         this.handleBack()
       })
 
-      Column() {
-        Text('编辑资料')
-          .fontSize(19)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
-
-        Text('完善个人信息')
-          .fontSize(11)
-          .fontColor($r('app.color.text_secondary'))
-          .margin({ top: 2 })
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Center)
+      Text('编辑资料')
+        .fontSize(FontLevel.SectionTitle)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+        .textAlign(TextAlign.Center)
 
       Blank()
         .width(40)
     }
     .width('100%')
+    .height(this.state.topAvoidVp > 0 ? this.state.topAvoidVp + Dimension.HeaderHeight : 70)
     .padding({
       left: Dimension.SpaceL,
       right: Dimension.SpaceL,
-      top: 14,
-      bottom: 10
+      top: this.state.topAvoidVp > 0 ? this.state.topAvoidVp : 14,
+      bottom: 8
     })
     .backgroundColor($r('app.color.app_background'))
   }
@@ -561,189 +555,219 @@ export struct ProfileEditPage {
 
       Text('更换头像')
         .fontSize(Dimension.FontM)
-        .fontColor($r('app.color.theme_primary'))
+        .fontColor(brand().primary)
         .fontWeight(FontWeight.Medium)
         .onClick(() => {
           this.onChangeAvatar()
         })
     }
     .width('100%')
-    .padding(20)
+    .padding(Dimension.CardPaddingHero)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(16)
-    .margin({ bottom: 16 })
+    .borderRadius(Dimension.HeroCardRadius)
+    .shadow(ShadowStyle.Card)
+    .margin({ bottom: Dimension.SpaceXXL })
   }
 
-  // 基本信息表单：昵称、性别、年龄、手机号
+  // 基本信息表单：分区标题在卡片外（HTML form-group-title），行高 56、行间细分隔线、值列统一左对齐
   @Builder
   buildBasicInfo() {
     Column() {
       Text('基本信息')
-        .fontSize(Dimension.FontL)
-        .fontWeight(FontWeight.Bold)
+        .fontSize(FontLevel.SectionTitle)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
-        .margin({ bottom: 16 })
+        .margin({ bottom: Dimension.SpaceM })
 
-      Row() {
-        Text('昵称')
-          .fontSize(Dimension.FontM)
-          .fontColor($r('app.color.text_secondary'))
-          .width(60)
+      Column() {
+        Row() {
+          Text('昵称')
+            .fontSize(FontLevel.Aux)
+            .fontColor($r('app.color.text_tertiary'))
+            .width(80)
 
-        TextInput({ placeholder: '请输入昵称', text: this.userName })
-          .layoutWeight(1)
-          .height(Dimension.InputHeight)
-          .backgroundColor($r('app.color.surface_soft'))
-          .borderRadius(10)
-          .onChange((value: string) => {
-            this.userName = value
-          })
-      }
-      .width('100%')
-      .margin({ bottom: 16 })
+          TextInput({ placeholder: '请输入昵称', text: this.userName })
+            .layoutWeight(1)
+            .height(36)
+            .fontSize(FontLevel.Body)
+            .backgroundColor($r('app.color.surface_soft'))
+            .borderRadius(Dimension.RadiusS)
+            .onChange((value: string) => {
+              this.userName = value
+            })
+        }
+        .height(56)
+        .width('100%')
 
-      Row() {
-        Text('性别')
-          .fontSize(Dimension.FontM)
-          .fontColor($r('app.color.text_secondary'))
-          .width(60)
+        Divider()
+          .color($r('app.color.app_divider'))
 
         Row() {
-          ForEach(this.genders, (gender: string) => {
-            Button(gender)
-              .height(32)
-              .fontSize(14)
-              .fontColor(this.userGender === gender ? $r('app.color.text_on_primary') : $r('app.color.text_secondary'))
-              .backgroundColor(this.userGender === gender ? $r('app.color.theme_primary') : $r('app.color.surface_soft'))
-              .borderRadius(16)
-              .margin({ right: 8 })
-              .onClick(() => {
-                this.userGender = gender
-              })
-          })
-        }
-        .layoutWeight(1)
-      }
-      .width('100%')
-      .margin({ bottom: 16 })
+          Text('性别')
+            .fontSize(FontLevel.Aux)
+            .fontColor($r('app.color.text_tertiary'))
+            .width(80)
 
-      Row() {
-        Text('年龄')
-          .fontSize(Dimension.FontM)
-          .fontColor($r('app.color.text_secondary'))
-          .width(60)
-
-        TextInput({ placeholder: '请输入年龄', text: this.userAge })
-          .layoutWeight(1)
-          .height(Dimension.InputHeight)
-          .type(InputType.Number)
-          .backgroundColor($r('app.color.surface_soft'))
-          .borderRadius(10)
-          .onChange((value: string) => {
-            this.userAge = value
-          })
-      }
-      .width('100%')
-      .margin({ bottom: 16 })
-
-      Row() {
-        Text('手机号')
-          .fontSize(Dimension.FontM)
-          .fontColor($r('app.color.text_secondary'))
-          .width(60)
-
-        if (this.isPhoneEditable) {
-          TextInput({ placeholder: '请输入手机号', text: this.userPhone })
-            .layoutWeight(1)
-            .height(Dimension.InputHeight)
-            .type(InputType.PhoneNumber)
-            .backgroundColor($r('app.color.surface_soft'))
-            .borderRadius(10)
-            .onChange((value: string) => {
-              this.userPhone = value
+          // HTML 分段控件：外层 36 圆角胶囊 bg-subtle，三段等宽 72
+          Row({ space: Dimension.Space2XS }) {
+            ForEach(this.genders, (gender: string) => {
+              Text(gender)
+                .width(72)
+                .height(32)
+                .borderRadius(Dimension.RadiusFull)
+                .fontSize(FontLevel.Body)
+                .fontColor(this.userGender === gender ? $r('app.color.text_on_primary') : $r('app.color.text_tertiary'))
+                .fontWeight(this.userGender === gender ? FontWeight.Medium : FontWeight.Normal)
+                .backgroundColor(this.userGender === gender ? brand().primary : Color.Transparent)
+                .textAlign(TextAlign.Center)
+                .onClick(() => {
+                  this.userGender = gender
+                })
             })
-        } else {
-          Text(this.userPhone)
-            .fontSize(Dimension.FontM)
-            .fontColor($r('app.color.text_primary'))
-            .layoutWeight(1)
+          }
+          .height(36)
+          .padding(Dimension.Space2XS)
+          .borderRadius(Dimension.RadiusFull)
+          .backgroundColor($r('app.color.surface_soft'))
+          .alignItems(VerticalAlign.Center)
+          .layoutWeight(1)
         }
+        .height(56)
+        .width('100%')
 
-        Text(this.isPhoneEditable ? '完成' : '更换')
-          .fontSize(Dimension.FontM)
-          .fontColor($r('app.color.theme_primary'))
-          .fontWeight(FontWeight.Medium)
-          .margin({ left: 12 })
-          .onClick(() => {
-            this.isPhoneEditable = !this.isPhoneEditable
-          })
+        Divider()
+          .color($r('app.color.app_divider'))
+
+        Row() {
+          Text('年龄')
+            .fontSize(FontLevel.Aux)
+            .fontColor($r('app.color.text_tertiary'))
+            .width(80)
+
+          TextInput({ placeholder: '请输入年龄', text: this.userAge })
+            .layoutWeight(1)
+            .height(36)
+            .fontSize(FontLevel.Body)
+            .type(InputType.Number)
+            .backgroundColor($r('app.color.surface_soft'))
+            .borderRadius(Dimension.RadiusS)
+            .onChange((value: string) => {
+              this.userAge = value
+            })
+        }
+        .height(56)
+        .width('100%')
+
+        Divider()
+          .color($r('app.color.app_divider'))
+
+        Row() {
+          Text('手机号')
+            .fontSize(FontLevel.Aux)
+            .fontColor($r('app.color.text_tertiary'))
+            .width(80)
+
+          if (this.isPhoneEditable) {
+            TextInput({ placeholder: '请输入手机号', text: this.userPhone })
+              .layoutWeight(1)
+              .height(36)
+              .fontSize(FontLevel.Body)
+              .type(InputType.PhoneNumber)
+              .backgroundColor($r('app.color.surface_soft'))
+              .borderRadius(Dimension.RadiusS)
+              .onChange((value: string) => {
+                this.userPhone = value
+              })
+          } else {
+            // HTML form-value.plain：手机号行不用输入框背景
+            Text(this.userPhone.length > 0 ? this.userPhone : '未绑定')
+              .fontSize(FontLevel.Body)
+              .fontColor($r('app.color.text_primary'))
+              .layoutWeight(1)
+          }
+
+          Text(this.isPhoneEditable ? '完成' : '更换')
+            .fontSize(FontLevel.Body)
+            .fontColor(brand().primary)
+            .fontWeight(FontWeight.Medium)
+            .margin({ left: Dimension.SpaceM })
+            .onClick(() => {
+              this.isPhoneEditable = !this.isPhoneEditable
+            })
+        }
+        .height(56)
+        .width('100%')
       }
       .width('100%')
-      .padding(12)
-      .backgroundColor($r('app.color.surface_soft'))
-      .borderRadius(10)
+      .padding({
+        left: Dimension.SpaceL,
+        right: Dimension.SpaceL,
+        top: Dimension.Space2XS,
+        bottom: Dimension.Space2XS
+      })
+      .backgroundColor($r('app.color.app_card'))
+      .borderRadius(Dimension.CardRadius)
+      .shadow(ShadowStyle.Card)
     }
     .width('100%')
-    .padding(16)
-    .backgroundColor($r('app.color.app_card'))
-    .borderRadius(16)
-    .margin({ bottom: 16 })
+    .margin({ bottom: Dimension.SpaceXXL })
   }
 
-  // 个性签名输入区域
+  // 个性签名输入区域：分区标题在卡片外（HTML form-group-title）
   @Builder
   buildSignature() {
     Column() {
       Text('个性签名')
-        .fontSize(Dimension.FontL)
-        .fontWeight(FontWeight.Bold)
+        .fontSize(FontLevel.SectionTitle)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
-        .margin({ bottom: 12 })
+        .margin({ bottom: Dimension.SpaceM })
 
-      TextArea({ placeholder: '写点什么介绍一下自己吧...', text: this.userSignature })
-        .width('100%')
-        .height(100)
-        .fontSize(Dimension.FontM)
-        .fontColor($r('app.color.text_primary'))
-        .backgroundColor($r('app.color.surface_soft'))
-        .borderRadius(10)
-        .maxLength(50)
-        .onChange((value: string) => {
-          this.userSignature = value
-        })
+      Column() {
+        TextArea({ placeholder: '写点什么介绍一下自己吧...', text: this.userSignature })
+          .width('100%')
+          .height(100)
+          .fontSize(FontLevel.Body)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor($r('app.color.surface_soft'))
+          .borderRadius(Dimension.RadiusM)
+          .maxLength(50)
+          .onChange((value: string) => {
+            this.userSignature = value
+          })
 
-      Text(`${this.userSignature.length}/50`)
-        .fontSize(Dimension.FontS)
-        .fontColor($r('app.color.text_tertiary'))
-        .width('100%')
-        .textAlign(TextAlign.End)
-        .margin({ top: 4 })
+        Text(`${this.userSignature.length}/50`)
+          .fontSize(FontLevel.Caption)
+          .fontColor($r('app.color.text_quaternary'))
+          .width('100%')
+          .textAlign(TextAlign.End)
+          .margin({ top: Dimension.Space2XS })
+      }
+      .width('100%')
+      .padding(Dimension.CardPadding)
+      .backgroundColor($r('app.color.app_card'))
+      .borderRadius(Dimension.CardRadius)
+      .shadow(ShadowStyle.Card)
+      .margin({ bottom: Dimension.SpaceXXL })
     }
     .width('100%')
-    .padding(16)
-    .backgroundColor($r('app.color.app_card'))
-    .borderRadius(16)
-    .margin({ bottom: 16 })
   }
 
   // 保存按钮，通过 isSaving 控制文案和是否可点击
   @Builder
   buildSaveButton() {
-    Button(this.isSaving ? '保存中...' : '保存修改')
-      .width('100%')
-      .height(Dimension.ButtonHeight)
-      .fontSize(16)
-      .fontColor($r('app.color.text_on_primary'))
-      .backgroundColor(this.isSaving ? $r('app.color.text_tertiary') : $r('app.color.theme_primary'))
-      .borderRadius(24)
-      .enabled(!this.isSaving)
-      .onClick(() => {
-        if (!this.isSaving) {
-          this.saveProfile(true)
-        }
-      })
+    AppButton({
+      label: this.isSaving ? '保存中...' : '保存修改',
+      kind: 'primary',
+      block: true,
+      loading: this.isSaving,
+      active: !this.isSaving,
+      onPress: () => {
+        this.saveProfile(true)
+      }
+    })
   }
 
   /**
@@ -809,7 +833,13 @@ export struct ProfileEditPage {
       if (res.code === 200) {
         // 保存成功后重新加载用户信息
         // 这样可以拿到后端最终保存的数据，并同步 AuthService
+        const submittedPhone: string = this.userPhone.trim()
         await this.loadUserInfo()
+
+        // D6：后端白名单不收手机号（静默丢弃），提交值与回读值不一致必须明确提示
+        if (submittedPhone.length > 0 && this.userPhone.trim() !== submittedPhone) {
+          ToastUtil.show('手机号修改暂未生效：当前版本不支持在线改绑')
+        }
 
         // 保存后关闭手机号编辑状态
         this.isPhoneEditable = false
@@ -841,7 +871,7 @@ export struct ProfileEditPage {
       Logger.error(TAG, `保存个人信息失败: ${JSON.stringify(error)}`)
       AlertDialog.show({
         title: '保存失败',
-        message: '网络异常或服务器错误，请稍后重试',
+        message: '网络好像不太顺畅，稍后再试试',
         primaryButton: {
           value: '知道了',
           action: () => {}

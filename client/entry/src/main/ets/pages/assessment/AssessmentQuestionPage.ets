@@ -1,6 +1,6 @@
-import { popRoute, resetRoute } from '../../common/state/AppState'
+import { appState, popRoute, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
-import { Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { brand, Dimension, ShadowStyle, Motion } from '../../common/constants/Theme'
 import { SubPageHeader } from '../../common/components/SubPageHeader'
 import { LoadingComponent } from '../../common/components/StateComponents'
 import { Logger } from '../../common/utils/Logger'
@@ -8,6 +8,8 @@ import { ToastUtil } from '../../common/utils/ToastUtil'
 import { AuthService } from '../../core/auth/AppAuthService'
 import { ScaleRepository } from '../../core/repository/ScaleRepository'
 import { ScaleDetail, ScaleOption, ScaleQuestion } from '../../common/types/ScaleTypes'
+import { AppButton } from '../../common/components/AppButton'
+import { softLevel } from '../../common/utils/AssessmentTone'
 
 const TAG = 'AssessmentQuestionPage'
 
@@ -15,20 +17,56 @@ const TAG = 'AssessmentQuestionPage'
 type QuestionOption = ScaleOption
 type AssessmentQuestion = ScaleQuestion
 
+// 单题作答。服务端据此重算分数并生成逐题分析，
+// 所以必须上报「选了哪个选项」，不能只传一个总分。
+interface AssessmentAnswer {
+  questionId: number
+  optionKey: string
+}
+
 interface AssessmentSubmitResult {
   id?: number
   userId?: number
   assessmentId?: number
   assessmentTitle?: string
   score?: number
+  maxScore?: number
   level?: string
   suggestion?: string
+  /** AI 解读状态：none / pending / success / failed */
+  aiStatus?: string
+  /** AI 解读结果（结构化 JSON 字符串） */
+  aiAnalysis?: string
+  aiError?: string
   createTime?: string
 }
 
 interface AssessmentSubmitRequest {
   assessmentId: number
+  /** 保留总分仅为兼容；服务端以 answers 为准 */
   score: number
+  answers: AssessmentAnswer[]
+}
+
+interface AssessmentAiDimension {
+  name?: string
+  level?: string
+  comment?: string
+}
+
+interface AssessmentAiSuggestion {
+  title?: string
+  detail?: string
+}
+
+// 与服务端 AssessmentAiService 约定的输出结构
+interface AssessmentAiAnalysis {
+  summary?: string
+  trend?: string
+  riskLevel?: string
+  needProfessionalHelp?: boolean
+  dimensions?: AssessmentAiDimension[]
+  suggestions?: AssessmentAiSuggestion[]
 }
 
 @ComponentV2
@@ -49,6 +87,16 @@ export struct AssessmentQuestionPage {
   @Local showResult: boolean = false
   @Local resultData: AssessmentSubmitResult | null = null
   @Local isSubmitting: boolean = false
+
+  // ===== AI 深度解读 =====
+  // 提交后服务端异步生成，这里轮询等到结果。失败不阻塞测评展示，只是少一块内容。
+  @Local resultId: number = 0
+  @Local aiStatus: string = 'none'
+  @Local aiAnalysis: AssessmentAiAnalysis | null = null
+  @Local aiError: string = ''
+  private aiPollCount: number = 0
+  private static readonly AI_POLL_INTERVAL_MS: number = 2000
+  private static readonly AI_POLL_MAX_TIMES: number = 15
 
   private apiService: ApiService = ApiService.getInstance()
   private scaleRepo: ScaleRepository = ScaleRepository.getInstance()
@@ -171,6 +219,38 @@ export struct AssessmentQuestionPage {
   private selectOption(optionIndex: number): void {
     this.selectedAnswers[this.currentIndex] = optionIndex
     this.selectedAnswers = [...this.selectedAnswers]
+    // 已答任意一题且未出结果：视为有未提交内容（驱动路由层返回拦截，审计 C-5-1）
+    appState().hasUnsavedChanges = !this.showResult && this.hasAnswerProgress()
+  }
+
+  private hasAnswerProgress(): boolean {
+    return this.selectedAnswers.some((v: number): boolean => v >= 0)
+  }
+
+  aboutToDisappear(): void {
+    appState().hasUnsavedChanges = false
+  }
+
+  @Monitor('state.backPressedTick')
+  onBackIntercepted(): void {
+    if (this.showResult || !this.hasAnswerProgress()) {
+      return
+    }
+    AlertDialog.show({
+      title: '放弃本次答题？',
+      message: '返回后已答内容将不会保留',
+      primaryButton: {
+        value: '继续答题',
+        action: () => {}
+      },
+      secondaryButton: {
+        value: '放弃',
+        action: () => {
+          appState().hasUnsavedChanges = false
+          popRoute()
+        }
+      }
+    })
   }
 
   private goPrev(): void {
@@ -209,12 +289,21 @@ export struct AssessmentQuestionPage {
 
   private async submitAssessment(): Promise<void> {
     let totalScore: number = 0
+    const answers: AssessmentAnswer[] = []
     let i: number = 0
 
     while (i < this.questions.length) {
       const answerIndex = this.selectedAnswers[i]
       if (answerIndex >= 0) {
-        totalScore += this.questions[i].options[answerIndex].score
+        const option: QuestionOption = this.questions[i].options[answerIndex]
+        totalScore += option.score
+        // 上报逐题作答：服务端据此重算分数并生成「逐题 + 维度」的 AI 解读。
+        // 只传总分的话，服务端永远只能按固定阈值挑一句模板话。
+        const answer: AssessmentAnswer = {
+          questionId: this.questions[i].id,
+          optionKey: option.key
+        }
+        answers.push(answer)
       }
       i++
     }
@@ -229,7 +318,8 @@ export struct AssessmentQuestionPage {
     try {
       const payload: AssessmentSubmitRequest = {
         assessmentId: this.assessmentId,
-        score: totalScore
+        score: totalScore,
+        answers: answers
       }
 
       const response = await this.apiService.submitAssessment(payload)
@@ -244,9 +334,21 @@ export struct AssessmentQuestionPage {
           result.score = totalScore
         }
         this.resultData = result
-        this.showResult = true
+        this.resultId = result.id ?? 0
+        this.aiStatus = result.aiStatus ? result.aiStatus : 'none'
+        this.aiError = result.aiError ? result.aiError : ''
+        // 结果视图进场：缩放+淡入（emphasized 节奏），配合 buildResultView 的 .transition
+        this.getUIContext().animateTo({ duration: Motion.Normal, curve: Motion.emphasized }, () => {
+          this.showResult = true
+        })
+        // 规则基线结果已经拿到，AI 解读在服务端异步生成，这里开始轮询
+        if (this.resultId > 0 && this.aiStatus === 'pending') {
+          this.startAiPolling()
+        }
+        // 出结果后返回不再拦截
+        appState().hasUnsavedChanges = false
       } else {
-        ToastUtil.show('测评提交成功，但结果解析失败')
+        ToastUtil.show('保存的时候出了点小差错，这次结果没存上')
       }
     } catch (error) {
       Logger.error(TAG, `提交测评失败: ${JSON.stringify(error)}`)
@@ -256,12 +358,102 @@ export struct AssessmentQuestionPage {
     }
   }
 
+  // ------------------------------------------------------------------ AI 深度解读
+
+  /** 服务端异步生成，客户端每 2 秒查一次，最多查 15 次 */
+  private startAiPolling(): void {
+    this.aiPollCount = 0
+    this.fetchAiResult()
+  }
+
+  private async fetchAiResult(): Promise<void> {
+    if (this.resultId <= 0) {
+      return
+    }
+    try {
+      const res = await this.apiService.getAssessmentResult(this.resultId)
+      if (res.code !== 200) {
+        return
+      }
+
+      const data: AssessmentSubmitResult = res.data as AssessmentSubmitResult
+      const status: string = data.aiStatus ? data.aiStatus : 'none'
+
+      if (status === 'success') {
+        const parsed: AssessmentAiAnalysis | null = this.parseAiAnalysis(data.aiAnalysis)
+        if (parsed) {
+          this.aiStatus = 'success'
+          this.aiAnalysis = parsed
+        } else {
+          this.aiStatus = 'failed'
+          this.aiError = 'AI 解读内容异常，可点击重试'
+        }
+        return
+      }
+
+      if (status === 'failed') {
+        this.aiStatus = 'failed'
+        this.aiError = data.aiError ? data.aiError : 'AI 解读生成失败，可点击重试'
+        return
+      }
+
+      this.scheduleNextAiPoll()
+    } catch (error) {
+      Logger.warn(TAG, `查询 AI 解读失败: ${JSON.stringify(error)}`)
+      this.scheduleNextAiPoll()
+    }
+  }
+
+  private scheduleNextAiPoll(): void {
+    if (this.aiPollCount >= AssessmentQuestionPage.AI_POLL_MAX_TIMES) {
+      // 轮询到上限：不报错打断用户，只说"还在生成"，用户下次进来能看到
+      this.aiStatus = 'failed'
+      this.aiError = 'AI 解读还在生成中，稍后重新进入即可查看'
+      return
+    }
+    this.aiPollCount++
+    setTimeout(() => {
+      this.fetchAiResult()
+    }, AssessmentQuestionPage.AI_POLL_INTERVAL_MS)
+  }
+
+  private parseAiAnalysis(raw: string | undefined): AssessmentAiAnalysis | null {
+    if (!raw || raw.length === 0) {
+      return null
+    }
+    try {
+      return JSON.parse(raw) as AssessmentAiAnalysis
+    } catch (error) {
+      Logger.warn(TAG, `解析 AI 解读失败: ${JSON.stringify(error)}`)
+      return null
+    }
+  }
+
+  /** 首次生成失败或超时后，用户可手动重试 */
+  private async retryAi(): Promise<void> {
+    if (this.resultId <= 0) {
+      return
+    }
+    this.aiStatus = 'pending'
+    this.aiError = ''
+    try {
+      await this.apiService.retriggerAssessmentAi(this.resultId)
+    } catch (error) {
+      Logger.warn(TAG, `重试 AI 解读失败: ${JSON.stringify(error)}`)
+    }
+    this.startAiPolling()
+  }
+
   build() {
     Column() {
       SubPageHeader({
         title: this.assessmentTitle,
         subtitle: this.showResult ? '测评结果' : '正在答题',
-        rightText: this.showResult ? '完成' : this.getProgressText()
+        rightText: this.showResult ? '完成' : this.getProgressText(),
+        onAction: (): void => {
+          // 结果页「完成」：回自查列表（此前是无人回调的死按钮）
+          popRoute()
+        }
       })
 
       if (this.showResult) {
@@ -330,23 +522,14 @@ export struct AssessmentQuestionPage {
           .margin({ bottom: 16 })
       }
 
-      Button('重新加载')
-        .width('60%')
-        .height(Dimension.ButtonHeight)
-        .fontSize(15)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor($r('app.color.theme_primary'))
-        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-        .linearGradient({
-          angle: 135,
-          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-        })
-        .borderRadius(Dimension.CardRadiusInner)
-        .shadow(ShadowStyle.Button)
-        .borderRadius(24)
-        .onClick(() => {
+      AppButton({
+        label: '重新加载',
+        kind: 'primary',
+        widthPercent: '60%',
+        onPress: () => {
           this.loadQuestions()
-        })
+        }
+      })
     }
     .width('100%')
     .layoutWeight(1)
@@ -382,7 +565,7 @@ export struct AssessmentQuestionPage {
         Row()
           .width(`${((this.currentIndex + 1) / this.questions.length) * 100}%`)
           .height(8)
-          .backgroundColor($r('app.color.theme_primary'))
+          .backgroundColor(brand().primary)
           .borderRadius(4)
       }
       .width('100%')
@@ -401,7 +584,7 @@ export struct AssessmentQuestionPage {
     Column() {
       Text(`第 ${this.currentIndex + 1} 题`)
         .fontSize(13)
-        .fontColor($r('app.color.theme_primary'))
+        .fontColor(brand().primary)
         .margin({ bottom: 10 })
         .width('100%')
 
@@ -416,6 +599,7 @@ export struct AssessmentQuestionPage {
     .padding(20)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(18)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
     .alignItems(HorizontalAlign.Start)
   }
@@ -437,14 +621,14 @@ export struct AssessmentQuestionPage {
         Text(option.key)
           .fontSize(14)
           .fontWeight(FontWeight.Bold)
-          .fontColor(this.selectedAnswers[this.currentIndex] === index ? $r('app.color.text_on_primary') : $r('app.color.theme_primary'))
+          .fontColor(this.selectedAnswers[this.currentIndex] === index ? $r('app.color.text_on_primary') : brand().primary)
       }
       .width(28)
       .height(28)
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
       .borderRadius(14)
-      .backgroundColor(this.selectedAnswers[this.currentIndex] === index ? $r('app.color.theme_primary') : $r('app.color.tag_blue'))
+      .backgroundColor(this.selectedAnswers[this.currentIndex] === index ? brand().primary : brand().tagBlue)
       .margin({ right: 12 })
 
       Text(option.text)
@@ -455,8 +639,9 @@ export struct AssessmentQuestionPage {
     }
     .width('100%')
     .padding(16)
-    .backgroundColor(this.selectedAnswers[this.currentIndex] === index ? $r('app.color.tag_blue') : $r('app.color.app_card'))
+    .backgroundColor(this.selectedAnswers[this.currentIndex] === index ? brand().tagBlue : $r('app.color.app_card'))
     .borderRadius(16)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 12 })
     .onClick(() => {
       this.selectOption(index)
@@ -466,42 +651,29 @@ export struct AssessmentQuestionPage {
   @Builder
   buildBottomAction() {
     Row() {
-      Button('上一题')
-        .width('46%')
-        .height(Dimension.ButtonHeight)
-        .fontSize(15)
-        .fontColor($r('app.color.theme_primary'))
-        .backgroundColor($r('app.color.tag_blue'))
-        .borderRadius(24)
-        .enabled(this.currentIndex > 0 && !this.isSubmitting)
-        .opacity(this.currentIndex > 0 ? 1 : 0.5)
-        .onClick(() => {
+      AppButton({
+        label: '上一题',
+        kind: 'secondary',
+        widthPercent: '46%',
+        active: this.currentIndex > 0 && !this.isSubmitting,
+        onPress: () => {
           this.goPrev()
-        })
+        }
+      })
 
       Blank()
         .width('8%')
 
-      Button(this.isSubmitting ? '提交中...' : (this.currentIndex === this.questions.length - 1 ? '提交测评' : '下一题'))
-        .width('46%')
-        .height(Dimension.ButtonHeight)
-        .fontSize(15)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor($r('app.color.theme_primary'))
-        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-        .linearGradient({
-          angle: 135,
-          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-        })
-        .borderRadius(Dimension.CardRadiusInner)
-        .shadow(ShadowStyle.Button)
-        .borderRadius(24)
-        .enabled(!this.isSubmitting)
-        .onClick(() => {
-          if (!this.isSubmitting) {
-            this.goNext()
-          }
-        })
+      AppButton({
+        label: this.isSubmitting ? '提交中...' : (this.currentIndex === this.questions.length - 1 ? '提交测评' : '下一题'),
+        kind: 'primary',
+        widthPercent: '46%',
+        loading: this.isSubmitting,
+        active: !this.isSubmitting,
+        onPress: () => {
+          this.goNext()
+        }
+      })
     }
     .width('100%')
     .padding({
@@ -513,11 +685,188 @@ export struct AssessmentQuestionPage {
     .backgroundColor($r('app.color.app_background'))
   }
 
+  // ------------------------------------------------------------------ AI 卡片
+
+  private aiSummary(): string {
+    return this.aiAnalysis && this.aiAnalysis.summary ? this.aiAnalysis.summary : ''
+  }
+
+  private aiTrend(): string {
+    return this.aiAnalysis && this.aiAnalysis.trend ? this.aiAnalysis.trend : ''
+  }
+
+  private aiDimensions(): AssessmentAiDimension[] {
+    return this.aiAnalysis && this.aiAnalysis.dimensions ? this.aiAnalysis.dimensions : []
+  }
+
+  private aiSuggestions(): AssessmentAiSuggestion[] {
+    return this.aiAnalysis && this.aiAnalysis.suggestions ? this.aiAnalysis.suggestions : []
+  }
+
+  @Builder
+  buildAiCard() {
+    Column() {
+      Row() {
+        Text('AI 深度解读')
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+
+        if (this.aiStatus === 'success') {
+          Text('仅供参考')
+            .fontSize(11)
+            .fontColor($r('app.color.text_tertiary'))
+        }
+      }
+      .width('100%')
+      .margin({ bottom: 12 })
+
+      if (this.aiStatus === 'success' && this.aiAnalysis) {
+        this.buildAiBody()
+      } else if (this.aiStatus === 'failed') {
+        Text(this.aiError.length > 0 ? this.aiError : 'AI 解读暂时不可用')
+          .fontSize(13)
+          .fontColor($r('app.color.text_tertiary'))
+          .lineHeight(22)
+          .width('100%')
+
+        Text('点击重新生成')
+          .fontSize(13)
+          .fontColor(brand().primary)
+          .margin({ top: 10 })
+          .onClick(() => {
+            this.retryAi()
+          })
+      } else {
+        Text('正在结合你的逐题作答、历史得分和近期记录生成解读，大约需要几秒…')
+          .fontSize(13)
+          .fontColor($r('app.color.text_tertiary'))
+          .lineHeight(22)
+          .width('100%')
+      }
+    }
+    .width('100%')
+    .padding(16)
+    .backgroundColor($r('app.color.app_card'))
+    .borderRadius(16)
+    .shadow(ShadowStyle.Card)
+    .margin({ bottom: 16 })
+  }
+
+  @Builder
+  buildAiBody() {
+    Column() {
+      if (this.aiSummary().length > 0) {
+        Text(this.aiSummary())
+          .fontSize(14)
+          .fontColor($r('app.color.text_primary'))
+          .lineHeight(23)
+          .width('100%')
+          .margin({ bottom: 14 })
+      }
+
+      ForEach(this.aiDimensions(), (item: AssessmentAiDimension, index: number) => {
+        this.buildAiDimension(item, index)
+      }, (item: AssessmentAiDimension, index: number) => `ai-dim-${index}`)
+
+      if (this.aiTrend().length > 0) {
+        Row() {
+          Text('变化趋势')
+            .fontSize(12)
+            .fontColor($r('app.color.text_tertiary'))
+            .width(64)
+            .flexShrink(0)
+
+          Text(this.aiTrend())
+            .fontSize(13)
+            .fontColor($r('app.color.text_secondary'))
+            .lineHeight(21)
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Top)
+        .margin({ top: 8 })
+      }
+
+      ForEach(this.aiSuggestions(), (item: AssessmentAiSuggestion, index: number) => {
+        this.buildAiSuggestion(item, index)
+      }, (item: AssessmentAiSuggestion, index: number) => `ai-sug-${index}`)
+
+      if (this.aiAnalysis && this.aiAnalysis.needProfessionalHelp === true) {
+        Text('AI 生成的内容不能替代专业诊断。如持续困扰，建议尽快联系专业心理支持。')
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+          .lineHeight(18)
+          .width('100%')
+          .margin({ top: 12 })
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  buildAiDimension(item: AssessmentAiDimension, index: number) {
+    Row() {
+      Text(item.name && item.name.length > 0 ? item.name : '关注点')
+        .fontSize(13)
+        .fontColor($r('app.color.text_primary'))
+        .width(84)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+      Text(item.level && item.level.length > 0 ? item.level : '—')
+        .fontSize(11)
+        .fontColor(brand().primary)
+        .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+        .borderRadius(6)
+        .backgroundColor(brand().tagBlue)
+
+      Text(item.comment && item.comment.length > 0 ? item.comment : '')
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .lineHeight(19)
+        .layoutWeight(1)
+        .margin({ left: 8 })
+        .maxLines(3)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Top)
+    .margin({ bottom: 10 })
+  }
+
+  @Builder
+  buildAiSuggestion(item: AssessmentAiSuggestion, index: number) {
+    Column() {
+      Text(item.title && item.title.length > 0 ? item.title : `建议 ${index + 1}`)
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .width('100%')
+
+      Text(item.detail && item.detail.length > 0 ? item.detail : '')
+        .fontSize(13)
+        .fontColor($r('app.color.text_secondary'))
+        .lineHeight(21)
+        .width('100%')
+        .margin({ top: 4 })
+    }
+    .width('100%')
+    .padding({ top: 12 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
   /**
    * 满分：优先取题库自带的 maxScore（口径与后端一致），
    * 缺失时再按「每题最高分之和」动态计算
    */
   private getMaxScore(): number {
+    // 服务端返回的满分最权威（现在后端会按题库重算并回传 maxScore）
+    if (this.resultData && this.resultData.maxScore && this.resultData.maxScore > 0) {
+      return this.resultData.maxScore
+    }
     if (this.scaleMaxScore > 0) {
       return this.scaleMaxScore
     }
@@ -553,7 +902,7 @@ export struct AssessmentQuestionPage {
             })
               .width(104)
               .height(104)
-              .color($r('app.color.theme_primary'))
+              .color(brand().primary)
               .style({ strokeWidth: 9 })
 
             Column() {
@@ -585,15 +934,17 @@ export struct AssessmentQuestionPage {
         .padding(24)
         .backgroundColor($r('app.color.app_card'))
         .borderRadius(18)
+        .shadow(ShadowStyle.Card)
         .margin({ bottom: 16 })
 
         Column() {
-          this.buildResultRow('结果等级', this.resultData?.level ? this.resultData!.level! : '未知')
+          this.buildResultRow('此刻的状态', softLevel(this.resultData?.level ? this.resultData!.level! : '未知'))
         }
         .width('100%')
         .padding(16)
         .backgroundColor($r('app.color.app_card'))
         .borderRadius(16)
+        .shadow(ShadowStyle.Card)
         .margin({ bottom: 16 })
 
         Column() {
@@ -614,25 +965,21 @@ export struct AssessmentQuestionPage {
         .padding(16)
         .backgroundColor($r('app.color.app_card'))
         .borderRadius(16)
-        .margin({ bottom: 20 })
+        .shadow(ShadowStyle.Card)
+        .margin({ bottom: 16 })
 
-        Button('返回上一页')
-          .width('100%')
-          .height(Dimension.ButtonHeight)
-          .fontSize(16)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.theme_primary'))
-          // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-          .linearGradient({
-            angle: 135,
-            colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-          })
-          .borderRadius(Dimension.CardRadiusInner)
-          .shadow(ShadowStyle.Button)
-          .borderRadius(24)
-          .onClick(() => {
+        // AI 深度解读：结合逐题作答 + 历史得分 + 近期日记情绪生成。
+        // 服务端异步产出，这里按 aiStatus 分别展示加载 / 结果 / 失败可重试
+        this.buildAiCard()
+
+        AppButton({
+          label: '返回上一页',
+          kind: 'primary',
+          block: true,
+          onPress: () => {
             popRoute()
-          })
+          }
+        })
       }
       .width('100%')
       .padding({
@@ -645,6 +992,11 @@ export struct AssessmentQuestionPage {
     .layoutWeight(1)
     .width('100%')
     .scrollBar(BarState.Off)
+    // 结果视图：缩放+淡入弹簧进场（提交成功的 animateTo 触发）
+    .transition(TransitionEffect.asymmetric(
+      TransitionEffect.OPACITY.combine(TransitionEffect.scale({ x: 0.96, y: 0.96 })),
+      TransitionEffect.OPACITY
+    ).animation({ curve: Motion.springEmphasized, duration: Motion.Normal }))
   }
 
   @Builder

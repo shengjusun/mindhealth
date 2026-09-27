@@ -1,6 +1,7 @@
 import { pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { brand, Dimension, FontLevel, ShadowStyle } from '../../common/constants/Theme'
+import { AppChip } from '../../common/components/AppChip'
 import { appState } from '../../common/state/AppState'
 import { LoadingComponent, EmptyComponent } from '../../common/components/StateComponents'
 import { Logger } from '../../common/utils/Logger'
@@ -8,6 +9,7 @@ import { ToastUtil } from '../../common/utils/ToastUtil'
 import { AuthService } from '../../core/auth/AppAuthService'
 import { ScaleRepository } from '../../core/repository/ScaleRepository'
 import { ScaleMeta } from '../../common/types/ScaleTypes'
+import { AppButton } from '../../common/components/AppButton'
 
 const TAG = 'AssessmentsPage'
 
@@ -59,13 +61,33 @@ export struct AssessmentsView {
   private async loadAssessments(): Promise<void> {
     this.isLoading = true
 
-    const local: ScaleMeta[] = await this.scaleRepo.getScaleList()
-    this.assessmentList = this.toAssessmentItems(local)
-    this.isLoading = false
+    try {
+      const local: ScaleMeta[] = await this.scaleRepo.getScaleList()
+      this.assessmentList = this.toAssessmentItems(local)
+      Logger.info(TAG, `自查列表本地加载完成，共 ${this.assessmentList.length} 项`)
+    } catch (error) {
+      Logger.error(TAG, `加载自查列表失败: ${JSON.stringify(error)}`)
+    } finally {
+      // 本地到位就清 loading（异常也要清，否则页面永远停在加载中，连空态都出不来）。
+      // 关键：静默刷新绝不能挡在这个 finally 之前 —— 后端不可用时它会挂满整个网络超时，
+      // 本地 1 毫秒就拿到的数据，用户要盯着转圈几十秒。
+      this.isLoading = false
+    }
 
-    const fresh: ScaleMeta[] = await this.scaleRepo.refreshScaleList()
-    if (fresh.length > 0) {
-      this.assessmentList = this.toAssessmentItems(fresh)
+    // 后台静默刷新：不 await，数据回来再覆盖列表；失败保留已渲染的本地数据
+    this.refreshInBackground()
+  }
+
+  /** 后台静默刷新列表，成功后覆盖已渲染的本地数据 */
+  private async refreshInBackground(): Promise<void> {
+    try {
+      const fresh: ScaleMeta[] = await this.scaleRepo.refreshScaleList()
+      if (fresh.length > 0) {
+        this.assessmentList = this.toAssessmentItems(fresh)
+        Logger.info(TAG, `自查列表静默刷新完成，共 ${this.assessmentList.length} 项`)
+      }
+    } catch (error) {
+      Logger.warn(TAG, `自查列表静默刷新失败（保留本地数据）: ${JSON.stringify(error)}`)
     }
   }
 
@@ -186,6 +208,7 @@ export struct AssessmentsView {
         .width('100%')
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
       }
     }
     .width('100%')
@@ -196,28 +219,26 @@ export struct AssessmentsView {
   @Builder
   buildTopIntroCard() {
     Column() {
-      Text('🫧')
-        .fontSize(32)
-        .margin({ bottom: 10 })
-
+      // HTML 设计稿：说明卡无装饰元素（原 🫧 装饰 emoji 已删）
       Text('用几分钟，更了解现在的自己')
         .fontSize(20)
-        .fontWeight(FontWeight.Bold)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
 
-      Text('自查不是贴标签，而是帮助你看见自己此刻的状态。')
-        .fontSize(14)
+      Text('自查不是给你贴标签，而是帮你看清此刻的状态。')
+        .fontSize(FontLevel.Body)
         .fontColor($r('app.color.text_secondary'))
-        .lineHeight(22)
+        .lineHeight(FontLevel.bodyLineHeight(FontLevel.Body))
         .width('100%')
-        .margin({ top: 8 })
+        .margin({ top: Dimension.SpaceS })
     }
     .width('100%')
-    .padding(18)
+    .padding(Dimension.CardPaddingHero)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(16)
-    .margin({ bottom: 16 })
+    .borderRadius(Dimension.HeroCardRadius)
+    .shadow(ShadowStyle.Card)
+    .margin({ bottom: Dimension.SpaceXXL })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -233,66 +254,61 @@ export struct AssessmentsView {
 
   @Builder
   buildAssessmentCard(item: AssessmentItem, index: number) {
+    // HTML quiz-card：min-height 176 等高，chip 右上
     Column() {
       Row() {
         Blank()
 
-        Text(this.getItemQuestionCount(item))
-          .fontSize(12)
-          .fontColor($r('app.color.theme_primary'))
-          .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-          .backgroundColor($r('app.color.tag_blue'))
-          .borderRadius(10)
+        AppChip({
+          label: this.getItemQuestionCount(item),
+          kind: 'primary'
+        })
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .margin({ bottom: Dimension.SpaceM })
 
       Text(this.getItemTitle(item))
-        .fontSize(17)
-        .fontWeight(FontWeight.Bold)
+        .fontSize(FontLevel.SectionTitle)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
 
       Text(this.getItemDesc(item))
-        .fontSize(13)
-        .fontColor($r('app.color.text_secondary'))
+        .fontSize(FontLevel.Body)
+        .fontColor($r('app.color.text_tertiary'))
         .lineHeight(20)
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .constraintSize({ minHeight: 44 })
         .width('100%')
-        .margin({ top: 8, bottom: 14 })
+        .margin({ top: Dimension.SpaceS, bottom: Dimension.SpaceL })
 
       Row() {
         Text(this.getItemDuration(item))
-          .fontSize(12)
-          .fontColor($r('app.color.text_tertiary'))
+          .fontSize(FontLevel.Caption)
+          .fontColor($r('app.color.text_quaternary'))
 
         Blank()
 
-        Button('开始自查')
-          .height(34)
-          .fontSize(14)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.theme_primary'))
-          // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-          .linearGradient({
-            angle: 135,
-            colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-          })
-          .borderRadius(Dimension.CardRadiusInner)
-          .shadow(ShadowStyle.Button)
-          .borderRadius(18)
-          .padding({ left: 14, right: 14 })
-          .onClick(() => {
+        // 产品温度：邀请式文案（用户拍板的候选）
+        AppButton({
+          label: '开始了解自己',
+          kind: 'primary',
+          onPress: () => {
             this.startAssessment(item)
-          })
+          }
+        })
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .padding(16)
+    .constraintSize({ minHeight: 176 })
+    .padding(Dimension.CardPadding)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(16)
-    .margin({ bottom: index === this.assessmentList.length - 1 ? 0 : 12 })
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
+    .margin({ bottom: index === this.assessmentList.length - 1 ? 0 : Dimension.SpaceXXL })
   }
 
   private ensureLogin(): boolean {

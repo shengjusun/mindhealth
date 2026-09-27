@@ -1,7 +1,8 @@
 import { appState, AppState, popRoute, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension } from '../../common/constants/Theme'
+import { brand, ShadowStyle, Dimension } from '../../common/constants/Theme'
+import { AppButton } from '../../common/components/AppButton'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 import { AuthService } from '../../core/auth/AppAuthService'
@@ -166,7 +167,7 @@ export struct DiaryEditPage {
       }
     } catch (error) {
       Logger.error(TAG, `保存日记失败: ${JSON.stringify(error)}`)
-      this.showMessage('网络异常，请稍后重试')
+      this.showMessage('网络好像不太顺畅，稍后再试试')
     } finally {
       this.isSaving = false
     }
@@ -204,6 +205,7 @@ export struct DiaryEditPage {
       .width('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
     }
     .width('100%')
     .height('100%')
@@ -230,6 +232,7 @@ export struct DiaryEditPage {
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(18)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
     .alignItems(HorizontalAlign.Start)
   }
@@ -258,6 +261,7 @@ export struct DiaryEditPage {
     .padding(16)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(16)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 
@@ -277,7 +281,7 @@ export struct DiaryEditPage {
             .height(34)
             .fontSize(14)
             .fontColor(this.emotion === item ? $r('app.color.text_on_primary') : $r('app.color.text_secondary'))
-            .backgroundColor(this.emotion === item ? $r('app.color.theme_primary') : $r('app.color.surface_soft'))
+            .backgroundColor(this.emotion === item ? brand().primary : $r('app.color.surface_soft'))
             .borderRadius(17)
             .margin({ right: 8, bottom: 8 })
             .onClick(() => {
@@ -309,6 +313,7 @@ export struct DiaryEditPage {
     .padding(16)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(16)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 
@@ -336,6 +341,7 @@ export struct DiaryEditPage {
     .padding(16)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(16)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 
@@ -371,24 +377,22 @@ export struct DiaryEditPage {
     .padding(16)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(16)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
   }
 
   @Builder
   buildSaveButton() {
-    Button(this.isSaving ? '保存中...' : (this.isEditMode ? '保存修改' : '保存日记'))
-      .width('100%')
-      .height(Dimension.ButtonHeight)
-      .fontSize(16)
-      .fontColor($r('app.color.text_on_primary'))
-      .backgroundColor(this.isSaving ? $r('app.color.text_tertiary') : $r('app.color.theme_primary'))
-      .borderRadius(24)
-      .enabled(!this.isSaving)
-      .onClick(() => {
-        if (!this.isSaving) {
-          this.saveDiary()
-        }
-      })
+    AppButton({
+      label: this.isSaving ? '保存中...' : (this.isEditMode ? '保存修改' : '保存日记'),
+      kind: 'primary',
+      block: true,
+      loading: this.isSaving,
+      active: !this.isSaving,
+      onPress: () => {
+        this.saveDiary()
+      }
+    })
   }
 
   private ensureLogin(): boolean {

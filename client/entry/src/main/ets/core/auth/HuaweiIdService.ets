@@ -4,11 +4,9 @@
  * 换 token、建账号、签发系统 JWT 全部由后端完成（见 /api/user/huawei/login）
  */
 import { authentication } from '@kit.AccountKit'
+import { Logger } from '../../common/utils/Logger'
 import { bundleManager } from '@kit.AbilityKit'
 import { BusinessError } from '@kit.BasicServicesKit'
-import { hilog } from '@kit.PerformanceAnalysisKit'
-
-const DOMAIN = 0xFF00
 const TAG = 'HuaweiIdService'
 
 export class HuaweiIdService {
@@ -56,13 +54,13 @@ export class HuaweiIdService {
         }
       }
       if (found.length > 0) {
-        hilog.info(DOMAIN, TAG,
+        Logger.info(TAG,
           `诊断: 包内 client_id=${found.substring(0, 6)}****${found.substring(found.length - 4)}（已携带）`)
       } else {
-        hilog.error(DOMAIN, TAG, '诊断: 包内未找到 client_id metadata！请确认 module.json5 已配置 client_id 并重新构建安装')
+        Logger.error(TAG, '诊断: 包内未找到 client_id metadata！请确认 module.json5 已配置 client_id 并重新构建安装')
       }
     } catch (e) {
-      hilog.warn(DOMAIN, TAG, `诊断: 读取 client_id 失败: ${JSON.stringify(e)}`)
+      Logger.warn(TAG, `诊断: 读取 client_id 失败: ${JSON.stringify(e)}`)
     }
   }
 
@@ -83,7 +81,7 @@ export class HuaweiIdService {
     request.forceAuthorization = true
 
     try {
-      hilog.info(DOMAIN, TAG, '开始拉起华为账号授权')
+      Logger.info(TAG, '开始拉起华为账号授权')
       const controller: authentication.AuthenticationController =
         new authentication.AuthenticationController()
       const data: authentication.AuthorizationWithHuaweiIDResponse =
@@ -92,15 +90,15 @@ export class HuaweiIdService {
       const credential = data.data
       const code: string = credential?.authorizationCode ?? ''
       if (code.length === 0) {
-        hilog.error(DOMAIN, TAG, '授权成功但未返回 authorizationCode')
+        Logger.error(TAG, '授权成功但未返回 authorizationCode')
         throw new Error('未获取到华为登录凭证')
       }
 
-      hilog.info(DOMAIN, TAG, '华为账号授权成功, codeLength=' + code.length)
+      Logger.info(TAG, '华为账号授权成功, codeLength=' + code.length)
       return code
     } catch (error) {
       const bizError = error as BusinessError
-      hilog.error(DOMAIN, TAG, `华为账号授权失败: code=${bizError.code}, message=${bizError.message}`)
+      Logger.error(TAG, `华为账号授权失败: code=${bizError.code}, message=${bizError.message}`)
       throw new Error(HuaweiIdService.mapErrorCode(bizError.code))
     }
   }

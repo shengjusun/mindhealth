@@ -1,6 +1,9 @@
 import { appState, popRoute, pushRoute, pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
-import { Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { brand, Dimension, FontLevel, ShadowStyle, Motion } from '../../common/constants/Theme'
+import { AppChip } from '../../common/components/AppChip'
+import { softLevel, softLevelKind, emotionChipKind } from '../../common/utils/AssessmentTone'
+import { AppButton } from '../../common/components/AppButton'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { Logger } from '../../common/utils/Logger'
 import { AuthService } from '../../core/auth/AppAuthService'
@@ -51,6 +54,9 @@ export struct MyRecordsPage {
   @Local isAssessmentLoading: boolean = false
   @Local diaryRecords: DiaryItem[] = []
   @Local isDiaryLoading: boolean = false
+  // 网络失败标记：把"加载失败"和"还没有记录"区分开（审计 C-1-7）
+  @Local assessmentLoadError: boolean = false
+  @Local diaryLoadError: boolean = false
   private authService: AuthService = AuthService.getInstance()
 
   private apiService: ApiService = ApiService.getInstance()
@@ -82,12 +88,15 @@ export struct MyRecordsPage {
       const response = await this.apiService.getAssessmentResults()
       if (response.code === 200 && Array.isArray(response.data)) {
         this.assessmentRecords = response.data as AssessmentRecordItem[]
+        this.assessmentLoadError = false
       } else {
         this.assessmentRecords = []
+        this.assessmentLoadError = true
       }
     } catch (error) {
       Logger.error(TAG, `加载测评记录失败: ${JSON.stringify(error)}`)
       this.assessmentRecords = []
+      this.assessmentLoadError = true
     } finally {
       this.isAssessmentLoading = false
     }
@@ -100,12 +109,15 @@ export struct MyRecordsPage {
       const response = await this.apiService.getDiaryList()
       if (response.code === 200 && Array.isArray(response.data)) {
         this.diaryRecords = response.data as DiaryItem[]
+        this.diaryLoadError = false
       } else {
         this.diaryRecords = []
+        this.diaryLoadError = true
       }
     } catch (error) {
       Logger.error(TAG, `加载日记记录失败: ${JSON.stringify(error)}`)
       this.diaryRecords = []
+      this.diaryLoadError = true
     } finally {
       this.isDiaryLoading = false
     }
@@ -135,32 +147,6 @@ export struct MyRecordsPage {
     return timeText
   }
 
-  private getLevelBg(level: string): ResourceColor {
-    if (level.indexOf('良好') >= 0) {
-      return $r('app.color.tag_green')
-    }
-    if (level.indexOf('轻度') >= 0) {
-      return $r('app.color.tag_orange')
-    }
-    if (level.indexOf('中度') >= 0) {
-      return $r('app.color.tag_blue')
-    }
-    return $r('app.color.surface_soft')
-  }
-
-  private getLevelColor(level: string): ResourceColor {
-    if (level.indexOf('良好') >= 0) {
-      return $r('app.color.state_success')
-    }
-    if (level.indexOf('轻度') >= 0) {
-      return $r('app.color.state_warning')
-    }
-    if (level.indexOf('中度') >= 0) {
-      return $r('app.color.state_error')
-    }
-    return $r('app.color.text_secondary')
-  }
-
   private goDiaryDetail(item: DiaryItem): void {
     const params: DiaryDetailParams = {
       id: item.id ?? 0,
@@ -178,7 +164,7 @@ export struct MyRecordsPage {
     Column() {
       AppPageHeader({
         title: '我的记录',
-        subtitle: '日记与测评记录',
+        subtitle: '心情与状态的足迹',
         showBack: true
       })
 
@@ -197,43 +183,68 @@ export struct MyRecordsPage {
 
   @Builder
   buildTabCard() {
+    // 官方分段控件形态：bg-subtle 胶囊 + 选中段主色底白字（与资料编辑性别分段同款语言）
     Row() {
-      this.buildTabItem('测评记录', 'assessment')
-      this.buildTabItem('日记记录', 'diary')
+      this.buildTabItem('状态足迹', 'assessment')
+      this.buildTabItem('心情日记', 'diary')
     }
     .width('100%')
-    .padding({
-      left: Dimension.SpaceL,
-      right: Dimension.SpaceL,
-      top: 4,
-      bottom: 10
-    })
+    .height(36)
+    .padding(2)
+    .borderRadius(Dimension.RadiusFull)
+    .backgroundColor($r('app.color.surface_soft'))
+    .margin({ bottom: Dimension.SpaceL })
   }
 
   @Builder
   buildTabItem(title: string, tab: string) {
-    Column() {
-      Text(title)
-        .fontSize(15)
-        .fontWeight(this.currentTab === tab ? FontWeight.Bold : FontWeight.Medium)
-        .fontColor(this.currentTab === tab ? $r('app.color.theme_primary') : $r('app.color.text_secondary'))
+    Text(title)
+      .fontSize(FontLevel.Body)
+      .fontWeight(this.currentTab === tab ? FontWeight.Medium : FontWeight.Normal)
+      .fontColor(this.currentTab === tab ? $r('app.color.text_on_primary') : $r('app.color.text_tertiary'))
+      .backgroundColor(this.currentTab === tab ? brand().primary : Color.Transparent)
+      .textAlign(TextAlign.Center)
+      .layoutWeight(1)
+      .height(32)
+      .borderRadius(Dimension.RadiusFull)
+      .animation({ curve: Motion.springEmphasized })
+      .onClick(() => {
+        this.switchTab(tab)
+      })
+  }
 
-      Row()
-        .width(24)
-        .height(3)
-        .borderRadius(2)
-        .backgroundColor(this.currentTab === tab ? $r('app.color.theme_primary') : Color.Transparent)
-        .margin({ top: 8 })
+  @Builder
+  buildErrorCard(message: string, retry: () => void) {
+    // 错误卡：与空态卡同款容器语言，明确告知"失败"而非伪装成空（审计 C-1-7）
+    Column() {
+      SymbolGlyph($r('sys.symbol.arrow_counterclockwise'))
+        .fontSize(44)
+        .fontColor([$r('app.color.text_tertiary')])
+        .margin({ bottom: 12 })
+
+      Text(message)
+        .fontSize(15)
+        .fontColor($r('app.color.text_primary'))
+        .fontWeight(FontWeight.Medium)
+        .margin({ bottom: 6 })
+
+      Text('检查网络后重试')
+        .fontSize(13)
+        .fontColor($r('app.color.text_tertiary'))
+        .margin({ bottom: 16 })
+
+      AppButton({
+        label: '重试',
+        kind: 'secondary',
+        onPress: retry
+      })
     }
-    .layoutWeight(1)
-    .padding({ top: 10, bottom: 10 })
+    .width('100%')
+    .padding(24)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(16)
-    .margin({ right: tab === 'assessment' ? 6 : 0, left: tab === 'diary' ? 6 : 0 })
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
     .alignItems(HorizontalAlign.Center)
-    .onClick(() => {
-      this.switchTab(tab)
-    })
   }
 
   @Builder
@@ -241,7 +252,11 @@ export struct MyRecordsPage {
     Scroll() {
       Column() {
         if (this.isAssessmentLoading) {
-          this.buildLoadingCard('正在加载测评记录...')
+          this.buildLoadingCard('正在整理状态足迹...')
+        } else if (this.assessmentLoadError) {
+          this.buildErrorCard('状态足迹加载失败', (): void => {
+            this.loadAssessmentRecords()
+          })
         } else if (this.assessmentRecords.length === 0) {
           this.buildEmptyAssessmentCard()
         } else {
@@ -265,6 +280,7 @@ export struct MyRecordsPage {
     .width('100%')
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
+    .align(Alignment.TopStart)
   }
 
   @Builder
@@ -274,7 +290,11 @@ export struct MyRecordsPage {
         this.buildDiaryGuideCard()
 
         if (this.isDiaryLoading) {
-          this.buildLoadingCard('正在加载日记记录...')
+          this.buildLoadingCard('正在整理心情日记...')
+        } else if (this.diaryLoadError) {
+          this.buildErrorCard('心情日记加载失败', (): void => {
+            this.loadDiaryRecords()
+          })
         } else if (this.diaryRecords.length === 0) {
           this.buildEmptyDiaryCard()
         } else {
@@ -298,6 +318,7 @@ export struct MyRecordsPage {
     .width('100%')
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
+    .align(Alignment.TopStart)
   }
 
   @Builder
@@ -306,7 +327,7 @@ export struct MyRecordsPage {
       LoadingProgress()
         .width(32)
         .height(32)
-        .color($r('app.color.theme_primary'))
+        .color(brand().primary)
 
       Text(message)
         .fontSize(14)
@@ -317,46 +338,38 @@ export struct MyRecordsPage {
     .padding(24)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(18)
+    .shadow(ShadowStyle.Card)
     .alignItems(HorizontalAlign.Center)
   }
 
   @Builder
   buildEmptyAssessmentCard() {
     Column() {
-      Text('还没有测评记录')
+      Text('还没有状态足迹')
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
 
-      Text('去完成一次测评后，记录会自动出现在这里。')
+      Text('去了解一次自己，足迹就会留在这里。')
         .fontSize(14)
         .fontColor($r('app.color.text_secondary'))
         .lineHeight(22)
         .width('100%')
         .margin({ top: 10 })
 
-      Button('去做测评')
-        .width('100%')
-        .height(46)
-        .fontSize(15)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor($r('app.color.theme_primary'))
-        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-        .linearGradient({
-          angle: 135,
-          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-        })
-        .borderRadius(Dimension.CardRadiusInner)
-        .shadow(ShadowStyle.Button)
-        .borderRadius(23)
-        .margin({ top: 18 })
-        .onClick(() => {
+      AppButton({
+        label: '去做自查',
+        kind: 'primary',
+        block: true,
+        outerMargin: { top: 18 },
+        onPress: () => {
           // 回主框架并切到自查 Tab：MainPage 是栈底页面，
           // 先改全局 Tab 下标再出栈，MainPage 的 @Monitor 会驱动 Tabs 切换
           appState().mainTabIndex = 3
           popRoute()
-        })
+        }
+      })
     }
     .width('100%')
     .padding(20)
@@ -369,7 +382,7 @@ export struct MyRecordsPage {
   @Builder
   buildEmptyDiaryCard() {
     Column() {
-      Text('还没有日记记录')
+      Text('还没有心情日记')
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.text_primary'))
@@ -382,24 +395,15 @@ export struct MyRecordsPage {
         .width('100%')
         .margin({ top: 10 })
 
-      Button('去写日记')
-        .width('100%')
-        .height(46)
-        .fontSize(15)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor($r('app.color.theme_primary'))
-        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-        .linearGradient({
-          angle: 135,
-          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-        })
-        .borderRadius(Dimension.CardRadiusInner)
-        .shadow(ShadowStyle.Button)
-        .borderRadius(23)
-        .margin({ top: 18 })
-        .onClick(() => {
-          this.safePush('pages/diary/DiaryEditPage')
-        })
+      AppButton({
+        label: '去写日记',
+        kind: 'primary',
+        block: true,
+        outerMargin: { top: 18 },
+        onPress: () => {
+          this.safePush('DiaryEditPage')
+        }
+      })
     }
     .width('100%')
     .padding(20)
@@ -412,9 +416,9 @@ export struct MyRecordsPage {
   @Builder
   buildDiaryGuideCard() {
     Column() {
-      Text('日记记录')
-        .fontSize(18)
-        .fontWeight(FontWeight.Bold)
+      Text('心情日记')
+        .fontSize(FontLevel.SectionTitle)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
 
@@ -438,44 +442,43 @@ export struct MyRecordsPage {
   buildDiaryRecordCard(item: DiaryItem, index: number) {
     Column() {
       Row() {
-        Text(item.emotion && item.emotion.length > 0 ? item.emotion : '情绪记录')
-          .fontSize(12)
-          .fontColor($r('app.color.theme_primary'))
-          .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-          .backgroundColor($r('app.color.tag_blue'))
-          .borderRadius(10)
+        AppChip({
+          label: item.emotion && item.emotion.length > 0 ? item.emotion : '情绪记录',
+          kind: emotionChipKind(item.emotion ?? '')
+        })
 
         Blank()
 
         Text(this.getDiaryDateText(item.createTime ?? ''))
-          .fontSize(12)
-          .fontColor($r('app.color.text_tertiary'))
+          .fontSize(FontLevel.Caption)
+          .fontColor($r('app.color.text_quaternary'))
       }
       .width('100%')
-      .margin({ bottom: 10 })
+      .margin({ bottom: Dimension.SpaceS })
 
       Text(item.title && item.title.length > 0 ? item.title : '未命名日记')
-        .fontSize(16)
-        .fontWeight(FontWeight.Bold)
+        .fontSize(FontLevel.SectionTitle)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
 
       if (item.content && item.content.length > 0) {
         Text(item.content)
-          .fontSize(14)
+          .fontSize(FontLevel.Body)
           .fontColor($r('app.color.text_secondary'))
-          .lineHeight(22)
+          .lineHeight(FontLevel.bodyLineHeight(FontLevel.Body))
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
-          .margin({ top: 6 })
+          .margin({ top: Dimension.Space2XS })
       }
     }
     .width('100%')
-    .padding(16)
+    .padding(Dimension.CardPadding)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(16)
-    .margin({ bottom: index === this.diaryRecords.length - 1 ? 0 : 12 })
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
+    .margin({ bottom: index === this.diaryRecords.length - 1 ? 0 : Dimension.SpaceXXL })
     .onClick(() => {
       this.goDiaryDetail(item)
     })
@@ -483,50 +486,62 @@ export struct MyRecordsPage {
 
   @Builder
   buildAssessmentRecordCard(item: AssessmentRecordItem, index: number) {
+    // 对齐首页状态卡：标题 + 分数主角，建议灰块，chip + 日期收底
     Column() {
       Row() {
         Text(item.assessmentTitle ? item.assessmentTitle : '心理测评')
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
+          .fontSize(FontLevel.SectionTitle)
+          .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
 
-        Text(item.level ? item.level : '未知')
-          .fontSize(12)
-          .fontColor(this.getLevelColor(item.level ? item.level : ''))
-          .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-          .backgroundColor(this.getLevelBg(item.level ? item.level : ''))
-          .borderRadius(12)
+        Row() {
+          Text(`${item.score ?? 0}`)
+            .fontSize(FontLevel.Stat)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'))
+
+          Text('分')
+            .fontSize(FontLevel.Caption)
+            .fontColor($r('app.color.text_quaternary'))
+            .margin({ left: 2 })
+        }
+        .alignItems(VerticalAlign.Bottom)
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .alignItems(VerticalAlign.Top)
+
+      Text(item.suggestion ? item.suggestion : '暂无建议')
+        .fontSize(FontLevel.Body)
+        .fontColor($r('app.color.text_secondary'))
+        .lineHeight(FontLevel.bodyLineHeight(FontLevel.Body))
+        .width('100%')
+        .padding(Dimension.CardPaddingInner)
+        .backgroundColor($r('app.color.surface_soft'))
+        .borderRadius(Dimension.RadiusM)
+        .margin({ top: Dimension.SpaceM })
 
       Row() {
-        Text(`得分：${item.score ?? 0}`)
-          .fontSize(14)
-          .fontColor($r('app.color.text_primary'))
-          .fontWeight(FontWeight.Medium)
+        AppChip({
+          label: softLevel(item.level ? item.level : ''),
+          kind: softLevelKind(item.level ? item.level : '')
+        })
 
         Blank()
 
         Text(this.formatDateTime(item.createTime ? String(item.createTime) : ''))
-          .fontSize(12)
-          .fontColor($r('app.color.text_tertiary'))
+          .fontSize(FontLevel.Caption)
+          .fontColor($r('app.color.text_quaternary'))
       }
       .width('100%')
-      .margin({ bottom: 10 })
-
-      Text(item.suggestion ? item.suggestion : '暂无建议')
-        .fontSize(14)
-        .fontColor($r('app.color.text_secondary'))
-        .lineHeight(22)
-        .width('100%')
+      .margin({ top: Dimension.SpaceM })
     }
     .width('100%')
-    .padding(18)
+    .padding(Dimension.CardPadding)
     .backgroundColor($r('app.color.app_card'))
-    .borderRadius(18)
-    .margin({ bottom: index === this.assessmentRecords.length - 1 ? 0 : 14 })
+    .borderRadius(Dimension.CardRadius)
+    .shadow(ShadowStyle.Card)
+    .margin({ bottom: index === this.assessmentRecords.length - 1 ? 0 : Dimension.SpaceXXL })
   }
 
   private ensureLogin(): boolean {

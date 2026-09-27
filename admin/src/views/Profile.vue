@@ -3,19 +3,15 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { changePassword, fetchProfile, type AdminProfile } from '../api/admin'
-import { getAdminName, getAdminRole } from '../auth'
-import { formatTime } from '../utils/format'
+import { getAdminName, getAdminRole, markPasswordChanged } from '../auth'
+import { formatRole, formatTime } from '../utils/format'
 
 const loading = ref(false)
 const profile = ref<AdminProfile | null>(null)
 
 const displayName = computed(() => profile.value?.username || getAdminName() || '-')
 const initial = computed(() => displayName.value.charAt(0).toUpperCase())
-const roleText = computed(() => {
-  const role = profile.value?.role || getAdminRole()
-  if (!role) return '管理员账号'
-  return role.toLowerCase() === 'admin' ? '超级管理员' : role
-})
+const roleText = computed(() => formatRole(profile.value?.role || getAdminRole()))
 
 const formRef = ref<FormInstance>()
 const pwd = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' })
@@ -73,6 +69,8 @@ async function onSubmit(): Promise<void> {
   submitting.value = true
   try {
     await changePassword(pwd.oldPassword, pwd.newPassword)
+    // 撤掉顶部「仍在使用初始密码」提示条
+    markPasswordChanged()
     ElMessage.success('密码修改成功')
     onReset()
   } catch {

@@ -2,13 +2,14 @@ import { appState, AppState, pushRoute } from '../../common/state/AppState'
 import { AuthService } from '../../core/auth/AppAuthService'
 import { replaceRoute } from '../../common/state/AppState'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { brand, Dimension, ShadowStyle } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 import { window } from '@kit.ArkUI'
 import { HuaweiIdService } from '../../core/auth/HuaweiIdService'
 import { loginComponentManager, LoginWithHuaweiIDButton } from '@kit.AccountKit'
 import { BusinessError } from '@kit.BasicServicesKit'
+import { AppButton } from '../../common/components/AppButton'
 
 const TAG = 'LoginPage'
 
@@ -37,7 +38,7 @@ export struct LoginPage {
       try {
         replaceRoute('MainPage')
       } catch (error) {
-        Logger.error(TAG, `已登录跳转首页失败: ${JSON.stringify(error)}`)
+        Logger.error(TAG, `已登录页面没打开成功，再试一次吧: ${JSON.stringify(error)}`)
       }
     }
 
@@ -88,7 +89,7 @@ export struct LoginPage {
       replaceRoute('MainPage')
     } catch (error) {
       Logger.error(TAG, `登录成功后跳转失败: ${JSON.stringify(error)}`)
-      ToastUtil.show('跳转首页失败')
+      ToastUtil.show('页面没打开成功，再试一次吧')
     }
   }
 
@@ -134,6 +135,7 @@ export struct LoginPage {
       .width('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
     }
     .width('100%')
     .height('100%')
@@ -146,14 +148,14 @@ export struct LoginPage {
       Row() {
         Text('欢迎回来')
           .fontSize(12)
-          .fontColor($r('app.color.theme_primary'))
+          .fontColor(brand().primary)
           .padding({
             left: 10,
             right: 10,
             top: 5,
             bottom: 5
           })
-          .backgroundColor($r('app.color.tag_blue'))
+          .backgroundColor(brand().tagBlue)
           .borderRadius(12)
       }
       .margin({ bottom: 16 })
@@ -230,21 +232,17 @@ export struct LoginPage {
   @Builder
   buildActionArea() {
     Column() {
-      Button(this.isLoading ? '登录中...' : '立即登录')
-        .width('100%')
-        .height(Dimension.ButtonHeight)
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor(this.isLoading ? $r('app.color.text_tertiary') : $r('app.color.theme_primary'))
-        .borderRadius(24)
-        .enabled(!this.isLoading && !this.isHuaweiLoading)
-        .onClick(() => {
-          if (!this.isLoading) {
-            this.handleLogin()
-          }
-        })
-        .margin({ top: 20, bottom: 16 })
+      AppButton({
+        label: this.isLoading ? '登录中...' : '立即登录',
+        kind: 'primary',
+        block: true,
+        loading: this.isLoading,
+        active: !this.isLoading && !this.isHuaweiLoading,
+        outerMargin: { top: 20, bottom: 16 },
+        onPress: () => {
+          this.handleLogin()
+        }
+      })
 
       Row() {
         Text('还没有账号？')
@@ -254,7 +252,7 @@ export struct LoginPage {
         Row() {
           Text('去注册')
             .fontSize(14)
-            .fontColor($r('app.color.theme_primary'))
+            .fontColor(brand().primary)
             .fontWeight(FontWeight.Medium)
         }
         .padding({
@@ -263,7 +261,7 @@ export struct LoginPage {
           top: 8,
           bottom: 8
         })
-        .backgroundColor($r('app.color.tag_blue'))
+        .backgroundColor(brand().tagBlue)
         .borderRadius(16)
         .margin({ left: 8 })
         .onClick(() => {
@@ -318,7 +316,7 @@ export struct LoginPage {
       pushRoute('RegisterPage')
     } catch (error) {
       Logger.error(TAG, `跳转注册页失败: ${JSON.stringify(error)}`)
-      this.showToast('打开注册页失败')
+      this.showToast('页面没打开成功，再试一次吧')
     }
   }
 
@@ -375,7 +373,7 @@ export struct LoginPage {
       // 兜底异常处理，避免按钮一直处于 loading 状态
       this.isLoading = false
       Logger.error(TAG, `登录异常: ${JSON.stringify(error)}`)
-      this.showToast('网络异常，请稍后重试')
+      this.showToast('网络好像不太顺畅，稍后再试试')
     }
   }
 

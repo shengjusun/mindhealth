@@ -45,4 +45,31 @@ export class AppSettings {
       Logger.warn(TAG, `写入设置失败 key=${key}: ${JSON.stringify(error)}`)
     }
   }
+
+  /**
+   * 读取字符串偏好（主题 id 等，读取失败时返回默认值）
+   */
+  public static async getString(context: common.Context, key: string, defaultValue: string): Promise<string> {
+    try {
+      const store = await AppSettings.getStore(context)
+      const value = await store.get(key, defaultValue) as string
+      return value
+    } catch (error) {
+      Logger.warn(TAG, `读取设置失败 key=${key}: ${JSON.stringify(error)}`)
+      return defaultValue
+    }
+  }
+
+  /**
+   * 写入字符串偏好
+   */
+  public static async setString(context: common.Context, key: string, value: string): Promise<void> {
+    try {
+      const store = await AppSettings.getStore(context)
+      await store.put(key, value)
+      await store.flush()
+    } catch (error) {
+      Logger.warn(TAG, `写入设置失败 key=${key}: ${JSON.stringify(error)}`)
+    }
+  }
 }

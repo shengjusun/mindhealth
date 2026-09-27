@@ -44,7 +44,17 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/user/login", "/user/register", "/user/huawei/login").permitAll()
-                        .requestMatchers("/admin/login").permitAll()
+                        .requestMatchers("/admin/login", "/admin/captcha").permitAll()
+                        // 管理员账号管理只允许超级管理员。
+                        // 必须排在 /admin/** 之前：requestMatchers 按声明顺序匹配，放后面永远轮不到
+                        .requestMatchers("/admin/accounts", "/admin/accounts/**")
+                        .hasAuthority("ROLE_SUPER_ADMIN")
+                        // 操作日志同样只给超管：审计记录是用来约束管理员的，
+                        // 不应该让被审计者随手翻看、据此规避
+                        .requestMatchers("/admin/logs", "/admin/logs/**")
+                        .hasAuthority("ROLE_SUPER_ADMIN")
+                        // 管理端其余接口只允许 ROLE_ADMIN（P0-1：此前任何登录用户都能调）
+                        .requestMatchers("/admin/**").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/doc.html", "/swagger-ui.html").permitAll()
 

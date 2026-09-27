@@ -1,6 +1,6 @@
 import { pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension } from '../../common/constants/Theme'
+import { brand, ShadowStyle, Dimension } from '../../common/constants/Theme'
 import { LoadingComponent, EmptyComponent, ErrorComponent } from '../../common/components/StateComponents'
 import { ApiService } from '../../core/api/ApiService'
 import { Logger } from '../../common/utils/Logger'
@@ -66,7 +66,7 @@ export struct ArticlesPage {
     } catch (error) {
       Logger.error(TAG, `加载文章失败: ${JSON.stringify(error)}`)
       this.hasError = true
-      this.errorMessage = '网络异常，请稍后重试'
+      this.errorMessage = '网络好像不太顺畅，稍后再试试'
     } finally {
       this.isLoading = false
     }
@@ -145,6 +145,7 @@ export struct ArticlesPage {
           .width('100%')
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
         }
         .layoutWeight(1)
         .width('100%')
@@ -184,6 +185,7 @@ export struct ArticlesPage {
     .padding(18)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(16)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
     .alignItems(HorizontalAlign.Start)
   }
@@ -204,9 +206,9 @@ export struct ArticlesPage {
       Row() {
         Text(this.getArticleCategory(item))
           .fontSize(12)
-          .fontColor($r('app.color.theme_primary'))
+          .fontColor(brand().primary)
           .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-          .backgroundColor($r('app.color.tag_blue'))
+          .backgroundColor(brand().tagBlue)
           .borderRadius(10)
 
         Blank()
@@ -242,7 +244,7 @@ export struct ArticlesPage {
 
         Text('阅读全文')
           .fontSize(14)
-          .fontColor($r('app.color.theme_primary'))
+          .fontColor(brand().primary)
           .fontWeight(FontWeight.Medium)
       }
       .width('100%')
@@ -251,6 +253,7 @@ export struct ArticlesPage {
     .padding(16)
     .backgroundColor($r('app.color.app_card'))
     .borderRadius(16)
+    .shadow(ShadowStyle.Card)
     .margin({ bottom: index === this.articleList.length - 1 ? 0 : 12 })
     .onClick(() => {
       if (item.id !== undefined) {

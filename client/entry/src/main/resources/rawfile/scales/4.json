@@ -1,14 +1,268 @@
 {
-  "id": 4,
-  "name": "压力感知量表",
-  "type": "PSS",
-  "version": 1,
-  "maxScore": 15,
-  "questions": [
-    {"id":1,"title":"最近一周，你是否感到压力超出了自己的承受范围？","options":[{"key":"A","text":"没有","score":0},{"key":"B","text":"偶尔有","score":1},{"key":"C","text":"经常有","score":2},{"key":"D","text":"一直有","score":3}]},
-    {"id":2,"title":"最近一周，你是否因为任务太多而感到喘不过气？","options":[{"key":"A","text":"不会","score":0},{"key":"B","text":"偶尔会","score":1},{"key":"C","text":"经常会","score":2},{"key":"D","text":"几乎每天","score":3}]},
-    {"id":3,"title":"最近一周，你是否因为压力而情绪失控或易怒？","options":[{"key":"A","text":"没有","score":0},{"key":"B","text":"偶尔有","score":1},{"key":"C","text":"经常有","score":2},{"key":"D","text":"非常频繁","score":3}]},
-    {"id":4,"title":"最近一周，压力是否影响到你的睡眠或饮食？","options":[{"key":"A","text":"没有影响","score":0},{"key":"B","text":"轻微影响","score":1},{"key":"C","text":"明显影响","score":2},{"key":"D","text":"严重影响","score":3}]},
-    {"id":5,"title":"最近一周，你是否有能力安排时间来放松自己？","options":[{"key":"A","text":"经常有","score":0},{"key":"B","text":"偶尔有","score":1},{"key":"C","text":"很少","score":2},{"key":"D","text":"完全没有","score":3}]}
-  ]
+  "id" : 4,
+  "name" : "抑郁情绪筛查",
+  "type" : "depression",
+  "description" : "用于初步识别最近一周是否存在持续低落、兴趣减退、精力下降等情况。本测评不是诊断工具。",
+  "version" : 1790496890,
+  "maxScore" : 36,
+  "scoring" : {
+    "bands" : [ {
+      "max" : 8,
+      "level" : "情绪较稳定",
+      "suggestion" : "最近一周你的情绪比较稳定。继续保持规律作息、适度运动和与人保持联系，这些是预防情绪下滑最有效的日常习惯。"
+    }, {
+      "max" : 16,
+      "level" : "轻度低落",
+      "suggestion" : "最近一周你出现了轻度情绪低落。建议先从最容易改变的一件事入手（比如固定起床时间、每天出门走 20 分钟），并把感受写进日记，观察一周的变化。"
+    }, {
+      "max" : 24,
+      "level" : "低落较明显",
+      "suggestion" : "最近一周低落情绪比较明显，且可能已影响到兴趣或精力。建议尽快和信任的人谈一谈，并预约专业心理咨询做一次系统评估。"
+    }, {
+      "max" : 36,
+      "level" : "低落较重",
+      "suggestion" : "最近一周你的低落程度较高。请把「尽快寻求专业帮助」放在第一位，同时联系可信任的人陪伴自己。如果出现伤害自己的想法，请立即拨打心理援助热线或前往医院急诊。"
+    } ]
+  },
+  "questions" : [ {
+    "id" : 1,
+    "title" : "最近一周，你是否感到情绪低落、开心不起来？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "几乎没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天都有",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 2,
+    "title" : "最近一周，你对以前喜欢的事情还有兴趣吗？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "和以前一样",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "兴趣少了一些",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "明显没兴趣",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "完全提不起兴趣",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 3,
+    "title" : "最近一周，你是否觉得自己没什么价值或容易自责？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "总是如此",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 4,
+    "title" : "最近一周，你的食欲和精力怎么样？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "正常",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "稍微下降",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "明显下降",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "非常差",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 5,
+    "title" : "最近一周，早晨醒来时你的心情如何？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "比较平静",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "有点低落",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "比较低落",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "非常低落",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 6,
+    "title" : "最近一周，你是否觉得做事情比以前更费力、更慢？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天都有",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 7,
+    "title" : "最近一周，你是否觉得未来没什么值得期待的？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "完全不觉得",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会这样想",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常会这样想",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "一直这么觉得",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 8,
+    "title" : "最近一周，你是否比平时更想一个人待着、不想说话？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常会",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎一直如此",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 9,
+    "title" : "最近一周，你是否觉得自己是别人的负担？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "从没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常会",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "一直这么觉得",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 10,
+    "title" : "最近一周，你是否觉得注意力很难集中、记不住事？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有影响",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "轻微影响",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "明显影响",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "非常严重",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 11,
+    "title" : "最近一周，你是否觉得身体沉重、动起来很费劲？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天都有",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 12,
+    "title" : "最近一周，你是否觉得生活缺少意义感？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "一直如此",
+      "score" : 3
+    } ]
+  } ]
 }

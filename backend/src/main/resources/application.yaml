@@ -66,6 +66,13 @@ huawei:
   client-secret: ${HUAWEI_CLIENT_SECRET:}
   token-url: https://oauth-login.cloud.huawei.com/oauth2/v3/token
 
+# DeepSeek AI 聊天（后端直连，替代 AGC 云函数中转），api-key 通过环境变量或 local 配置注入
+deepseek:
+  api-url: ${DEEPSEEK_API_URL:https://api.deepseek.com/v1/chat/completions}
+  api-key: ${DEEPSEEK_API_KEY:}
+  model: ${DEEPSEEK_MODEL:deepseek-chat}
+  timeout-ms: 60000
+
 # 文件上传配置
 file:
   upload:

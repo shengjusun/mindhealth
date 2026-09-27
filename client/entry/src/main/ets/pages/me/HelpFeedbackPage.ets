@@ -1,6 +1,7 @@
-import { popRoute } from '../../common/state/AppState'
+import { appState, popRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
-import { Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { brand, Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { AppButton } from '../../common/components/AppButton'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 import { pasteboard } from '@kit.BasicServicesKit'
@@ -17,6 +18,39 @@ interface FeedbackRequest {
 export struct HelpFeedbackPage {
   @Local feedbackText: string = ''
   @Local isSubmitting: boolean = false
+
+  /** 反馈内容非空即视为"有未提交内容"（驱动路由层返回拦截，审计 C-5-1） */
+  private updateFeedbackDirty(): boolean {
+    const dirty: boolean = this.feedbackText.trim().length > 0
+    appState().hasUnsavedChanges = dirty
+    return dirty
+  }
+
+  aboutToDisappear(): void {
+    appState().hasUnsavedChanges = false
+  }
+
+  @Monitor('state.backPressedTick')
+  onBackIntercepted(): void {
+    if (!this.updateFeedbackDirty()) {
+      return
+    }
+    AlertDialog.show({
+      title: '放弃反馈？',
+      message: '返回后已填写的内容将不会保留',
+      primaryButton: {
+        value: '继续填写',
+        action: () => {}
+      },
+      secondaryButton: {
+        value: '放弃',
+        action: () => {
+          appState().hasUnsavedChanges = false
+          popRoute()
+        }
+      }
+    })
+  }
 
   private apiService: ApiService = ApiService.getInstance()
 
@@ -45,6 +79,7 @@ export struct HelpFeedbackPage {
       const res = await this.apiService.submitFeedback(req)
 
       if (res.code === 200) {
+        appState().hasUnsavedChanges = false
         ToastUtil.show('反馈已提交，感谢你的建议')
         this.feedbackText = ''
       } else {
@@ -52,7 +87,7 @@ export struct HelpFeedbackPage {
       }
     } catch (error) {
       Logger.error(TAG, `提交反馈失败: ${JSON.stringify(error)}`)
-      ToastUtil.show('网络异常，请稍后重试')
+      ToastUtil.show('网络好像不太顺畅，稍后再试试')
     } finally {
       this.isSubmitting = false
     }
@@ -102,6 +137,7 @@ export struct HelpFeedbackPage {
       .alignItems(VerticalAlign.Center)
       .backgroundColor($r('app.color.app_card'))
       .borderRadius(Dimension.CardRadius)
+      .shadow(ShadowStyle.Card)
       .onClick(() => {
         this.goBack()
       })
@@ -176,26 +212,16 @@ export struct HelpFeedbackPage {
         Text('1073557926@qq.com')
           .fontSize(15)
           .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.theme_primary'))
+          .fontColor(brand().primary)
           .layoutWeight(1)
 
-        Button('复制')
-          .height(32)
-          .fontSize(13)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.theme_primary'))
-          // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-          .linearGradient({
-            angle: 135,
-            colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-          })
-          .borderRadius(Dimension.CardRadiusInner)
-          .shadow(ShadowStyle.Button)
-          .borderRadius(16)
-          .padding({ left: 16, right: 16 })
-          .onClick(() => {
+        AppButton({
+          label: '复制',
+          kind: 'text',
+          onPress: () => {
             this.copyEmail()
-          })
+          }
+        })
       }
       .width('100%')
       .padding(12)
@@ -273,20 +299,20 @@ export struct HelpFeedbackPage {
         .padding(12)
         .onChange((value: string) => {
           this.feedbackText = value
+          this.updateFeedbackDirty()
         })
 
-      Button(this.isSubmitting ? '提交中...' : '提交反馈')
-        .width('100%')
-        .height(46)
-        .fontSize(15)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor(this.isSubmitting ? $r('app.color.text_tertiary') : $r('app.color.theme_primary'))
-        .borderRadius(23)
-        .margin({ top: 16 })
-        .enabled(!this.isSubmitting)
-        .onClick(() => {
+      AppButton({
+        label: this.isSubmitting ? '提交中...' : '提交反馈',
+        kind: 'primary',
+        block: true,
+        loading: this.isSubmitting,
+        active: !this.isSubmitting,
+        outerMargin: { top: 16 },
+        onPress: () => {
           this.submitFeedback()
-        })
+        }
+      })
     }
     .width('100%')
     .padding(18)

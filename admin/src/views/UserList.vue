@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
@@ -17,10 +18,13 @@ import {
 import { csvFilename, exportCsv } from '../utils/csv'
 import { formatTime } from '../utils/format'
 
+const route = useRoute()
+const router = useRouter()
+
 const loading = ref(false)
 const keyword = ref('')
 const page = ref(1)
-const size = 10
+const size = ref(10)
 const total = ref(0)
 const rows = ref<AdminUser[]>([])
 const selected = ref<AdminUser[]>([])
@@ -66,7 +70,11 @@ const detail = ref<UserDetail | null>(null)
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const res = await fetchUsers({ page: page.value, size, keyword: keyword.value || undefined })
+    const res = await fetchUsers({
+      page: page.value,
+      size: size.value,
+      keyword: keyword.value || undefined,
+    })
     rows.value = res.records ?? []
     total.value = res.total ?? 0
     selected.value = []
@@ -84,6 +92,11 @@ function onSearch(): void {
 
 function onReset(): void {
   keyword.value = ''
+  page.value = 1
+  void load()
+}
+
+function onSizeChange(): void {
   page.value = 1
   void load()
 }
@@ -237,12 +250,13 @@ async function onResetPwd(): Promise<void> {
   }
 }
 
-async function openDetail(row: AdminUser): Promise<void> {
+/** 按 ID 拉详情。只依赖 ID，所以既能从表格点，也能从外部深链直接调起 */
+async function openDetail(userId: number): Promise<void> {
   drawerVisible.value = true
   detailLoading.value = true
   detail.value = null
   try {
-    detail.value = await fetchUserDetail(row.id)
+    detail.value = await fetchUserDetail(userId)
   } catch {
     /* 拦截器已提示 */
   } finally {
@@ -250,7 +264,27 @@ async function openDetail(row: AdminUser): Promise<void> {
   }
 }
 
-onMounted(load)
+/** 进入该用户的日记明细页（日记管理的二级页） */
+function goUserDiaries(id: number): void {
+  drawerVisible.value = false
+  void router.push({ path: `/diaries/user/${id}` })
+}
+
+/** 进入测评结果页并聚焦该用户 */
+function goUserAssessments(id: number): void {
+  drawerVisible.value = false
+  void router.push({ path: '/assessment-results', query: { userId: String(id) } })
+}
+
+onMounted(async () => {
+  await load()
+  // 支持 /users?detail=<id> 直接调起某个用户的详情抽屉（反馈页的「提交人」靠这个跳过来）
+  const target = route.query.detail
+  if (target) {
+    void openDetail(Number(target))
+    void router.replace({ path: '/users' })
+  }
+})
 </script>
 
 <template>
@@ -314,6 +348,19 @@ onMounted(load)
         <el-table-column label="年龄" width="80">
           <template #default="{ row }">{{ row.age ?? '-' }}</template>
         </el-table-column>
+        <el-table-column label="日记" width="80">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.diaryCount"
+              link
+              type="primary"
+              @click="goUserDiaries(row.id)"
+            >
+              {{ row.diaryCount }} 篇
+            </el-button>
+            <span v-else class="text-muted">0</span>
+          </template>
+        </el-table-column>
         <el-table-column label="注册时间" width="170">
           <template #default="{ row }">{{ formatTime(row.createTime) }}</template>
         </el-table-column>
@@ -326,7 +373,7 @@ onMounted(load)
         </el-table-column>
         <el-table-column label="操作" width="292" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+            <el-button link type="primary" @click="openDetail(row.id)">详情</el-button>
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button link type="primary" @click="openResetPwd(row)">重置密码</el-button>
             <el-button link type="warning" @click="onToggleStatus(row)">
@@ -343,11 +390,13 @@ onMounted(load)
       <div class="panel__foot">
         <el-pagination
           v-model:current-page="page"
+          v-model:page-size="size"
           background
-          layout="total, prev, pager, next"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
           :total="total"
-          :page-size="size"
           @current-change="load"
+          @size-change="onSizeChange"
         />
       </div>
     </div>
@@ -460,7 +509,17 @@ onMounted(load)
           </div>
 
           <div class="detail-block">
-            <div class="detail-block__title">最近日记</div>
+            <div class="detail-block__head">
+              <div class="detail-block__title">最近日记</div>
+              <el-button
+                link
+                type="primary"
+                size="small"
+                @click="goUserDiaries(detail.user.id)"
+              >
+                查看全部 {{ detail.diaryCount }} 篇
+              </el-button>
+            </div>
             <el-empty
               v-if="!detail.recentDiaries.length"
               description="暂无日记"
@@ -478,7 +537,17 @@ onMounted(load)
           </div>
 
           <div class="detail-block">
-            <div class="detail-block__title">测评记录</div>
+            <div class="detail-block__head">
+              <div class="detail-block__title">测评记录</div>
+              <el-button
+                link
+                type="primary"
+                size="small"
+                @click="goUserAssessments(detail.user.id)"
+              >
+                查看全部 {{ detail.assessmentCount }} 次
+              </el-button>
+            </div>
             <el-empty
               v-if="!detail.assessmentResults.length"
               description="暂无测评记录"
@@ -615,8 +684,15 @@ onMounted(load)
   margin-top: 18px;
 }
 
-.detail-block__title {
+.detail-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 10px;
+}
+
+.detail-block__title {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-2);

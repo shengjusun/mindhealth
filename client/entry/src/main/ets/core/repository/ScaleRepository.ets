@@ -41,6 +41,11 @@ export class ScaleRepository {
   // 量表列表缓存（与 manifestCache 同源，单独存一份避免每次遍历解析）
   private listCache: ScaleMeta[] | null = null
 
+  // 静默刷新失败退避：失败后 60 秒内不再重试，
+  // 避免后端挂掉 / 弱网时切 Tab 反复发起注定失败的请求
+  private static readonly REFRESH_BACKOFF_MS: number = 60000
+  private lastRefreshFailAt: number = 0
+
   static getInstance(): ScaleRepository {
     if (!ScaleRepository.instance) {
       ScaleRepository.instance = new ScaleRepository()
@@ -123,15 +128,21 @@ export class ScaleRepository {
       Logger.info(TAG, `量表列表命中本地，共 ${local.length} 套`)
       return local
     }
-    // 本地都没有（极端情况：内置清单缺失且缓存被清），才走一次网络
-    return this.refreshScaleList()
+    // 本地都没有（极端情况：内置清单缺失且缓存被清），才走一次网络。
+    // 这里必须绕过退避：本地真为空时还得靠它去拉，被退避挡住就只能显示空态了
+    return this.refreshScaleList(false)
   }
 
   /**
    * SWR 的 revalidate 步骤：静默刷新列表。
    * 成功则返回最新列表并写缓存；失败返回空数组，调用方据此保留本地数据不变。
    */
-  async refreshScaleList(): Promise<ScaleMeta[]> {
+  async refreshScaleList(respectBackoff: boolean = true): Promise<ScaleMeta[]> {
+    if (respectBackoff && this.isRefreshBackedOff()) {
+      Logger.info(TAG, '静默刷新退避中，跳过本次请求')
+      return []
+    }
+
     try {
       const manifest: ScaleManifest | null = await this.fetchManifestFromNetwork()
       if (manifest && Array.isArray(manifest.scales) && manifest.scales.length > 0) {
@@ -141,13 +152,32 @@ export class ScaleRepository {
         // 列表刷新顺带把新增 / 变更的量题目同步下来
         await this.syncScalesFromManifest(manifest)
         Logger.info(TAG, `量表列表静默刷新成功，共 ${manifest.scales.length} 套`)
+        this.markRefreshSucceeded()
         return manifest.scales
       }
       Logger.warn(TAG, '量表列表静默刷新：网络返回为空')
     } catch (error) {
       Logger.warn(TAG, `量表列表静默刷新失败（已忽略）: ${JSON.stringify(error)}`)
     }
+
+    this.markRefreshFailed()
     return []
+  }
+
+  // ------------------------------------------------------------------ 静默刷新退避
+
+  /** 距上次静默刷新失败是否还在退避窗口内 */
+  private isRefreshBackedOff(): boolean {
+    return this.lastRefreshFailAt > 0
+      && (Date.now() - this.lastRefreshFailAt) < ScaleRepository.REFRESH_BACKOFF_MS
+  }
+
+  private markRefreshFailed(): void {
+    this.lastRefreshFailAt = Date.now()
+  }
+
+  private markRefreshSucceeded(): void {
+    this.lastRefreshFailAt = 0
   }
 
   /**
@@ -203,9 +233,24 @@ export class ScaleRepository {
    * 全程 try/catch，失败不影响启动。
    */
   async refreshFromNetwork(): Promise<void> {
+    if (this.isRefreshBackedOff()) {
+      Logger.info(TAG, '静默刷新退避中，跳过本次请求')
+      return
+    }
+
     try {
       const remote: ScaleManifest | null = await this.fetchManifestFromNetwork()
       if (!remote) {
+        this.markRefreshFailed()
+        return
+      }
+
+      // 远端清单为空 = 后端题库未发布 / 接口异常（静态题库缺失时 manifest 恒为
+      // version 0、scales []）。这种情况绝不能覆盖本地：一旦写进去，
+      // 内存与缓存里的量表会被清空，自查页直接空白，且内置题库也救不回来。
+      if (!Array.isArray(remote.scales) || remote.scales.length === 0) {
+        Logger.warn(TAG, `远端清单为空（version=${remote.version}），保留本地题库不覆盖`)
+        this.markRefreshFailed()
         return
       }
 
@@ -223,8 +268,10 @@ export class ScaleRepository {
         await this.syncScaleFromNetwork(meta.id)
       }
       Logger.info(TAG, `题库刷新完成，共 ${metas.length} 套`)
+      this.markRefreshSucceeded()
     } catch (error) {
       Logger.warn(TAG, `题库后台刷新失败: ${JSON.stringify(error)}`)
+      this.markRefreshFailed()
     }
   }
 
@@ -271,19 +318,29 @@ export class ScaleRepository {
       try {
         const cached: string = await store.get(ScaleConfig.KEY_MANIFEST, '') as string
         if (cached.length > 0) {
-          this.manifestCache = JSON.parse(cached) as ScaleManifest
-          return this.manifestCache
+          const parsed: ScaleManifest = JSON.parse(cached) as ScaleManifest
+          // 缓存里若是一份空清单（历史版本拉到过后端未发布的 manifest），
+          // 不能当作有效数据返回，否则自查页会一直空白且无法自愈。
+          if (Array.isArray(parsed.scales) && parsed.scales.length > 0) {
+            this.manifestCache = parsed
+            return this.manifestCache
+          }
+          Logger.warn(TAG, '本地清单缓存为空，回落内置清单')
         }
       } catch (error) {
         Logger.warn(TAG, `解析本地清单缓存失败: ${JSON.stringify(error)}`)
       }
     }
 
-    // 缓存没有，回落到安装包内置清单
+    // 缓存没有或无效，回落到安装包内置清单
     const raw: string | null = this.readRawFile(ScaleConfig.MANIFEST_FILE)
     if (raw) {
       try {
-        this.manifestCache = JSON.parse(raw) as ScaleManifest
+        const parsed: ScaleManifest = JSON.parse(raw) as ScaleManifest
+        this.manifestCache = parsed
+        // 顺手把内置清单写回缓存：既省掉下次启动再读一次 rawfile，
+        // 也让被空清单污染过的老设备能自动恢复到可用状态。
+        await this.writeManifestCache(parsed)
         return this.manifestCache
       } catch (error) {
         Logger.warn(TAG, `解析内置清单失败: ${JSON.stringify(error)}`)
@@ -403,7 +460,8 @@ export class ScaleRepository {
 
   private async fetchManifestFromNetwork(): Promise<ScaleManifest | null> {
     try {
-      const res = await this.apiService.getScaleManifest()
+      // 走静默档（8 秒超时）：这是后台刷新，不该占着连接等满 60 秒
+      const res = await this.apiService.getScaleManifestSilent()
       if (res.code !== 200) {
         Logger.warn(TAG, `拉取量表清单失败 code=${res.code}`)
         return null
@@ -421,7 +479,8 @@ export class ScaleRepository {
 
   private async syncScaleFromNetwork(id: number): Promise<ScaleDetail | null> {
     try {
-      const res = await this.apiService.getScaleQuestions(id)
+      // 走静默档（8 秒超时）：同上，后台补题目不进前台超时
+      const res = await this.apiService.getScaleQuestionsSilent(id)
       if (res.code !== 200) {
         Logger.warn(TAG, `拉取量表 ${id} 失败 code=${res.code}`)
         return null

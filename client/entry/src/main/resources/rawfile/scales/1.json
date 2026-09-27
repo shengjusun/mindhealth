@@ -1,14 +1,268 @@
 {
-  "id": 1,
-  "name": "SCL-90症状自评量表",
-  "type": "SCL-90",
-  "version": 1,
-  "maxScore": 15,
-  "questions": [
-    {"id":1,"title":"最近一周，你是否经常感到情绪低落或烦躁？","options":[{"key":"A","text":"几乎没有","score":0},{"key":"B","text":"偶尔有","score":1},{"key":"C","text":"经常有","score":2},{"key":"D","text":"几乎每天都有","score":3}]},
-    {"id":2,"title":"最近一周，你是否容易因为小事紧张或担心？","options":[{"key":"A","text":"完全不会","score":0},{"key":"B","text":"偶尔会","score":1},{"key":"C","text":"经常会","score":2},{"key":"D","text":"非常明显","score":3}]},
-    {"id":3,"title":"最近一周，你的睡眠情况如何？","options":[{"key":"A","text":"很好","score":0},{"key":"B","text":"偶尔睡不好","score":1},{"key":"C","text":"经常睡不好","score":2},{"key":"D","text":"严重影响休息","score":3}]},
-    {"id":4,"title":"最近一周，你做事时是否难以集中注意力？","options":[{"key":"A","text":"没有影响","score":0},{"key":"B","text":"轻微影响","score":1},{"key":"C","text":"明显影响","score":2},{"key":"D","text":"非常严重","score":3}]},
-    {"id":5,"title":"最近一周，你是否愿意主动与他人交流？","options":[{"key":"A","text":"很愿意","score":0},{"key":"B","text":"还可以","score":1},{"key":"C","text":"不太愿意","score":2},{"key":"D","text":"完全不想","score":3}]}
-  ]
+  "id" : 1,
+  "name" : "情绪状态自评",
+  "type" : "emotion",
+  "description" : "帮助你了解最近一周的整体情绪状态，包含情绪低落、烦躁、兴趣与精力等方面，适合日常自查。",
+  "version" : 1790496890,
+  "maxScore" : 36,
+  "scoring" : {
+    "bands" : [ {
+      "max" : 8,
+      "level" : "状态平稳",
+      "suggestion" : "最近一周你的情绪整体平稳，没有明显困扰。可以继续保持规律的作息和记录习惯，这会帮你更早察觉情绪变化。"
+    }, {
+      "max" : 16,
+      "level" : "轻度波动",
+      "suggestion" : "最近一周你的情绪出现了轻度波动，可能和作息、压力或具体事件有关。建议先保证睡眠和运动，并把情绪记进日记，观察哪些情境容易触发。"
+    }, {
+      "max" : 24,
+      "level" : "中度困扰",
+      "suggestion" : "最近一周情绪困扰比较明显，已经影响到日常生活。建议主动减少不必要的消耗，多和信任的人聊一聊，必要时预约一次心理咨询。"
+    }, {
+      "max" : 36,
+      "level" : "明显困扰",
+      "suggestion" : "最近一周你的情绪困扰程度较高。请优先照顾好自己的休息与饮食，并尽快联系可信任的人或专业心理支持；如果出现伤害自己的念头，请立即拨打心理援助热线。"
+    } ]
+  },
+  "questions" : [ {
+    "id" : 1,
+    "title" : "最近一周，你是否经常感到情绪低落或提不起劲？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "几乎没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天都有",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 2,
+    "title" : "最近一周，你对自己以往感兴趣的事情还有热情吗？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "和以前一样",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "热情少了一些",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "明显提不起兴趣",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "完全没有兴趣",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 3,
+    "title" : "最近一周，你是否容易因为小事而烦躁、发脾气？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "几乎不会",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常会",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天都烦躁",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 4,
+    "title" : "最近一周，你的心情起伏大吗？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "比较稳定",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔起伏",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "起伏明显",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "一直难以平静",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 5,
+    "title" : "最近一周，你是否容易感到委屈或想哭？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "几乎没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天都有",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 6,
+    "title" : "最近一周，你是否觉得很难从负面情绪里走出来？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "不会，很快能调整",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "需要一点时间",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "要很久才能缓过来",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "一直走不出来",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 7,
+    "title" : "最近一周，你做事时是否难以集中注意力？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有影响",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "轻微影响",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "明显影响",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "非常严重",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 8,
+    "title" : "最近一周，你是否经常感到莫名的疲惫？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "几乎没有",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔有",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常有",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎每天都有",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 9,
+    "title" : "最近一周，你对自己的未来是否感到模糊或没把握？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "比较清晰",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会迷茫",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常感到迷茫",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "完全没有方向",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 10,
+    "title" : "最近一周，你是否会刻意回避与人的交流？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "不会",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔会",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常会",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "几乎都回避",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 11,
+    "title" : "最近一周，你是否觉得很难让自己放松下来？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "很容易放松",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "偶尔难以放松",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "经常难以放松",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "一直紧绷着",
+      "score" : 3
+    } ]
+  }, {
+    "id" : 12,
+    "title" : "最近一周，你是否觉得情绪影响到了工作或学习？",
+    "options" : [ {
+      "key" : "A",
+      "text" : "没有影响",
+      "score" : 0
+    }, {
+      "key" : "B",
+      "text" : "轻微影响",
+      "score" : 1
+    }, {
+      "key" : "C",
+      "text" : "明显影响",
+      "score" : 2
+    }, {
+      "key" : "D",
+      "text" : "严重影响",
+      "score" : 3
+    } ]
+  } ]
 }

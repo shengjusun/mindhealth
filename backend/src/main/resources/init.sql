@@ -139,3 +139,22 @@ INSERT INTO `knowledge` (`title`, `content`, `category`) VALUES
 ('压力管理技巧', '现代生活中，压力无处不在。有效的压力管理可以帮助我们保持身心健康：1. 识别压力源；2. 制定合理的目标；3. 学会说"不"；4. 培养兴趣爱好；5. 寻求社会支持。', '压力管理'),
 ('建立健康的人际关系', '良好的人际关系对心理健康至关重要：1. 积极沟通；2. 学会倾听；3. 尊重他人；4. 保持边界；5. 真诚相待。', '人际关系'),
 ('自我成长的重要性', '自我成长是一个持续的过程，有助于提升心理健康水平：1. 设定个人目标；2. 持续学习；3. 接受挑战；4. 反思自我；5. 保持开放的心态。', '自我成长');
+
+-- 管理员操作日志表（审计留痕）
+-- 管理端能删除用户全部数据、能读取用户私密日记，必须可追溯
+CREATE TABLE IF NOT EXISTS `admin_operation_log` (
+  `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
+  `admin_id` BIGINT(20) DEFAULT NULL COMMENT '操作管理员ID',
+  `admin_username` VARCHAR(50) DEFAULT NULL COMMENT '操作管理员用户名快照',
+  `method` VARCHAR(10) NOT NULL COMMENT 'HTTP方法',
+  `path` VARCHAR(255) NOT NULL COMMENT '请求路径(已去context-path)',
+  `action_desc` VARCHAR(200) DEFAULT NULL COMMENT '操作摘要',
+  `target_desc` VARCHAR(200) DEFAULT NULL COMMENT '操作对象标识',
+  `ip` VARCHAR(64) DEFAULT NULL COMMENT '来源IP',
+  `status` INT(11) DEFAULT NULL COMMENT 'HTTP状态码',
+  `duration_ms` BIGINT(20) DEFAULT NULL COMMENT '处理耗时(ms)',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_admin_id` (`admin_id`),
+  KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='管理员操作日志表';

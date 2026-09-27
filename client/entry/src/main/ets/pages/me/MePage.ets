@@ -2,13 +2,13 @@ import { Logger } from '../../common/utils/Logger'
 import { pushRoute, resetRoute } from '../../common/state/AppState'
 import { AuthService, UserAuthInfo } from '../../core/auth/AppAuthService'
 import { ApiService } from '../../core/api/ApiService'
-import { hilog } from '@kit.PerformanceAnalysisKit'
 import { AvatarComponent } from '../../common/components/AvatarComponent'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { brand, Dimension, FontLevel, ShadowStyle } from '../../common/constants/Theme'
 import { ApiConfig } from '../../common/constants/apiConfig'
 import { SnapshotRepository } from '../../core/repository/SnapshotRepository'
 import { appState, AppState } from '../../common/state/AppState'
+import { AppButton } from '../../common/components/AppButton'
 
 function getAvatarServerOrigin(): string {
   const apiBase: string = ApiConfig.API_BASE_URL
@@ -97,7 +97,6 @@ function getInitialLoginState(): boolean {
 }
 
 const TAG = 'MePage'
-const DOMAIN = 0xFF00
 const USER_INFO_REFRESH_INTERVAL: number = 5 * 60 * 1000
 
 interface MePageStatsCache {
@@ -173,8 +172,7 @@ export struct MeView {
   private isStatisticsRefreshing: boolean = false
 
   menuItems: MenuItem[] = [
-    { id: 'profile', icon: $r('sys.symbol.square_and_pencil'), title: '个人资料', subtitle: '完善昵称、头像和基础信息', showArrow: true },
-    { id: 'records', icon: $r('sys.symbol.doc_text'), title: '我的记录', subtitle: '日记记录、测评结果', showArrow: true },
+    { id: 'records', icon: $r('sys.symbol.doc_text'), title: '我的记录', subtitle: '心情日记与状态足迹', showArrow: true },
     { id: 'settings', icon: $r('sys.symbol.gearshape'), title: '设置', subtitle: '账号、缓存与通用配置', showArrow: true },
     { id: 'help', icon: $r('sys.symbol.ellipsis_bubble'), title: '帮助与反馈', subtitle: '问题反馈与使用帮助', showArrow: true },
     { id: 'about', icon: $r('sys.symbol.heart'), title: '关于我们', subtitle: '项目介绍与版本信息', showArrow: true }
@@ -356,7 +354,7 @@ export struct MeView {
         this.userGender = user.gender !== undefined && user.gender !== null ? String(user.gender) : ''
         this.backendUserId = user.id ? Number(user.id) : 0
 
-        Logger.info(TAG, `当前后端用户ID: ${this.backendUserId}, phone=${this.userPhone}`)
+        Logger.info(TAG, `当前后端用户ID: ${this.backendUserId}`)
 
         if (backendAvatarUrl && !this.isSameAvatar(backendAvatarUrl)) {
           this.avatarUrl = backendAvatarUrl
@@ -379,7 +377,7 @@ export struct MeView {
         await this.snapshotRepo.saveUserProfile(user as Object)
 
         this.loadStatistics()
-        Logger.info(TAG, `后端用户信息: ${this.userName}, phone: ${this.userPhone}, avatar: ${this.avatarUrl}`)
+        Logger.info(TAG, `后端用户信息已更新: ${this.userName}`)
       } else {
         Logger.error(TAG, `加载用户信息失败: code=${res.code}`)
       }
@@ -426,7 +424,7 @@ export struct MeView {
           }
         }
       } catch (error) {
-        hilog.error(DOMAIN, TAG, `加载日记统计失败: ${JSON.stringify(error)}`)
+        Logger.error(TAG, `加载日记统计失败: ${JSON.stringify(error)}`)
       }
 
       try {
@@ -441,7 +439,7 @@ export struct MeView {
           await this.snapshotRepo.saveAssessmentResults(assessmentRes.data as Object[])
         }
       } catch (error) {
-        hilog.error(DOMAIN, TAG, `加载测评记录统计失败: ${JSON.stringify(error)}`)
+        Logger.error(TAG, `加载测评记录统计失败: ${JSON.stringify(error)}`)
       }
 
       // 总数单独落盘：日记列表快照会被截断到 20 条，不能拿长度当总数
@@ -474,40 +472,6 @@ export struct MeView {
     }
 
     return '未填写'
-  }
-
-  private getMenuBadgeBg(id: string): ResourceColor {
-    switch (id) {
-      case 'profile':
-        return $r('app.color.tag_blue')
-      case 'records':
-        return $r('app.color.tag_green')
-      case 'settings':
-        return $r('app.color.surface_soft')
-      case 'help':
-        return $r('app.color.tag_orange')
-      case 'about':
-        return $r('app.color.tag_blue')
-      default:
-        return $r('app.color.surface_soft')
-    }
-  }
-
-  private getMenuBadgeColor(id: string): ResourceColor {
-    switch (id) {
-      case 'profile':
-        return $r('app.color.theme_primary')
-      case 'records':
-        return $r('app.color.theme_secondary')
-      case 'settings':
-        return $r('app.color.text_secondary')
-      case 'help':
-        return $r('app.color.state_warning')
-      case 'about':
-        return $r('app.color.theme_primary')
-      default:
-        return $r('app.color.text_secondary')
-    }
   }
 
   build() {
@@ -566,23 +530,14 @@ export struct MeView {
       .alignItems(HorizontalAlign.Center)
       .margin({ bottom: 28 })
 
-      Button('去登录')
-        .width('76%')
-        .height(Dimension.ButtonHeight)
-        .fontSize(16)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor($r('app.color.theme_primary'))
-        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-        .linearGradient({
-          angle: 135,
-          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-        })
-        .borderRadius(Dimension.CardRadiusInner)
-        .shadow(ShadowStyle.Button)
-        .borderRadius(24)
-        .onClick(() => {
+      AppButton({
+        label: '去登录',
+        kind: 'primary',
+        widthPercent: '76%',
+        onPress: () => {
           this.handleLogin()
-        })
+        }
+      })
     }
     .width('100%')
     .padding({ top: 64, bottom: 64 })
@@ -608,6 +563,15 @@ export struct MeView {
     }
   }
 
+  /** 手机号展示掩码（仅展示层：138****8001；非 11 位原样返回，不动数据） */
+  private maskPhone(phone: string): string {
+    const trimmed: string = phone.trim()
+    if (trimmed.length === 11) {
+      return `${trimmed.substring(0, 3)}****${trimmed.substring(7)}`
+    }
+    return trimmed
+  }
+
   @Builder
   buildUserCard() {
     Column() {
@@ -616,15 +580,15 @@ export struct MeView {
 
         Column() {
           Text(this.userName)
-            .fontSize(21)
+            .fontSize(FontLevel.PageTitle)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('app.color.text_primary'))
 
           if (this.userPhone) {
-            Text(this.userPhone)
-              .fontSize(13)
-              .fontColor($r('app.color.text_secondary'))
-              .margin({ top: 6 })
+            Text(this.maskPhone(this.userPhone))
+              .fontSize(FontLevel.Body)
+              .fontColor($r('app.color.text_tertiary'))
+              .margin({ top: Dimension.Space2XS })
           }
 
           Text(`年龄：${this.userAge > 0 ? this.userAge.toString() : '未填写'}   性别：${this.getGenderText()}`)
@@ -636,23 +600,24 @@ export struct MeView {
         .margin({ left: 16 })
         .layoutWeight(1)
 
-        Button('编辑资料')
-          .height(34)
-          .fontSize(13)
-          .fontColor($r('app.color.theme_primary'))
-          .backgroundColor($r('app.color.tag_blue'))
-          .borderRadius(17)
-          .onClick(() => {
+        // HTML 设计稿：个人卡右上角「编辑资料」为文字按钮
+        AppButton({
+          label: '编辑资料',
+          kind: 'text',
+          onPress: () => {
             pushRoute('ProfileEditPage')
-          })
+          }
+        })
       }
       .width('100%')
 
       Text('把状态看见，也把自己照顾好')
-        .fontSize(13)
+        .fontSize(FontLevel.Aux)
         .fontColor($r('app.color.text_secondary'))
         .width('100%')
-        .margin({ top: 16 })
+        .padding({ top: Dimension.SpaceL })
+        .margin({ top: Dimension.SpaceL })
+        .border({ width: { top: 1 }, color: $r('app.color.app_divider') })
     }
     .width('100%')
     .padding(20)
@@ -668,14 +633,14 @@ export struct MeView {
       Row() {
       Column() {
         Text(this.isStatsLoaded ? `${this.diaryCount}` : '—')
-          .fontSize(26)
+          .fontSize(FontLevel.Stat)
           .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.theme_primary'))
+          .fontColor($r('app.color.text_primary'))
 
         Text('日记')
-          .fontSize(12)
+          .fontSize(FontLevel.Caption)
           .fontColor($r('app.color.text_tertiary'))
-          .margin({ top: 6 })
+          .margin({ top: Dimension.Space2XS })
       }
       .layoutWeight(1)
       .onClick(() => {
@@ -683,16 +648,22 @@ export struct MeView {
         appState().mainTabIndex = 2
       })
 
+      // HTML 设计稿：两列统计之间 1vp 竖分隔线
+      Divider()
+        .vertical(true)
+        .height(32)
+        .color($r('app.color.app_divider'))
+
       Column() {
         Text(this.isStatsLoaded ? `${this.assessmentCount}` : '—')
-          .fontSize(26)
+          .fontSize(FontLevel.Stat)
           .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.theme_secondary'))
+          .fontColor($r('app.color.text_primary'))
 
-        Text('测评记录')
-          .fontSize(12)
+        Text('状态足迹')
+          .fontSize(FontLevel.Caption)
           .fontColor($r('app.color.text_tertiary'))
-          .margin({ top: 6 })
+          .margin({ top: Dimension.Space2XS })
       }
       .layoutWeight(1)
       .onClick(() => {
@@ -720,38 +691,28 @@ export struct MeView {
   @Builder
   buildQuickActionCard() {
     Row() {
-      Button('写日记')
-        .layoutWeight(1)
-        .height(46)
-        .fontSize(15)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor($r('app.color.theme_primary'))
-        // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-        .linearGradient({
-          angle: 135,
-          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-        })
-        .borderRadius(Dimension.CardRadiusInner)
-        .shadow(ShadowStyle.Button)
-        .borderRadius(23)
-        .onClick(() => {
+      AppButton({
+        label: '写日记',
+        kind: 'primary',
+        weight: 1,
+        onPress: () => {
           pushRoute('DiaryEditPage')
-        })
+        }
+      })
 
       Blank()
         .width(12)
 
-      Button('做测评')
-        .layoutWeight(1)
-        .height(46)
-        .fontSize(15)
-        .fontColor($r('app.color.theme_primary'))
-        .backgroundColor($r('app.color.surface_soft'))
-        .borderRadius(23)
-        .onClick(() => {
+      // 产品温度：与 Tab 术语统一（自查），次按钮形态
+      AppButton({
+        label: '做个小自查',
+        kind: 'secondary',
+        weight: 1,
+        onPress: () => {
           // 切到自查 Tab（保留 Tab 状态），不再整页替换
           appState().mainTabIndex = 3
-        })
+        }
+      })
     }
     .width('100%')
     .padding(16)
@@ -767,28 +728,29 @@ export struct MeView {
       ForEach(this.menuItems, (item: MenuItem, index: number) => {
         Row() {
           Row() {
+            // HTML 设计稿：菜单图标底统一为主色浅底（40×40 / radius-lg）
             SymbolGlyph(item.icon)
-              .fontSize(15)
-              .fontColor([this.getMenuBadgeColor(item.id)])
+              .fontSize(18)
+              .fontColor([brand().primary])
           }
-          .width(34)
-          .height(34)
+          .width(40)
+          .height(40)
           .justifyContent(FlexAlign.Center)
           .alignItems(VerticalAlign.Center)
-          .backgroundColor(this.getMenuBadgeBg(item.id))
-          .borderRadius(17)
+          .backgroundColor(brand().primaryWeak)
+          .borderRadius(Dimension.RadiusL)
 
           Column() {
             Text(item.title)
-              .fontSize(16)
+              .fontSize(FontLevel.SubTitle)
               .fontColor($r('app.color.text_primary'))
               .fontWeight(FontWeight.Medium)
 
             if (item.subtitle) {
               Text(item.subtitle)
-                .fontSize(12)
+                .fontSize(FontLevel.Aux)
                 .fontColor($r('app.color.text_tertiary'))
-                .margin({ top: 4 })
+                .margin({ top: Dimension.Space2XS })
             }
           }
           .alignItems(HorizontalAlign.Start)
@@ -825,32 +787,26 @@ export struct MeView {
 
   @Builder
   buildLogoutButton() {
-    Button('退出登录')
-      .width('100%')
-      .height(Dimension.ButtonHeight)
-      .fontSize(16)
-      .fontColor($r('app.color.state_error'))
-      .backgroundColor($r('app.color.app_card'))
-      .borderRadius(18)
-      .onClick(() => {
+    AppButton({
+      label: '退出登录',
+      kind: 'primary',
+      danger: true,
+      block: true,
+      onPress: () => {
         this.handleLogout()
-      })
+      }
+    })
   }
 
   async handleLogin(): Promise<void> {
     try {
       pushRoute('LoginPage')
     } catch (error) {
-      hilog.error(DOMAIN, TAG, `跳转失败: ${error}`)
+      Logger.error(TAG, `跳转失败: ${error}`)
     }
   }
 
   handleMenuClick(id: string): void {
-    if (id === 'profile') {
-      pushRoute('ProfileEditPage')
-      return
-    }
-
     if (id === 'records') {
       pushRoute('MyRecordsPage')
       return
@@ -887,7 +843,7 @@ export struct MeView {
             // 登出后清空导航栈，避免返回键回退到已登出账号的页面
             resetRoute('LoginPage')
           } catch (error) {
-            hilog.error(DOMAIN, TAG, `退出登录失败: ${error}`)
+            Logger.error(TAG, `退出登录失败: ${error}`)
           }
         }
       },

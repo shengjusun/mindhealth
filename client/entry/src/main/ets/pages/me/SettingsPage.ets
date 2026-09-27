@@ -1,14 +1,13 @@
-import { popRoute, pushRoute, resetRoute } from '../../common/state/AppState'
+import { appState, AppState, popRoute, pushRoute, pushRouteWithParam, resetRoute } from '../../common/state/AppState'
+import { Logger } from '../../common/utils/Logger'
 import { AuthService } from '../../core/auth/AppAuthService'
-import { Dimension, ShadowStyle } from '../../common/constants/Theme'
-import { hilog } from '@kit.PerformanceAnalysisKit'
+import { brand, BrandPalette, Dimension, Motion, ShadowStyle, ThemeDef, THEMES } from '../../common/constants/Theme'
 import { common, bundleManager } from '@kit.AbilityKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { AppSettings } from '../../common/utils/AppSettings'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 
 const TAG = 'SettingsPage'
-const DOMAIN = 0xFF00
 
 @ComponentV2
 export struct SettingsPage {
@@ -17,6 +16,9 @@ export struct SettingsPage {
   @Local diaryReminderEnabled: boolean = true
   @Local cacheSize: string = '计算中...'
   @Local versionText: string = 'v1.0.0'
+
+  // 观察全局主题状态：切主题后本页选中态要跟着变，且预览要跟随深浅色
+  @Local state: AppState = appState()
 
   authService: AuthService = AuthService.getInstance()
 
@@ -39,7 +41,7 @@ export struct SettingsPage {
         this.versionText = `v${info.versionName}`
       }
     } catch (error) {
-      hilog.warn(DOMAIN, TAG, `读取版本信息失败: ${JSON.stringify(error)}`)
+      Logger.warn(TAG, `读取版本信息失败: ${JSON.stringify(error)}`)
     }
   }
 
@@ -74,7 +76,7 @@ export struct SettingsPage {
         }
       }
     } catch (error) {
-      hilog.warn(DOMAIN, TAG, `统计目录大小失败: ${JSON.stringify(error)}`)
+      Logger.warn(TAG, `统计目录大小失败: ${JSON.stringify(error)}`)
     }
     return total
   }
@@ -111,7 +113,7 @@ export struct SettingsPage {
         }
       }
     } catch (error) {
-      hilog.warn(DOMAIN, TAG, `清理目录失败: ${JSON.stringify(error)}`)
+      Logger.warn(TAG, `清理目录失败: ${JSON.stringify(error)}`)
     }
   }
 
@@ -136,48 +138,10 @@ export struct SettingsPage {
     })
   }
 
-  private showPrivacyDialog(): void {
-    AlertDialog.show({
-      title: '隐私说明',
-      message: '本项目仅用于学习与演示，用户资料、日记内容和测评结果仅在授权范围内用于功能展示。',
-      primaryButton: {
-        value: '知道了',
-        action: () => {}
-      }
-    })
-  }
-
-  private showAboutDialog(): void {
-    AlertDialog.show({
-      title: '关于项目',
-      message: '这是一个基于 HarmonyOS NEXT + Spring Boot 3 + MySQL 的心理健康辅导项目，包含情绪记录、心理测评与 AI 陪伴功能。',
-      primaryButton: {
-        value: '知道了',
-        action: () => {}
-      }
-    })
-  }
-
-  private confirmLogout(): void {
-    AlertDialog.show({
-      title: '退出登录',
-      message: '确定要退出当前账号吗？',
-      primaryButton: {
-        value: '确定',
-        action: async () => {
-          try {
-            await this.authService.logout()
-            resetRoute('LoginPage')
-          } catch (error) {
-            hilog.error(DOMAIN, TAG, `退出登录失败: ${error}`)
-          }
-        }
-      },
-      secondaryButton: {
-        value: '取消',
-        action: () => {}
-      }
-    })
+  /** 内容型说明改为详情页承载（批次 6）：可滚动、可复查，未来扩用户协议/开源许可直接加 type */
+  private openContent(title: string, type: string): void {
+    const params: Record<string, string> = { 'title': title, 'type': type }
+    pushRouteWithParam('ContentPage', params)
   }
 
   build() {
@@ -186,11 +150,10 @@ export struct SettingsPage {
 
       Scroll() {
         Column() {
-          this.buildAccountCard()
+          this.buildThemeCard()
           this.buildPreferenceCard()
           this.buildSupportCard()
           this.buildVersionCard()
-          this.buildLogoutButton()
 
           Blank()
             .height(24)
@@ -227,6 +190,7 @@ export struct SettingsPage {
       .alignItems(VerticalAlign.Center)
       .backgroundColor($r('app.color.app_card'))
       .borderRadius(Dimension.CardRadius)
+      .shadow(ShadowStyle.Card)
       .onClick(() => {
         this.goBack()
       })
@@ -258,40 +222,48 @@ export struct SettingsPage {
     .backgroundColor($r('app.color.app_background'))
   }
 
+  /** 切换主题：animateTo 让全 App 颜色渐变过渡而非跳变（动效令牌 emphasized） */
+  private selectTheme(id: string): void {
+    if (this.state.themeId === id) {
+      return
+    }
+    this.getUIContext().animateTo({ duration: Motion.Slow, curve: Motion.emphasized }, () => {
+      this.state.themeId = id
+    })
+    AppSettings.setString(getContext(this) as common.Context, 'themeId', id)
+  }
+
+  // 下面两个是取值方法而不是 @Builder 里的局部变量：
+  // ArkTS 的 @Builder 内只允许 UI 组件语法，写 const 声明会编译失败。
+
+  /** 预览用当前深浅模式下真正生效的那份色板，所见即所得 */
+  private paletteOf(def: ThemeDef): BrandPalette {
+    return this.state.isDark ? def.dark : def.light
+  }
+
+  private isSelected(def: ThemeDef): boolean {
+    return this.state.themeId === def.id
+  }
+
   @Builder
-  buildAccountCard() {
+  buildThemeCard() {
     Column() {
-      Text('账号设置')
+      Text('外观主题')
         .fontSize(17)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.text_primary'))
         .width('100%')
+        .margin({ bottom: 6 })
+
+      Text('切换后全 App 立即生效，深浅色仍跟随系统')
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .width('100%')
         .margin({ bottom: 14 })
 
-      Row() {
-        Column() {
-          Text('个人资料')
-            .fontSize(15)
-            .fontColor($r('app.color.text_primary'))
-            .fontWeight(FontWeight.Medium)
-
-          Text('修改昵称、头像、手机号等信息')
-            .fontSize(12)
-            .fontColor($r('app.color.text_secondary'))
-            .margin({ top: 4 })
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-
-        Text('›')
-          .fontSize(20)
-          .fontColor($r('app.color.text_tertiary'))
-      }
-      .width('100%')
-      .padding({ top: 4, bottom: 4 })
-      .onClick(() => {
-        pushRoute('ProfileEditPage')
-      })
+      ForEach(THEMES, (def: ThemeDef, index: number) => {
+        this.buildThemeOption(def, index === THEMES.length - 1)
+      }, (def: ThemeDef) => def.id)
     }
     .width('100%')
     .padding(18)
@@ -299,6 +271,66 @@ export struct SettingsPage {
     .borderRadius(Dimension.CardRadius)
     .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
+  }
+
+  @Builder
+  buildThemeOption(def: ThemeDef, isLast: boolean) {
+    Row() {
+      Row() {
+        // 圆点用「22×22 容器 + 11 半圆角」画，而不是 Circle().fill()：
+        // Circle 的 fill 重载是 @since 26，而本项目 compatibleSdkVersion 为 22，
+        // 低版本设备上取不到颜色（编译只告警不报错）；backgroundColor 是通用属性，全版本可用
+        Row()
+          .width(22)
+          .height(22)
+          .borderRadius(11)
+          .backgroundColor(this.paletteOf(def).primary)
+        Row()
+          .width(22)
+          .height(22)
+          .borderRadius(11)
+          .backgroundColor(this.paletteOf(def).primaryPressed)
+          .margin({ left: -6 })
+        Row()
+          .width(22)
+          .height(22)
+          .borderRadius(11)
+          .backgroundColor(this.paletteOf(def).tagBlue)
+          .margin({ left: -6 })
+      }
+      .margin({ right: 14 })
+
+      Column() {
+        Text(def.name)
+          .fontSize(15)
+          .fontColor($r('app.color.text_primary'))
+          .fontWeight(FontWeight.Medium)
+
+        Text(def.desc)
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .margin({ top: 3 })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+
+      if (this.isSelected(def)) {
+        Text('✓')
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.paletteOf(def).primary)
+      }
+    }
+    .width('100%')
+    .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+    .borderRadius(Dimension.CardRadiusInner)
+    .borderWidth(this.isSelected(def) ? 2 : 0)
+    .borderColor(this.paletteOf(def).primary)
+    .backgroundColor(this.isSelected(def) ? this.paletteOf(def).tagBlue : Color.Transparent)
+    .margin({ bottom: isLast ? 0 : 10 })
+    .onClick(() => {
+      this.selectTheme(def.id)
+    })
   }
 
   @Builder
@@ -327,7 +359,7 @@ export struct SettingsPage {
         .layoutWeight(1)
 
         Toggle({ type: ToggleType.Switch, isOn: this.notificationEnabled })
-          .selectedColor($r('app.color.theme_primary'))
+          .selectedColor(brand().primary)
           .onChange((isOn: boolean) => {
             this.toggleNotification(isOn)
           })
@@ -356,7 +388,7 @@ export struct SettingsPage {
         .layoutWeight(1)
 
         Toggle({ type: ToggleType.Switch, isOn: this.diaryReminderEnabled })
-          .selectedColor($r('app.color.theme_primary'))
+          .selectedColor(brand().primary)
           .onChange((isOn: boolean) => {
             this.toggleDiaryReminder(isOn)
           })
@@ -434,7 +466,7 @@ export struct SettingsPage {
       .width('100%')
       .padding({ top: 12, bottom: 12 })
       .onClick(() => {
-        this.showPrivacyDialog()
+        this.openContent('隐私说明', 'privacy')
       })
 
       Divider()
@@ -464,7 +496,7 @@ export struct SettingsPage {
       .width('100%')
       .padding({ top: 12, bottom: 4 })
       .onClick(() => {
-        this.showAboutDialog()
+        this.openContent('关于项目', 'about')
       })
     }
     .width('100%')
@@ -520,20 +552,6 @@ export struct SettingsPage {
     .borderRadius(Dimension.CardRadius)
     .shadow(ShadowStyle.Card)
     .margin({ bottom: 16 })
-  }
-
-  @Builder
-  buildLogoutButton() {
-    Button('退出登录')
-      .width('100%')
-      .height(Dimension.ButtonHeight)
-      .fontSize(16)
-      .fontColor($r('app.color.state_error'))
-      .backgroundColor($r('app.color.app_card'))
-      .borderRadius(18)
-      .onClick(() => {
-        this.confirmLogout()
-      })
   }
 }
 

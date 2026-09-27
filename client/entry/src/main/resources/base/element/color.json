@@ -6,15 +6,15 @@
     },
     {
       "name": "theme_primary",
-      "value": "#7FA9C9"
+      "value": "#6E93B8"
     },
     {
       "name": "primary_light",
-      "value": "#EAF3F8"
+      "value": "#F1F4F8"
     },
     {
       "name": "primary_pressed",
-      "value": "#6B96B7"
+      "value": "#5A7FA6"
     },
     {
       "name": "theme_secondary",
@@ -26,31 +26,35 @@
     },
     {
       "name": "app_background",
-      "value": "#F8F4EC"
+      "value": "#F6EFE2"
     },
     {
       "name": "app_surface",
-      "value": "#FFFDF9"
+      "value": "#FFFFFF"
     },
     {
       "name": "surface_soft",
-      "value": "#FDF8F1"
+      "value": "#F4F1EC"
     },
     {
       "name": "app_card",
-      "value": "#FFFDF9"
+      "value": "#FFFFFF"
     },
     {
       "name": "text_primary",
-      "value": "#2F3A45"
+      "value": "#2C3138"
     },
     {
       "name": "text_secondary",
-      "value": "#6E7B87"
+      "value": "#4A5158"
     },
     {
       "name": "text_tertiary",
-      "value": "#9AA5AE"
+      "value": "#7C848C"
+    },
+    {
+      "name": "text_quaternary",
+      "value": "#ADB4BA"
     },
     {
       "name": "text_on_primary",
@@ -58,27 +62,27 @@
     },
     {
       "name": "state_success",
-      "value": "#73B77E"
+      "value": "#6FA97F"
     },
     {
       "name": "state_warning",
-      "value": "#D7A86E"
+      "value": "#D89A5C"
     },
     {
       "name": "state_error",
-      "value": "#D97C7C"
+      "value": "#C9705F"
     },
     {
       "name": "app_border",
-      "value": "#ECE4D8"
+      "value": "#142C3138"
     },
     {
       "name": "app_divider",
-      "value": "#E9E3D8"
+      "value": "#142C3138"
     },
     {
       "name": "nav_background",
-      "value": "#F5FFFDF9"
+      "value": "#F5FFFFFF"
     },
     {
       "name": "nav_inactive",
@@ -90,7 +94,7 @@
     },
     {
       "name": "pill_glass",
-      "value": "#CCFFFDF9"
+      "value": "#CCFFFFFF"
     },
     {
       "name": "tag_blue",

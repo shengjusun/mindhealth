@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mindhealth.backend.dto.ApiResponse;
 import com.mindhealth.backend.entity.Assessment;
+import com.mindhealth.backend.entity.AssessmentResult;
 import com.mindhealth.backend.entity.Diary;
 import com.mindhealth.backend.entity.Feedback;
 import com.mindhealth.backend.entity.User;
@@ -79,6 +80,25 @@ public class AdminController {
         wrapper.orderByDesc("create_time");
         Page<User> result = userMapper.selectPage(new Page<>(page, size), wrapper);
 
+        // 补「日记数」：管理端需要一眼看出哪些用户是真实活跃的。
+        // 一次 group by 覆盖当前页全部 userId，不按用户逐个查（避免 N+1）
+        Map<Long, Long> diaryCounts = new HashMap<>();
+        List<Long> pageUserIds = result.getRecords().stream()
+                .map(User::getId).collect(Collectors.toList());
+        if (!pageUserIds.isEmpty()) {
+            diaryMapper.selectMaps(new QueryWrapper<Diary>()
+                            .select("user_id", "COUNT(*) AS cnt")
+                            .in("user_id", pageUserIds)
+                            .groupBy("user_id"))
+                    .forEach(m -> {
+                        Object uid = m.get("user_id");
+                        Object cnt = m.get("cnt");
+                        if (uid != null && cnt != null) {
+                            diaryCounts.put(Long.valueOf(uid.toString()), Long.valueOf(cnt.toString()));
+                        }
+                    });
+        }
+
         List<Map<String, Object>> rows = result.getRecords().stream().map(u -> {
             Map<String, Object> row = new HashMap<>();
             row.put("id", u.getId());
@@ -89,6 +109,7 @@ public class AdminController {
             row.put("avatar", u.getAvatar());
             row.put("isHuaweiUser", u.getHuaweiUnionId() != null);
             row.put("deleted", u.getDeleted());
+            row.put("diaryCount", diaryCounts.getOrDefault(u.getId(), 0L));
             row.put("createTime", u.getCreateTime());
             return row;
         }).collect(Collectors.toList());
@@ -225,11 +246,22 @@ public class AdminController {
 
     // ===== 日记管理 =====
 
+    /**
+     * 日记列表。
+     * <p>
+     * 日记属于高敏感私密内容，管理端的正确用法是「先定位用户，再看这个人的日记」，
+     * 因此支持按 userId 过滤（命中 diary.idx_user_id）。不传 userId 时是全站视图，
+     * 仅供排查使用，前端默认不这样展示。
+     */
     @GetMapping("/diaries")
     public ApiResponse<Map<String, Object>> diaries(@RequestParam(defaultValue = "1") long page,
                                                     @RequestParam(defaultValue = "10") long size,
-                                                    @RequestParam(required = false) String keyword) {
+                                                    @RequestParam(required = false) String keyword,
+                                                    @RequestParam(required = false) Long userId) {
         QueryWrapper<Diary> wrapper = new QueryWrapper<>();
+        if (userId != null) {
+            wrapper.eq("user_id", userId);
+        }
         if (keyword != null && !keyword.trim().isEmpty()) {
             wrapper.and(w -> w.like("title", keyword.trim()).or().like("content", keyword.trim()));
         }
@@ -268,6 +300,63 @@ public class AdminController {
     public ApiResponse<Object> deleteDiary(@PathVariable Long id) {
         diaryMapper.deleteById(id);
         return ApiResponse.success(true);
+    }
+
+    // ===== 测评结果明细 =====
+
+    /**
+     * 测评结果列表。
+     * <p>
+     * 管理端此前只能看到「测评完成次数」这一个数字，看不到用户具体答了什么、AI 给了什么解读。
+     * 支持按 userId 过滤，便于从用户详情直接定位到某个人的记录。
+     */
+    @GetMapping("/assessment-results")
+    public ApiResponse<Map<String, Object>> assessmentResults(@RequestParam(defaultValue = "1") long page,
+                                                              @RequestParam(defaultValue = "10") long size,
+                                                              @RequestParam(required = false) Long userId,
+                                                              @RequestParam(required = false) String keyword) {
+        QueryWrapper<AssessmentResult> wrapper = new QueryWrapper<>();
+        if (userId != null) {
+            wrapper.eq("user_id", userId);
+        }
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String k = keyword.trim();
+            wrapper.and(w -> w.like("assessment_title", k).or().like("level", k));
+        }
+        wrapper.orderByDesc("create_time");
+        Page<AssessmentResult> result = assessmentResultMapper.selectPage(new Page<>(page, size), wrapper);
+
+        Map<Long, String> nicknames = new HashMap<>();
+        List<Long> ownerIds = result.getRecords().stream()
+                .map(AssessmentResult::getUserId).distinct().collect(Collectors.toList());
+        if (!ownerIds.isEmpty()) {
+            userMapper.selectBatchIds(ownerIds)
+                    .forEach(u -> nicknames.put(u.getId(), u.getNickname()));
+        }
+
+        List<Map<String, Object>> rows = result.getRecords().stream().map(r -> {
+            Map<String, Object> row = new HashMap<>();
+            row.put("id", r.getId());
+            row.put("userId", r.getUserId());
+            row.put("author", nicknames.getOrDefault(r.getUserId(), "未知用户"));
+            row.put("assessmentId", r.getAssessmentId());
+            row.put("assessmentTitle", r.getAssessmentTitle());
+            row.put("score", r.getScore());
+            row.put("maxScore", r.getMaxScore());
+            row.put("level", r.getLevel());
+            row.put("suggestion", r.getSuggestion());
+            row.put("answersJson", r.getAnswersJson());
+            row.put("aiStatus", r.getAiStatus());
+            row.put("aiAnalysis", r.getAiAnalysis());
+            row.put("aiError", r.getAiError());
+            row.put("createTime", r.getCreateTime());
+            return row;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("total", result.getTotal());
+        data.put("records", rows);
+        return ApiResponse.success(data);
     }
 
     // ===== 测评量表 / 题库管理 =====
@@ -356,13 +445,19 @@ public class AdminController {
 
     // ===== 反馈管理 =====
 
+    /** 反馈列表。keyword 匹配内容/联系方式/类型，便于按现象归拢同类问题 */
     @GetMapping("/feedbacks")
     public ApiResponse<Map<String, Object>> feedbacks(@RequestParam(defaultValue = "1") long page,
                                                       @RequestParam(defaultValue = "10") long size,
-                                                      @RequestParam(required = false) Integer handled) {
+                                                      @RequestParam(required = false) Integer handled,
+                                                      @RequestParam(required = false) String keyword) {
         QueryWrapper<Feedback> wrapper = new QueryWrapper<>();
         if (handled != null) {
             wrapper.eq("is_handled", handled);
+        }
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String k = keyword.trim();
+            wrapper.and(w -> w.like("content", k).or().like("contact", k).or().like("type", k));
         }
         wrapper.orderByDesc("create_time");
         Page<Feedback> result = feedbackMapper.selectPage(new Page<>(page, size), wrapper);

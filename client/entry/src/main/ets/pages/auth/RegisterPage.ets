@@ -1,9 +1,10 @@
-import { popRoute } from '../../common/state/AppState'
+import { appState, popRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
-import { Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { brand, Dimension, ShadowStyle } from '../../common/constants/Theme'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
+import { AppButton } from '../../common/components/AppButton'
 
 const TAG = 'RegisterPage'
 
@@ -21,6 +22,39 @@ export struct RegisterPage {
   @Local isLoading: boolean = false
 
   private apiService: ApiService = ApiService.getInstance()
+
+  /** 任一注册字段非空即视为"有未提交内容"（驱动路由层返回拦截，审计 C-5-1） */
+  private updateRegisterDirty(): boolean {
+    const dirty: boolean = this.phone.trim().length > 0 || this.password.length > 0 || this.confirmPassword.length > 0
+    appState().hasUnsavedChanges = dirty
+    return dirty
+  }
+
+  aboutToDisappear(): void {
+    appState().hasUnsavedChanges = false
+  }
+
+  @Monitor('state.backPressedTick')
+  onBackIntercepted(): void {
+    if (!this.updateRegisterDirty()) {
+      return
+    }
+    AlertDialog.show({
+      title: '放弃注册？',
+      message: '返回后已填写的内容将不会保留',
+      primaryButton: {
+        value: '继续填写',
+        action: () => {}
+      },
+      secondaryButton: {
+        value: '放弃',
+        action: () => {
+          appState().hasUnsavedChanges = false
+          popRoute()
+        }
+      }
+    })
+  }
 
   // 原 onBackPress 只是 popRoute() 后 return true，与系统默认返回行为完全等价；
   // V2 组件不支持该生命周期，直接移除，返回行为不变。
@@ -51,6 +85,7 @@ export struct RegisterPage {
       .width('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
     }
     .width('100%')
     .height('100%')
@@ -63,9 +98,9 @@ export struct RegisterPage {
       Row() {
         Text('新账号')
           .fontSize(12)
-          .fontColor($r('app.color.theme_primary'))
+          .fontColor(brand().primary)
           .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-          .backgroundColor($r('app.color.tag_blue'))
+          .backgroundColor(brand().tagBlue)
           .borderRadius(12)
       }
       .margin({ bottom: 16 })
@@ -111,6 +146,7 @@ export struct RegisterPage {
         .padding({ left: 14, right: 14 })
         .onChange((value: string) => {
           this.phone = value
+          this.updateRegisterDirty()
         })
         .margin({ bottom: 16 })
 
@@ -130,6 +166,7 @@ export struct RegisterPage {
         .padding({ left: 14, right: 14 })
         .onChange((value: string) => {
           this.password = value
+          this.updateRegisterDirty()
         })
         .margin({ bottom: 16 })
 
@@ -149,6 +186,7 @@ export struct RegisterPage {
         .padding({ left: 14, right: 14 })
         .onChange((value: string) => {
           this.confirmPassword = value
+          this.updateRegisterDirty()
         })
     }
     .width('100%')
@@ -161,21 +199,17 @@ export struct RegisterPage {
   @Builder
   buildActionArea() {
     Column() {
-      Button(this.isLoading ? '注册中...' : '立即注册')
-        .width('100%')
-        .height(Dimension.ButtonHeight)
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor(this.isLoading ? $r('app.color.text_tertiary') : $r('app.color.theme_primary'))
-        .borderRadius(24)
-        .enabled(!this.isLoading)
-        .onClick(() => {
-          if (!this.isLoading) {
-            this.handleRegister()
-          }
-        })
-        .margin({ top: 20, bottom: 16 })
+      AppButton({
+        label: this.isLoading ? '注册中...' : '立即注册',
+        kind: 'primary',
+        block: true,
+        loading: this.isLoading,
+        active: !this.isLoading,
+        outerMargin: { top: 20, bottom: 16 },
+        onPress: () => {
+          this.handleRegister()
+        }
+      })
 
       Row() {
         Text('已经有账号？')
@@ -185,11 +219,11 @@ export struct RegisterPage {
         Row() {
           Text('去登录')
             .fontSize(14)
-            .fontColor($r('app.color.theme_primary'))
+            .fontColor(brand().primary)
             .fontWeight(FontWeight.Medium)
         }
         .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-        .backgroundColor($r('app.color.tag_blue'))
+        .backgroundColor(brand().tagBlue)
         .borderRadius(16)
         .margin({ left: 8 })
         .onClick(() => {
@@ -260,6 +294,7 @@ export struct RegisterPage {
       this.isLoading = false
 
       if (res.code === 200) {
+        appState().hasUnsavedChanges = false
         ToastUtil.showLong('注册成功，现在可以去登录了')
         try {
           popRoute()
@@ -272,7 +307,7 @@ export struct RegisterPage {
     } catch (error) {
       this.isLoading = false
       Logger.error(TAG, `注册失败: ${JSON.stringify(error)}`)
-      this.showToast('网络异常，请稍后重试')
+      this.showToast('网络好像不太顺畅，稍后再试试')
     }
   }
 

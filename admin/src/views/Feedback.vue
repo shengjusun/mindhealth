@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   batchOperate,
@@ -11,10 +12,13 @@ import {
 import { csvFilename, exportCsv } from '../utils/csv'
 import { formatTime } from '../utils/format'
 
+const router = useRouter()
+
 const loading = ref(false)
 const handledFilter = ref<string>('all')
+const keyword = ref('')
 const page = ref(1)
-const size = 10
+const size = ref(10)
 const total = ref(0)
 const rows = ref<FeedbackRow[]>([])
 const selected = ref<FeedbackRow[]>([])
@@ -25,9 +29,13 @@ const detail = ref<FeedbackRow | null>(null)
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const params: { page: number; size: number; handled?: boolean } = { page: page.value, size }
+    const params: { page: number; size: number; handled?: boolean; keyword?: string } = {
+      page: page.value,
+      size: size.value,
+    }
     if (handledFilter.value === 'handled') params.handled = true
     if (handledFilter.value === 'unhandled') params.handled = false
+    if (keyword.value) params.keyword = keyword.value
     const res = await fetchFeedbacks(params)
     rows.value = res.records ?? []
     total.value = res.total ?? 0
@@ -42,6 +50,29 @@ async function load(): Promise<void> {
 function onFilterChange(): void {
   page.value = 1
   void load()
+}
+
+function onSearch(): void {
+  page.value = 1
+  void load()
+}
+
+function onReset(): void {
+  keyword.value = ''
+  handledFilter.value = 'all'
+  page.value = 1
+  void load()
+}
+
+function onSizeChange(): void {
+  page.value = 1
+  void load()
+}
+
+/** 跳到用户管理，并直接打开这个提交人的详情抽屉 */
+function goUser(userId: number): void {
+  if (!userId) return
+  void router.push({ path: '/users', query: { detail: String(userId) } })
 }
 
 function openDetail(row: FeedbackRow): void {
@@ -127,6 +158,19 @@ onMounted(load)
           <el-option label="未处理" value="unhandled" />
           <el-option label="已处理" value="handled" />
         </el-select>
+        <el-input
+          v-model="keyword"
+          class="search"
+          placeholder="搜索内容 / 联系方式 / 类型"
+          clearable
+          @keyup.enter="onSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-button type="primary" @click="onSearch">查询</el-button>
+        <el-button @click="onReset">重置</el-button>
         <div class="spacer" />
         <el-button @click="onExport">
           <el-icon><Download /></el-icon>导出 CSV
@@ -145,9 +189,17 @@ onMounted(load)
       <el-table v-loading="loading" :data="rows" @selection-change="onSelectionChange">
         <el-table-column type="selection" width="46" />
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column label="提交人" width="130">
+        <el-table-column label="提交人" width="140">
           <template #default="{ row }">
-            <span class="strong">{{ row.author || '-' }}</span>
+            <el-button
+              v-if="row.userId"
+              link
+              type="primary"
+              @click="goUser(row.userId)"
+            >
+              {{ row.author || `#${row.userId}` }}
+            </el-button>
+            <span v-else class="strong">{{ row.author || '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="类型" width="110">
@@ -194,11 +246,13 @@ onMounted(load)
       <div class="panel__foot">
         <el-pagination
           v-model:current-page="page"
+          v-model:page-size="size"
           background
-          layout="total, prev, pager, next"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
           :total="total"
-          :page-size="size"
           @current-change="load"
+          @size-change="onSizeChange"
         />
       </div>
     </div>
@@ -206,7 +260,15 @@ onMounted(load)
     <el-dialog v-model="detailVisible" title="反馈详情" width="600px" align-center>
       <div v-if="detail" class="detail">
         <div class="detail-meta">
-          <span class="strong">{{ detail.author || '未知用户' }}</span>
+          <el-button
+            v-if="detail.userId"
+            link
+            type="primary"
+            @click="goUser(detail.userId)"
+          >
+            {{ detail.author || `#${detail.userId}` }}
+          </el-button>
+          <span v-else class="strong">{{ detail.author || '未知用户' }}</span>
           <el-tag size="small" type="info" effect="light">{{ detail.type || '其他' }}</el-tag>
           <el-tag
             :type="detail.isHandled ? 'success' : 'warning'"
@@ -240,6 +302,10 @@ onMounted(load)
 <style scoped>
 .filter {
   width: 160px;
+}
+
+.search {
+  width: 260px;
 }
 
 .strong {

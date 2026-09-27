@@ -2,8 +2,10 @@ package com.mindhealth.backend.controller;
 
 import com.mindhealth.backend.dto.ApiResponse;
 import com.mindhealth.backend.dto.AssessmentRequest;
+import com.mindhealth.backend.entity.AssessmentResult;
+import com.mindhealth.backend.service.AssessmentAiService;
 import com.mindhealth.backend.service.AssessmentService;
-import com.mindhealth.backend.service.ScaleFileService;
+import com.mindhealth.backend.service.ScaleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,7 +17,10 @@ public class AssessmentController {
     private AssessmentService assessmentService;
 
     @Autowired
-    private ScaleFileService scaleFileService;
+    private ScaleService scaleService;
+
+    @Autowired
+    private AssessmentAiService assessmentAiService;
 
     @GetMapping("/list")
     public ApiResponse<Object> getAssessmentList() {
@@ -28,7 +33,7 @@ public class AssessmentController {
      */
     @GetMapping("/manifest")
     public ApiResponse<Object> getScaleManifest() {
-        return ApiResponse.success(scaleFileService.manifest());
+        return ApiResponse.success(scaleService.manifest());
     }
 
     @GetMapping("/{id}")
@@ -43,7 +48,7 @@ public class AssessmentController {
      */
     @GetMapping("/{id}/questions")
     public ApiResponse<Object> getScaleQuestions(@PathVariable Long id) {
-        String questions = scaleFileService.questions(id);
+        String questions = scaleService.questions(id);
         if (questions == null) {
             return ApiResponse.error(404, "量表不存在或暂无题目");
         }
@@ -59,5 +64,31 @@ public class AssessmentController {
     @GetMapping("/results")
     public ApiResponse<Object> getAssessmentResults(@RequestAttribute("userId") Long userId) {
         return ApiResponse.success(assessmentService.getAssessmentResults(userId));
+    }
+
+    /**
+     * 单条测评结果。
+     * 客户端提交后用它轮询 AI 解读：aiStatus 由 pending → success / failed。
+     */
+    @GetMapping("/result/{id}")
+    public ApiResponse<Object> getAssessmentResult(@RequestAttribute("userId") Long userId,
+                                                   @PathVariable Long id) {
+        AssessmentResult result = assessmentService.getAssessmentResult(userId, id);
+        if (result == null) {
+            return ApiResponse.error(404, "测评记录不存在");
+        }
+        return ApiResponse.success(result);
+    }
+
+    /** 手动重试 AI 解读（首次生成因超时/额度等原因失败时用） */
+    @PostMapping("/result/{id}/analyze")
+    public ApiResponse<Object> reanalyze(@RequestAttribute("userId") Long userId,
+                                         @PathVariable Long id) {
+        AssessmentResult result = assessmentService.getAssessmentResult(userId, id);
+        if (result == null) {
+            return ApiResponse.error(404, "测评记录不存在");
+        }
+        assessmentAiService.analyzeAsync(id);
+        return ApiResponse.success(true);
     }
 }

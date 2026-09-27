@@ -1,6 +1,9 @@
 import { appState, AppState, popRoute, pushRouteWithParam } from '../../common/state/AppState'
 import { SubPageHeader } from '../../common/components/SubPageHeader'
-import { Dimension, ShadowStyle } from '../../common/constants/Theme'
+import { brand, Dimension, FontLevel, ShadowStyle, Motion } from '../../common/constants/Theme'
+import { AppButton } from '../../common/components/AppButton'
+import { AppChip } from '../../common/components/AppChip'
+import { softIntensity, emotionChipKind } from '../../common/utils/AssessmentTone'
 import { ApiService } from '../../core/api/ApiService'
 import { Logger } from '../../common/utils/Logger'
 import { ToastUtil } from '../../common/utils/ToastUtil'
@@ -102,11 +105,7 @@ export struct DiaryDetailPage {
   }
 
   private getIntensityText(): string {
-    const intensity = this.diary?.intensity
-    if (intensity === undefined || intensity === 0) {
-      return '情绪强度未知'
-    }
-    return `情绪强度 ${intensity}/10`
+    return softIntensity(this.diary ? this.diary.intensity ?? 0 : 0)
   }
 
   private goEdit(): void {
@@ -160,7 +159,7 @@ export struct DiaryDetailPage {
       }
     } catch (error) {
       Logger.error(TAG, `删除日记失败: ${JSON.stringify(error)}`)
-      ToastUtil.show('网络异常，请稍后重试')
+      ToastUtil.show('网络好像不太顺畅，稍后再试试')
     } finally {
       this.isDeleting = false
     }
@@ -177,61 +176,71 @@ export struct DiaryDetailPage {
       } else {
         Scroll() {
           Column() {
-            // 头部：情绪标签 + 日期
+            // 头部：情绪语义 chip + 日期（t4 极灰）
             Row() {
-              Text(this.diary.emotion && this.diary.emotion.length > 0 ? this.diary.emotion : '情绪记录')
-                .fontSize(12)
-                .fontColor($r('app.color.theme_primary'))
-                .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                .backgroundColor($r('app.color.tag_blue'))
-                .borderRadius(10)
+              AppChip({
+                label: this.diary.emotion && this.diary.emotion.length > 0 ? this.diary.emotion : '情绪记录',
+                kind: emotionChipKind(this.diary.emotion ?? '')
+              })
 
               Blank()
 
               Text(this.getDate())
-                .fontSize(12)
-                .fontColor($r('app.color.text_tertiary'))
+                .fontSize(FontLevel.Caption)
+                .fontColor($r('app.color.text_quaternary'))
             }
             .width('100%')
-            .margin({ bottom: 14 })
 
             // 标题
             Text(this.diary.title && this.diary.title.length > 0 ? this.diary.title : '未命名日记')
-              .fontSize(22)
+              .fontSize(FontLevel.PageTitle)
               .fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.text_primary'))
-              .lineHeight(32)
+              .lineHeight(FontLevel.titleLineHeight(FontLevel.PageTitle))
               .width('100%')
-              .margin({ bottom: 10 })
+              .margin({ top: Dimension.SpaceM })
 
-            // 情绪强度
-            Text(this.getIntensityText())
-              .fontSize(13)
-              .fontColor($r('app.color.text_tertiary'))
-              .width('100%')
-              .margin({ bottom: 6 })
+            // 情绪温度：描述语 + 刻度条（与日记列表同款视觉语言）
+            Column() {
+              Text(this.getIntensityText())
+                .fontSize(FontLevel.Aux)
+                .fontColor($r('app.color.text_tertiary'))
+
+              Row() {
+                Row()
+                  .width(Dimension.Space4XL * 2 * (this.diary.intensity ?? 0) / 10)
+                  .height(3)
+                  .backgroundColor(brand().primary)
+                  .opacity(0.45)
+              }
+              .width(Dimension.Space4XL * 2)
+              .height(3)
+              .borderRadius(2)
+              .backgroundColor($r('app.color.surface_soft'))
+              .margin({ top: Dimension.Space2XS })
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+            .margin({ top: Dimension.SpaceM })
 
             // 触发事件
             if (this.diary.event && this.diary.event.length > 0) {
               Column() {
                 Text('触发事件')
-                  .fontSize(12)
-                  .fontColor($r('app.color.text_tertiary'))
-                  .margin({ bottom: 4 })
+                  .fontSize(FontLevel.Caption)
+                  .fontColor($r('app.color.text_quaternary'))
+                  .margin({ bottom: Dimension.Space2XS })
                 Text(this.diary.event)
-                  .fontSize(14)
+                  .fontSize(FontLevel.Body)
                   .fontColor($r('app.color.text_secondary'))
-                  .lineHeight(22)
+                  .lineHeight(FontLevel.bodyLineHeight(FontLevel.Body))
               }
               .width('100%')
               .alignItems(HorizontalAlign.Start)
-              .padding(12)
+              .padding(Dimension.CardPaddingInner)
               .backgroundColor($r('app.color.surface_soft'))
-              .borderRadius(12)
-              .margin({ bottom: 16 })
-            } else {
-              Column()
-                .margin({ bottom: 4 })
+              .borderRadius(Dimension.RadiusM)
+              .margin({ top: Dimension.SpaceM })
             }
 
             // 正文
@@ -242,6 +251,7 @@ export struct DiaryDetailPage {
               .fontColor($r('app.color.text_primary'))
               .lineHeight(26)
               .width('100%')
+              .margin({ top: Dimension.SpaceL })
           }
           .width('100%')
           .padding({
@@ -255,52 +265,37 @@ export struct DiaryDetailPage {
         .width('100%')
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
 
-        // 底部操作栏：编辑 / 删除
+        // 底部操作栏：删除 / 编辑（底部加手势条动态避让）
         Row() {
-          Button(this.isDeleting ? '删除中...' : '删除')
-            .layoutWeight(1)
-            .height(Dimension.ButtonHeight)
-            .fontSize(16)
-            .fontColor($r('app.color.state_error'))
-            .backgroundColor($r('app.color.app_card'))
-            .borderRadius(24)
-            .border({
-              width: 1,
-              color: $r('app.color.state_error')
-            })
-            .enabled(!this.isDeleting)
-            .margin({ right: 12 })
-            .onClick(() => {
+          AppButton({
+            label: this.isDeleting ? '删除中...' : '删除',
+            kind: 'primary',
+            danger: true,
+            weight: 1,
+            active: !this.isDeleting,
+            outerMargin: { right: 12 },
+            onPress: () => {
               this.confirmDelete()
-            })
+            }
+          })
 
-          Button('编辑')
-            .layoutWeight(1)
-            .height(Dimension.ButtonHeight)
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_on_primary'))
-            .backgroundColor($r('app.color.theme_primary'))
-            // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-            .linearGradient({
-              angle: 135,
-              colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-            })
-            .borderRadius(Dimension.CardRadiusInner)
-            .shadow(ShadowStyle.Button)
-            .borderRadius(24)
-            .margin({ left: 0 })
-            .onClick(() => {
+          AppButton({
+            label: '编辑',
+            kind: 'primary',
+            weight: 1,
+            onPress: () => {
               this.goEdit()
-            })
+            }
+          })
         }
         .width('100%')
         .padding({
           left: Dimension.SpaceL,
           right: Dimension.SpaceL,
           top: 12,
-          bottom: Dimension.SpaceL
+          bottom: Dimension.SpaceL + this.state.bottomIndicatorVp
         })
         .backgroundColor($r('app.color.nav_background'))
       }
@@ -308,6 +303,11 @@ export struct DiaryDetailPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.app_background'))
+    // 内容进场：上浮 + 淡入弹簧（一镜到底 geometryTransition 的轻量替代，真机联调后再评估升级）
+    .transition(TransitionEffect.asymmetric(
+      TransitionEffect.OPACITY.combine(TransitionEffect.translate({ y: 24 })),
+      TransitionEffect.OPACITY
+    ).animation({ curve: Motion.springStandard, duration: Motion.Normal }))
   }
 
   @Builder

@@ -39,18 +39,23 @@ interface Metric {
   value: number | string
   icon: string
   tone: string
-  to: string
+  /** 只有确实存在对应页面时才给跳转；没有明细页的指标不要假装能点进去 */
+  to?: string
+  /** 无明细页时的说明，替代「点了跳错地方」 */
+  hint?: string
 }
 
 const metrics = computed<Metric[]>(() => [
   { label: '注册用户', value: stats.value?.userCount ?? '-', icon: 'User', tone: 'brand', to: '/users' },
   { label: '日记总数', value: stats.value?.diaryCount ?? '-', icon: 'Notebook', tone: 'violet', to: '/diaries' },
+  // 这里原先跳「测评题库」，但那个数字是「用户做过的测评次数」，
+  // 题库是题库、记录是记录，跳过去是两码事。后端暂无结果明细接口，先不跳。
   {
-    label: '测评记录',
+    label: '测评完成次数',
     value: stats.value?.assessmentResultCount ?? '-',
     icon: 'Document',
     tone: 'cyan',
-    to: '/assessments',
+    hint: '暂无明细页',
   },
   {
     label: '待处理反馈',
@@ -285,14 +290,15 @@ onMounted(refresh)
         v-for="m in metrics"
         :key="m.label"
         class="metric"
-        :class="`tone-${m.tone}`"
-        @click="router.push(m.to)"
+        :class="[`tone-${m.tone}`, { 'is-static': !m.to }]"
+        @click="m.to && router.push(m.to)"
       >
         <div class="metric-icon">
           <el-icon :size="19"><component :is="m.icon" /></el-icon>
         </div>
         <div class="metric-label">{{ m.label }}</div>
         <div class="metric-value">{{ m.value }}</div>
+        <div v-if="m.hint" class="metric-hint">{{ m.hint }}</div>
       </div>
     </div>
 
@@ -416,6 +422,25 @@ onMounted(refresh)
   transform: translateY(-3px);
   border-color: var(--border-glow);
   box-shadow: var(--shadow-md), 0 0 0 1px rgba(122, 158, 255, 0.16);
+}
+
+/* 没有跳转目标的指标：不要给出「可以点」的假象 */
+.metric.is-static {
+  cursor: default;
+}
+
+.metric.is-static:hover {
+  transform: none;
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm), var(--glow-line);
+}
+
+.metric-hint {
+  position: relative;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  opacity: 0.75;
 }
 
 .metric-icon {

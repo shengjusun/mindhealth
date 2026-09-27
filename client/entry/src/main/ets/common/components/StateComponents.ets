@@ -2,7 +2,8 @@
  * 通用状态组件：加载 / 空状态 / 错误 / 网络错误
  * 统一使用主题资源配色（浅/深色自适应），错误类组件支持 onRetry 回调
  */
-import { Dimension, ShadowStyle } from '../constants/Theme'
+import { brand } from '../constants/Theme'
+import { AppButton } from './AppButton'
 
 @ComponentV2
 export struct LoadingComponent {
@@ -14,7 +15,7 @@ export struct LoadingComponent {
       LoadingProgress()
         .width(this.loadingSize)
         .height(this.loadingSize)
-        .color($r('app.color.theme_primary'))
+        .color(brand().primary)
 
       Text(this.message)
         .fontSize(14)
@@ -56,21 +57,13 @@ export struct EmptyComponent {
         .margin({ bottom: 16 })
 
       if (this.buttonText.length > 0) {
-        Button(this.buttonText)
-          .height(40)
-          .fontSize(14)
-          .fontColor($r('app.color.text_on_primary'))
-          .backgroundColor($r('app.color.theme_primary'))
-          // 主按钮：同色系轻微渐变 + 柔和主色阴影，提升点击欲望
-          .linearGradient({
-            angle: 135,
-            colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-          })
-          .borderRadius(Dimension.CardRadiusInner)
-          .shadow(ShadowStyle.Button)
-          .onClick(() => {
+        AppButton({
+          label: this.buttonText,
+          kind: 'primary',
+          onPress: () => {
             this.onRetry()
-          })
+          }
+        })
       }
     }
     .width('100%')
@@ -98,21 +91,13 @@ export struct ErrorComponent {
         .fontColor($r('app.color.text_secondary'))
         .margin({ bottom: 16 })
 
-      Button(this.buttonText)
-        .height(40)
-        .fontSize(14)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor($r('app.color.theme_primary'))
-        // 主按钮：同色系轻微渐变（theme_primary → primary_pressed）+ 柔和主色阴影
-        .linearGradient({
-          angle: 135,
-          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-        })
-        .borderRadius(Dimension.CardRadiusInner)
-        .shadow(ShadowStyle.Button)
-        .onClick(() => {
+      AppButton({
+        label: this.buttonText,
+        kind: 'primary',
+        onPress: () => {
           this.onRetry()
-        })
+        }
+      })
     }
     .width('100%')
     .height('100%')
@@ -143,22 +128,14 @@ export struct NetworkErrorComponent {
         .fontColor($r('app.color.text_secondary'))
         .margin({ bottom: 16 })
 
-      Button('重试')
-        .height(40)
-        .width(120)
-        .fontSize(14)
-        .fontColor($r('app.color.text_on_primary'))
-        .backgroundColor($r('app.color.theme_primary'))
-        // 主按钮：同色系轻微渐变（theme_primary → primary_pressed）+ 柔和主色阴影
-        .linearGradient({
-          angle: 135,
-          colors: [[$r('app.color.theme_primary'), 0], [$r('app.color.primary_pressed'), 1]]
-        })
-        .borderRadius(Dimension.CardRadiusInner)
-        .shadow(ShadowStyle.Button)
-        .onClick(() => {
+      AppButton({
+        label: '重试',
+        kind: 'primary',
+        fixedWidth: 120,
+        onPress: () => {
           this.onRetry()
-        })
+        }
+      })
     }
     .width('100%')
     .height('100%')

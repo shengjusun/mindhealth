@@ -6,6 +6,12 @@ import { fileIo } from '@kit.CoreFileKit'
 // 日志标签，用来标记日志来自 ApiService 模块
 const TAG = 'ApiService'
 
+// 前台请求超时：登录、AI 对话、提交测评等用户主动触发的请求，可以多等一会儿
+const DEFAULT_TIMEOUT_MS: number = 60000
+
+// 静默刷新超时：后台拉数据，不该占着连接等满一分钟，否则用户白等、连接也被拖住
+const SILENT_TIMEOUT_MS: number = 8000
+
 // 后端统一响应结构
 // T 表示 data 的具体类型，不同接口返回的数据类型可能不同
 interface ApiResponse<T> {
@@ -25,8 +31,8 @@ interface LoginData {
 export class ApiService {
   private static instance: ApiService
 
-  // 后端基础地址，统一从 ApiConfig  读取
-  private baseUrl: string = ApiConfig .API_BASE_URL
+  // 后端基础地址不缓存到字段：ApiConfig.API_BASE_URL 支持运行期覆盖（setApiBaseUrl），
+  // 一旦在构造时快照下来，覆盖就会失效
 
   // 当前登录用户的 token
   // 登录成功后由 AuthService 调用 setToken 同步过来
@@ -65,11 +71,13 @@ export class ApiService {
    * method：请求方法，比如 GET / POST / PUT / DELETE
    * endpoint：接口路径，比如 /api/diary
    * data：请求体，POST / PUT 时一般会传
+   * timeoutMs：超时毫秒数，默认前台档；静默刷新走 getSilent 传 8 秒
    */
   private async request<T>(
     method: http.RequestMethod,
     endpoint: string,
-    data?: Object
+    data?: Object,
+    timeoutMs: number = DEFAULT_TIMEOUT_MS
   ): Promise<ApiResponse<T>> {
     // 把鸿蒙 http 的回调形式，包装成 Promise，方便外部用 async/await 调用
     return new Promise<ApiResponse<T>>((resolve, reject) => {
@@ -80,7 +88,7 @@ export class ApiService {
         httpRequest = http.createHttp()
 
         // 拼接完整接口地址：后端基础地址 + 接口路径
-        const url = this.baseUrl + endpoint
+        const url = ApiConfig .API_BASE_URL + endpoint
 
         // 统一请求配置
         const options: http.HttpRequestOptions = {
@@ -90,8 +98,8 @@ export class ApiService {
             // 业务接口统一带 token，后端通过 token 判断当前用户身份
             'Authorization': `Bearer ${this.token}`
           },
-          connectTimeout: 60000,
-          readTimeout: 60000
+          connectTimeout: timeoutMs,
+          readTimeout: timeoutMs
         }
 
         // 如果有请求体，就把对象转成 JSON 字符串传给后端
@@ -117,7 +125,8 @@ export class ApiService {
               try {
                 // 把后端返回的 JSON 字符串解析成统一响应对象
                 const result = JSON.parse(response.result as string) as ApiResponse<T>
-                Logger.info(TAG, `请求成功: ${JSON.stringify(result)}`)
+                // 只记业务码：响应体里可能含 token、日记原文、AI 对话等敏感内容，不入日志
+                Logger.info(TAG, `请求成功: code=${result.code}`)
 
                 // 统一处理登录态失效：清登录态并回登录页
                 // 结果仍返回给调用方，按 code!==200 的既有逻辑展示 message
@@ -134,9 +143,29 @@ export class ApiService {
                 reject(new Error('解析响应失败'))
               }
             } else {
-              // HTTP 状态码不是 200，比如 401、404、500
-              Logger.error(TAG, `请求失败: ${response.responseCode}`)
-              reject(new Error(`请求失败: ${response.responseCode}`))
+              const httpCode: number = response.responseCode
+
+              // 401/403 大多是 token 无效或过期：Spring Security 鉴权失败时走过滤链
+              // 直接返回 HTTP 403 且 body 为空，不经过 GlobalExceptionHandler，
+              // 所以只判「HTTP 200 + body.code===401」会永远漏掉这种情况——
+              // 表现为 token 过期后卡在各页面的失败提示上，永不跳登录页。
+              if (httpCode === 401 || httpCode === 403) {
+                const bizMessage: string = this.extractMessage(response.result)
+
+                if (bizMessage.length > 0) {
+                  // 403 也可能是带业务说明的拒绝（如无权限访问），那种要如实展示，
+                  // 不能无差别当成登录失效把用户踢出去
+                  Logger.warn(TAG, `请求被拒绝(${httpCode})，业务说明: ${bizMessage}`)
+                  reject(new Error(bizMessage))
+                } else {
+                  Logger.warn(TAG, `登录态已失效（HTTP ${httpCode}），触发统一登出`)
+                  this.authExpiredHandler?.()
+                  reject(new Error('登录已过期，请重新登录'))
+                }
+              } else {
+                Logger.error(TAG, `请求失败: ${httpCode}`)
+                reject(new Error(`请求失败: ${httpCode}`))
+              }
             }
           } finally {
             // 请求结束后释放 httpRequest
@@ -153,13 +182,42 @@ export class ApiService {
     })
   }
 
+  /**
+   * 从响应体里尽力取出业务 message。
+   * 取不到（空体 / 非 JSON）返回空串，调用方据此决定是展示文案还是按鉴权失败处理。
+   */
+  private extractMessage(result: Object): string {
+    const text: string = result ? String(result) : ''
+    if (text.length === 0) {
+      return ''
+    }
+    try {
+      const parsed = JSON.parse(text) as ApiResponse<Object>
+      return parsed && parsed.message ? String(parsed.message) : ''
+    } catch (parseError) {
+      return ''
+    }
+  }
+
   // GET 请求，一般用于查询数据
   async get<T>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request<T>(http.RequestMethod.GET, endpoint)
   }
 
+  /**
+   * GET 请求（静默刷新档，8 秒超时）。
+   *
+   * 后台刷新数据一律走这个：失败得快一点，用户不必为一个自己没触发的请求白等 60 秒。
+   * 用户主动触发的请求（登录、AI 对话、提交测评、发日记）继续走 get/post，保持 60 秒。
+   */
+  async getSilent<T>(endpoint: string, timeoutMs: number = SILENT_TIMEOUT_MS): Promise<ApiResponse<T>> {
+    return this.request<T>(http.RequestMethod.GET, endpoint, undefined, timeoutMs)
+  }
+
   // POST 请求，一般用于新增或提交数据
-  async post<T>(endpoint: string, data: Object): Promise<ApiResponse<T>> {
+  // data 可选：像「重试生成 AI 解读」这种动作类接口没有请求体，
+  // 强制传参会逼调用方硬造一个空对象
+  async post<T>(endpoint: string, data?: Object): Promise<ApiResponse<T>> {
     return this.request<T>(http.RequestMethod.POST, endpoint, data)
   }
 
@@ -207,7 +265,7 @@ export class ApiService {
       try {
         httpRequest = http.createHttp()
 
-        const url = this.baseUrl + ApiConfig .ENDPOINTS.AVATAR_UPLOAD
+        const url = ApiConfig .API_BASE_URL + ApiConfig .ENDPOINTS.AVATAR_UPLOAD
         Logger.info(TAG, `上传头像: ${url}`)
 
         // 读取本地图片文件
@@ -299,8 +357,26 @@ export class ApiService {
                 reject(new Error('解析响应失败'))
               }
             } else {
-              Logger.error(TAG, `上传失败: ${response.responseCode}, result=${response.result}`)
-              reject(new Error(`上传失败: ${response.responseCode}`))
+              const httpCode: number = response.responseCode
+
+              // 与 request() 主栈同款分流（审计残留-1）：头像上传走独立 multipart 栈，
+              // 不修这里 token 过期后只报"上传失败: 403"，永远不触发跳登录页
+              if (httpCode === 401 || httpCode === 403) {
+                const bizMessage: string = this.extractMessage(response.result)
+
+                if (bizMessage.length > 0) {
+                  Logger.warn(TAG, `上传被拒绝(${httpCode})，业务说明: ${bizMessage}`)
+                  reject(new Error(bizMessage))
+                } else {
+                  Logger.warn(TAG, `登录态已失效（HTTP ${httpCode}），触发统一登出`)
+                  this.authExpiredHandler?.()
+                  reject(new Error('登录已过期，请重新登录'))
+                }
+                return
+              }
+
+              Logger.error(TAG, `上传失败: ${httpCode}, result=${response.result}`)
+              reject(new Error(`上传失败: ${httpCode}`))
             }
           } finally {
             httpRequest?.destroy()
@@ -350,6 +426,16 @@ export class ApiService {
     return this.post<Object>(ApiConfig .ENDPOINTS.ASSESSMENT_SUBMIT, data)
   }
 
+  // 单条测评结果：用于轮询 AI 解读的生成进度
+  async getAssessmentResult(id: number): Promise<ApiResponse<Object>> {
+    return this.get<Object>(`${ApiConfig.ENDPOINTS.ASSESSMENT_RESULT_DETAIL}/${id}`)
+  }
+
+  // 重试生成 AI 解读（首次失败时用）
+  async retriggerAssessmentAi(id: number): Promise<ApiResponse<Object>> {
+    return this.post<Object>(`${ApiConfig.ENDPOINTS.ASSESSMENT_RESULT_DETAIL}/${id}/analyze`)
+  }
+
 
   // 发送 AI 对话消息
   async sendMessage(data: Object): Promise<ApiResponse<Object>> {
@@ -357,8 +443,14 @@ export class ApiService {
   }
 
   // 获取 AI 对话历史
-  async getChatHistory(userId: string): Promise<ApiResponse<Object[]>> {
-    return this.get<Object[]>(`${ApiConfig .ENDPOINTS.CHAT_HISTORY}?userId=${userId}`)
+  // 后端从 JWT 解析 userId 并强制按登录用户过滤，不需要也不应该由客户端传 userId
+  async getChatHistory(): Promise<ApiResponse<Object[]>> {
+    return this.get<Object[]>(ApiConfig .ENDPOINTS.CHAT_HISTORY)
+  }
+
+  // 清空当前用户的 AI 对话历史
+  async deleteChatHistory(): Promise<ApiResponse<Object>> {
+    return this.delete<Object>(ApiConfig .ENDPOINTS.CHAT_HISTORY)
   }
 
   // 获取文章列表，可按分类筛选
@@ -385,10 +477,20 @@ export class ApiService {
     return this.get<Object>(ApiConfig.ENDPOINTS.SCALE_MANIFEST)
   }
 
+  // 量表清单：静默刷新专用（8 秒超时）
+  async getScaleManifestSilent(): Promise<ApiResponse<Object>> {
+    return this.getSilent<Object>(ApiConfig.ENDPOINTS.SCALE_MANIFEST)
+  }
+
   // 单套量表题目（静态题库接口，后端 permitAll）
   // 注意：后端目前返回的是 JSON 字符串，ScaleRepository 里做了二次解析兼容
   async getScaleQuestions(id: number): Promise<ApiResponse<Object>> {
     return this.get<Object>(`${ApiConfig.ENDPOINTS.SCALE_QUESTIONS}/${id}/questions`)
+  }
+
+  // 单套量表题目：静默刷新专用（8 秒超时）
+  async getScaleQuestionsSilent(id: number): Promise<ApiResponse<Object>> {
+    return this.getSilent<Object>(`${ApiConfig.ENDPOINTS.SCALE_QUESTIONS}/${id}/questions`)
   }
 
   // 提交用户反馈

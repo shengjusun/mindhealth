@@ -59,6 +59,11 @@
       "name": "AssessmentQuestionPage",
       "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
       "buildFunction": "AssessmentQuestionPageBuilder"
+    },
+    {
+      "name": "ContentPage",
+      "pageSourceFile": "src/main/ets/pages/RouteBuilders.ets",
+      "buildFunction": "ContentPageBuilder"
     }
   ]
 }
