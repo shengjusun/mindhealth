@@ -5,7 +5,7 @@ import { Logger } from '../../common/utils/Logger'
 import { AuthService } from '../../core/auth/AppAuthService'
 import { ApiService } from '../../core/api/ApiService'
 import { SnapshotRepository } from '../../core/repository/SnapshotRepository'
-import { appState } from '../../common/state/AppState'
+import { appState, AppState } from '../../common/state/AppState'
 import { AppButton } from '../../common/components/AppButton'
 import { Skeleton } from '../../common/components/Skeleton'
 
@@ -51,6 +51,13 @@ export struct HomeView {
   @Local assessmentLoadError: boolean = false
   // 分数滚动计数的当前显示值（easeOutCubic 600ms）
   @Local displayScore: number = 0
+
+  /**
+   * @Monitor('state.meRefreshTick') 的取值目标。
+   * 存在的意义不是读它的值，而是让 @Monitor 的路径能解析到 AppState 实例。
+   */
+  @Local state: AppState = appState()
+
   private scoreTimerId: number = -1
 
   private authService: AuthService = AuthService.getInstance()
@@ -95,6 +102,21 @@ export struct HomeView {
     }
 
     this.loadLatestAssessment()
+  }
+
+  /**
+   * 从二级页返回 MainPage 时，MainPage 的 onShown 会递增 appState().meRefreshTick。
+   * 本视图是 MainPage 的常驻 Tab 子组件，aboutToAppear 只在首次挂载时触发一次，
+   * 不接这个信号的话做完测评回到首页，「最近状态」卡片一直是上一次的旧结果。
+   */
+  @Monitor('state.meRefreshTick')
+  onRefreshTickChange(): void {
+    // 这个 tick 在登出回到登录页等场景也会递增，此时直接打接口会撞 401 触发自动登出
+    if (!this.authService.isLoggedIn()) {
+      return
+    }
+    // 静默刷新：不置 isAssessmentLoading，避免返回首页时闪一下骨架屏
+    this.refreshInBackground()
   }
 
   aboutToDisappear(): void {

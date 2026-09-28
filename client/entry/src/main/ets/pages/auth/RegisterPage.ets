@@ -1,4 +1,4 @@
-import { appState, popRoute } from '../../common/state/AppState'
+import { appState, AppState, popRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { brand, Dimension, ShadowStyle } from '../../common/constants/Theme'
@@ -20,6 +20,14 @@ export struct RegisterPage {
   @Local password: string = ''
   @Local confirmPassword: string = ''
   @Local isLoading: boolean = false
+
+  /**
+   * @Monitor('state.backPressedTick') 的取值目标。
+   * 存在的意义不是读它的值，而是让 @Monitor 的路径能解析到 AppState 实例。
+   * 此前缺这个字段，返回拦截的确认弹窗从未触发过；而路由层已经递增 tick 并 return true
+   * 把返回吞掉，表现出来就是「按返回没反应」。
+   */
+  @Local state: AppState = appState()
 
   private apiService: ApiService = ApiService.getInstance()
 

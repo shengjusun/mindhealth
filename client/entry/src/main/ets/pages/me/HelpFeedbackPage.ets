@@ -1,4 +1,4 @@
-import { appState, popRoute } from '../../common/state/AppState'
+import { appState, AppState, popRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { brand, Dimension, ShadowStyle } from '../../common/constants/Theme'
 import { AppButton } from '../../common/components/AppButton'
@@ -18,6 +18,14 @@ interface FeedbackRequest {
 export struct HelpFeedbackPage {
   @Local feedbackText: string = ''
   @Local isSubmitting: boolean = false
+
+  /**
+   * @Monitor('state.backPressedTick') 的取值目标。
+   * 存在的意义不是读它的值，而是让 @Monitor 的路径能解析到 AppState 实例。
+   * 此前缺这个字段，返回拦截的确认弹窗从未触发过；而路由层已经递增 tick 并 return true
+   * 把返回吞掉，表现出来就是「按返回没反应」。
+   */
+  @Local state: AppState = appState()
 
   /** 反馈内容非空即视为"有未提交内容"（驱动路由层返回拦截，审计 C-5-1） */
   private updateFeedbackDirty(): boolean {

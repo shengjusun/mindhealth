@@ -1,4 +1,4 @@
-import { appState, popRoute, resetRoute } from '../../common/state/AppState'
+import { appState, AppState, popRoute, resetRoute } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { brand, Dimension, ShadowStyle, Motion } from '../../common/constants/Theme'
 import { SubPageHeader } from '../../common/components/SubPageHeader'
@@ -75,6 +75,14 @@ export struct AssessmentQuestionPage {
   // V2 中普通属性禁止从外部初始化，必须由父组件传入 —— 用 @Param（只读，组件内不修改）
   @Param routeParam: Record<string, Object> | undefined = undefined
 
+  /**
+   * @Monitor('state.backPressedTick') 的取值目标。
+   * 存在的意义不是读它的值，而是让 @Monitor 的路径能解析到 AppState 实例。
+   * 此前缺这个字段，返回拦截的确认弹窗从未触发过；而路由层已经递增 tick 并 return true
+   * 把返回吞掉，表现出来就是「按返回没反应」。
+   */
+  @Local state: AppState = appState()
+
   @Local assessmentId: number = 0
   @Local assessmentTitle: string = '心理测评'
   @Local currentIndex: number = 0
@@ -95,6 +103,8 @@ export struct AssessmentQuestionPage {
   @Local aiAnalysis: AssessmentAiAnalysis | null = null
   @Local aiError: string = ''
   private aiPollCount: number = 0
+  /** 轮询定时器句柄。必须留存，否则页面销毁后无法清除，回调仍会打到已销毁的组件上 */
+  private aiPollTimerId: number = -1
   private static readonly AI_POLL_INTERVAL_MS: number = 2000
   private static readonly AI_POLL_MAX_TIMES: number = 15
 
@@ -229,6 +239,19 @@ export struct AssessmentQuestionPage {
 
   aboutToDisappear(): void {
     appState().hasUnsavedChanges = false
+    this.clearAiPollTimer()
+  }
+
+  /**
+   * 清掉尚未触发的轮询定时器。
+   * 此前 setTimeout 的句柄没有留存，页面 pop 之后回调仍会执行：对着已销毁的组件写 @Local，
+   * 而且 retryAi 会再起一条链，造成多条轮询并发打后台。
+   */
+  private clearAiPollTimer(): void {
+    if (this.aiPollTimerId !== -1) {
+      clearTimeout(this.aiPollTimerId)
+      this.aiPollTimerId = -1
+    }
   }
 
   @Monitor('state.backPressedTick')
@@ -362,6 +385,8 @@ export struct AssessmentQuestionPage {
 
   /** 服务端异步生成，客户端每 2 秒查一次，最多查 15 次 */
   private startAiPolling(): void {
+    // 先清掉可能残留的定时器：重复点「重新生成」时，避免起出多条并行的轮询链
+    this.clearAiPollTimer()
     this.aiPollCount = 0
     this.fetchAiResult()
   }
@@ -373,6 +398,11 @@ export struct AssessmentQuestionPage {
     try {
       const res = await this.apiService.getAssessmentResult(this.resultId)
       if (res.code !== 200) {
+        // 不能静默 return：轮询链会就此断掉，aiStatus 一直停在 pending，
+        // 界面永远显示「正在生成…」，而重试入口只在 failed 状态出现 —— 用户没有出口。
+        // 后端所有业务错误都按「HTTP 200 + 业务码」返回，所以这个分支是常态而非异常。
+        this.aiStatus = 'failed'
+        this.aiError = res.message ? res.message : '查询解读结果失败，可点击重试'
         return
       }
 
@@ -412,7 +442,7 @@ export struct AssessmentQuestionPage {
       return
     }
     this.aiPollCount++
-    setTimeout(() => {
+    this.aiPollTimerId = setTimeout(() => {
       this.fetchAiResult()
     }, AssessmentQuestionPage.AI_POLL_INTERVAL_MS)
   }

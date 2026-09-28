@@ -205,6 +205,7 @@ jwt:
 12. **CORS 全开**：`SecurityConfig.java:91-102` 允许任意来源（`allowCredentials=false` 缓解风险）。
 13. **无用的库表**：`init.sql:86-111` 的 `community_post` / `community_comment` 建表但零代码使用。
 14. **列表接口下发完整正文**：`/diary` 与 `/article/list` 返回完整 `content` 字段，但客户端卡片只显示 2~3 行（`MoodDiaryPage` 的 `maxLines(3)`、`MyRecordsPage` 的 `maxLines(2)`）。低成本改进是列表接口做字段投影（`LEFT(content, 80) AS excerpt`），收益在数据量上来后显现。
+15. **AI 聊天限流可被并发绕过**：`AIServiceImpl.java:79` 的 `checkRateLimit` 与 `:96` 的 `recordRate` 是分离的，中间夹着 3~10 秒的 DeepSeek 调用，同一用户并发发起的请求会全部通过检查、再各自记账，10 次/分钟的限制形同虚设。单机演示下不可见，但该限制本意是兜住 API 成本，正确做法是把检查与记账放进同一临界区（或改成令牌桶）。
 
 ### 客户端
 

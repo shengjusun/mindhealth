@@ -2,7 +2,7 @@ import { pushRoute, pushRouteWithParam, resetRoute } from '../../common/state/Ap
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { brand, Dimension, FontLevel, ShadowStyle } from '../../common/constants/Theme'
-import { appState } from '../../common/state/AppState'
+import { appState, AppState } from '../../common/state/AppState'
 import { LoadingComponent, EmptyComponent, ErrorComponent } from '../../common/components/StateComponents'
 import { AppButton } from '../../common/components/AppButton'
 import { AppChip } from '../../common/components/AppChip'
@@ -47,11 +47,28 @@ export struct MoodDiaryView {
   // 非空表示当前列表来自本地快照，需要在界面上标注数据时间，避免用户以为是最新
   @Local snapshotHint: string = ''
 
+  /**
+   * @Monitor('state.meRefreshTick') 的取值目标。
+   * 存在的意义不是读它的值，而是让 @Monitor 的路径能解析到 AppState 实例。
+   */
+  @Local state: AppState = appState()
+
   private apiService: ApiService = ApiService.getInstance()
   private snapshotRepo: SnapshotRepository = SnapshotRepository.getInstance()
 
   aboutToAppear(): void {
     this.loadDiaryList()
+  }
+
+  /**
+   * 从二级页（写日记 / 日记详情）返回 MainPage 时，MainPage 的 onShown 会递增
+   * appState().meRefreshTick。本视图是 MainPage 的常驻 Tab 子组件，aboutToAppear
+   * 只在首次挂载时触发一次，不接这个信号的话新增/编辑/删除后列表一直是旧数据。
+   */
+  @Monitor('state.meRefreshTick')
+  onRefreshTickChange(): void {
+    // 传 false：后台静默刷新，不闪整页 loading
+    this.loadDiaryList(false)
   }
 
   /**

@@ -115,12 +115,15 @@ public class AssessmentAiService {
 
     /** 同步执行一次分析（也用于用户手动重试） */
     public void analyze(Long resultId) {
-        AssessmentResult result = resultMapper.selectById(resultId);
-        if (result == null) {
-            return;
-        }
-
+        // selectById 必须也在 try 内。它一旦抛异常（连接池耗尽、DB 抖动等），
+        // 异常会逃出本方法被线程池的 FutureTask 静默吞掉，markFailed 不会执行，
+        // 该记录的 ai_status 就永久停在 pending —— 客户端反复查到 pending 却没有出口。
         try {
+            AssessmentResult result = resultMapper.selectById(resultId);
+            if (result == null) {
+                return;
+            }
+
             if (!deepSeekClient.isConfigured()) {
                 markFailed(resultId, "AI 服务未配置，请联系管理员");
                 return;

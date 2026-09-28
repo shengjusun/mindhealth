@@ -8,6 +8,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.ServletRequestBindingException;
+import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.time.LocalDateTime;
@@ -81,7 +85,7 @@ public class AdminAuditInterceptor implements HandlerInterceptor {
             log.setAction(truncate(describeAction(request.getMethod(), path), MAX_TEXT_LEN));
             log.setTarget(truncate(describeTarget(request, path), MAX_TEXT_LEN));
             log.setIp(truncate(clientIp(request), 64));
-            log.setStatus(response.getStatus());
+            log.setStatus(resolveStatus(request, response));
             log.setDurationMs(duration);
             log.setCreateTime(LocalDateTime.now());
 
@@ -192,5 +196,48 @@ public class AdminAuditInterceptor implements HandlerInterceptor {
             return null;
         }
         return value.length() <= max ? value : value.substring(0, max);
+    }
+
+    /**
+     * 取「业务结果码」写入日志的 status 列。
+     * <p>
+     * 不能直接用 {@code response.getStatus()}：{@code GlobalExceptionHandler} 把所有业务异常
+     * 都按「HTTP 200 + 业务码」返回，于是「删除用户成功」和「删除用户失败」在日志里长得
+     * 一模一样，这一列等于白记。200 表示成功，其余为失败，与 ApiResponse.code 同义。
+     * <p>
+     * 注意 afterCompletion 的 {@code ex} 参数在这里恒为 null —— 异常只要被
+     * {@code @RestControllerAdvice} 解析掉，DispatcherServlet 就不再向上透传它。
+     * 所以改读 {@code DispatcherServlet.EXCEPTION_ATTRIBUTE}：MVC 在异常被解析器吃掉时
+     * 会把它塞进 request（见 DispatcherServlet#processHandlerException）。
+     */
+    private static int resolveStatus(HttpServletRequest request, HttpServletResponse response) {
+        Object resolved = request.getAttribute(DispatcherServlet.EXCEPTION_ATTRIBUTE);
+        if (resolved instanceof Exception) {
+            return businessCodeOf((Exception) resolved);
+        }
+        return response.getStatus();
+    }
+
+    /**
+     * 与 {@code GlobalExceptionHandler} 的 @ExceptionHandler 映射保持一致，那边调整时这里需同步。
+     * <p>
+     * 顺序有讲究：{@code MissingServletRequestParameterException} 是
+     * {@code ServletRequestBindingException} 的子类，但前者按 400、后者按 401 返回，
+     * 所以子类必须先判断。
+     */
+    private static int businessCodeOf(Exception ex) {
+        if (ex instanceof MissingServletRequestParameterException) {
+            return 400;
+        }
+        if (ex instanceof ServletRequestBindingException) {
+            return 401;
+        }
+        if (ex instanceof HttpRequestMethodNotSupportedException) {
+            return 405;
+        }
+        if (ex instanceof RuntimeException) {
+            return 400;
+        }
+        return 500;
     }
 }
