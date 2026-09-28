@@ -151,14 +151,34 @@ mh/
 3. 后端地址默认写在 `client/entry/src/main/ets/common/constants/apiConfig.ets` 的 `DEFAULT_API_BASE_URL`，演示/换网络环境时改这一行；也可通过 Preferences 的 `api_base_url` 在启动时覆盖，无需重新打包（`EntryAbility.ets:133`、`apiConfig.ets:102-105`）。
 4. 断开网络时，题库走内置 rawfile 仍可答题；已缓存过的日记/记录可看快照。
 
-### 2. 后端（Spring Boot）
+### 2. 必填配置
+
+后端启动前需要创建 `backend/src/main/resources/application-local.yaml`（该文件已在 `.gitignore` 中，不会被提交），至少包含以下配置：
+
+```yaml
+spring:
+  datasource:
+    password: <本地 MySQL 密码>
+
+jwt:
+  secret: <64 位随机字符串>
+```
+
+这两项都**没有默认值**，缺失时后端会直接启动失败（实测报错为 `Could not resolve placeholder`）：
+
+- `spring.datasource.password`：`application.yaml:11` 已去掉默认值，避免误用开发库口令连到别人的库上。
+- `jwt.secret`：`application.yaml:59` 同样没有兜底值，JWT 签名密钥只存在本地配置或环境变量里。
+
+华为 `client-secret`、DeepSeek `api-key` 等密钥同样只放在这个文件里，不要写进 `application.yaml`。
+
+### 3. 后端（Spring Boot）
 
 1. 准备 MySQL 8，创建 `mindhealth` 库并执行 `backend/src/main/resources/init.sql`（另有若干 `migration_*.sql` 增量脚本）。
 2. 数据库账号、密码、华为与 DeepSeek 的密钥等敏感配置放在 `backend/src/main/resources/application-local.yaml`（已 gitignore），不要写进 `application.yaml`。
 3. 启动：`cd backend && mvn spring-boot:run`，服务端口 `9000`，`context-path` 为 `/api`（`application.yaml:44-47`）。
 4. 测试完毕请立即关闭服务，避免进程常驻。
 
-### 3. 管理后台（Vue）
+### 4. 管理后台（Vue）
 
 1. `cd admin && npm install`。
 2. 开发：`npm run dev`，默认端口 5173，Vite 代理 `/api` 到 `http://localhost:9000`（`admin/vite.config.ts:8-16`）。
@@ -172,19 +192,18 @@ mh/
 ### 后端
 
 1. **管理端种子账号为固定弱口令**：`init.sql:126-127` 种子的管理员使用固定 BCrypt 哈希，部署到实际环境前必须改密。
-2. **JWT 密钥存在硬编码兜底**：`application.yaml:59` 的 `jwt.secret` 在未注入环境变量时回退到源码内明文值，可导致 token 被离线伪造；生产环境必须注入 `JWT_SECRET`。
-3. **MyBatis 全量 SQL 打印到 stdout**：`application.yaml:42` 为 `StdOutImpl`，会把含手机号、日记原文、聊天内容的 SQL 刷到日志，生产环境应改为 slf4j 或仅在 local profile 开启。
-4. **改手机号接口缺失/静默丢弃**：客户端资料页构造的更新体包含 `phone`（`ProfileEditPage.ets:815-831`），但后端 `UpdateUserRequest` 白名单只有 `nickname/age/gender/avatar/signature`（`UpdateUserRequest.java:9-15`），`phone` 会被静默丢弃；真正能改手机号的 `PUT /user/phone` 客户端未接入。
-5. **换绑手机号未校验验证码**：`UserServiceImpl.java:184` 为 `// TODO: 验证验证码`，`code` 参数被忽略，任意值都能换绑。
-6. **华为 id_token 未验签**：`HuaweiAuthService.java:98-100` 仅 Base64 解析 payload，未做公钥验签。
-7. **access 与 refresh 令牌等价**：JWT 的 access 与 refresh 仅在有效期上不同（24h / 7d），payload 中无 token 类型字段，也无 `jti`。因此 refresh token 可直接当 access token 调用业务接口，窗口为 7 天。正确做法是加 `typ` claim 与 `jti`，配合 Redis 黑名单与 `/user/refresh` 端点实现主动登出与刷新。当前未实现。
-8. **级联删除无事务**：全项目 0 个 `@Transactional`，管理端删除用户时先清四张从表再删用户，中途失败会留下半删除状态。
-9. **列表接口无分页**：`AIChatMapper.selectByUserId` 无 `LIMIT`（`AIChatMapper.java:12-13`），`/diary`、`/article/list`、`/ai/history` 均全量返回。
-10. **响应包体双轨**：`Result`（带 timestamp）与 `ApiResponse`（无 timestamp）并存；业务错误码存在 `5001` 与 `400` 两种（`ApiResponse` vs `GlobalExceptionHandler`）。
-11. **注册并发竞态**：注册为 check-then-insert，并发同手机号时第二笔会撞唯一键并被兜底为 500。
-12. **部分配置未接线**：`file.upload.max-size` / `allowed-types` 已定义但代码内硬编码（`AvatarController`）；换头像后旧文件不删除，磁盘会单调增长。
-13. **CORS 全开**：`SecurityConfig.java:91-102` 允许任意来源（`allowCredentials=false` 缓解风险）。
-14. **无用的库表**：`init.sql:86-111` 的 `community_post` / `community_comment` 建表但零代码使用。
+2. **MyBatis 全量 SQL 打印到 stdout**：`application.yaml:42` 为 `StdOutImpl`，会把含手机号、日记原文、聊天内容的 SQL 刷到日志，生产环境应改为 slf4j 或仅在 local profile 开启。
+3. **改手机号接口缺失/静默丢弃**：客户端资料页构造的更新体包含 `phone`（`ProfileEditPage.ets:815-831`），但后端 `UpdateUserRequest` 白名单只有 `nickname/age/gender/avatar/signature`（`UpdateUserRequest.java:9-15`），`phone` 会被静默丢弃；真正能改手机号的 `PUT /user/phone` 客户端未接入。
+4. **换绑手机号未校验验证码**：`UserServiceImpl.java:184` 为 `// TODO: 验证验证码`，`code` 参数被忽略，任意值都能换绑。
+5. **华为 id_token 未验签**：`HuaweiAuthService.java:98-100` 仅 Base64 解析 payload，未做公钥验签。
+6. **access 与 refresh 令牌等价**：JWT 的 access 与 refresh 仅在有效期上不同（24h / 7d），payload 中无 token 类型字段，也无 `jti`。因此 refresh token 可直接当 access token 调用业务接口，窗口为 7 天。正确做法是加 `typ` claim 与 `jti`，配合 Redis 黑名单与 `/user/refresh` 端点实现主动登出与刷新。当前未实现。
+7. **级联删除无事务**：全项目 0 个 `@Transactional`，管理端删除用户时先清四张从表再删用户，中途失败会留下半删除状态。
+8. **列表接口无分页**：`AIChatMapper.selectByUserId` 无 `LIMIT`（`AIChatMapper.java:12-13`），`/diary`、`/article/list`、`/ai/history` 均全量返回。
+9. **响应包体双轨**：`Result`（带 timestamp）与 `ApiResponse`（无 timestamp）并存；业务错误码存在 `5001` 与 `400` 两种（`ApiResponse` vs `GlobalExceptionHandler`）。
+10. **注册并发竞态**：注册为 check-then-insert，并发同手机号时第二笔会撞唯一键并被兜底为 500。
+11. **部分配置未接线**：`file.upload.max-size` / `allowed-types` 已定义但代码内硬编码（`AvatarController`）；换头像后旧文件不删除，磁盘会单调增长。
+12. **CORS 全开**：`SecurityConfig.java:91-102` 允许任意来源（`allowCredentials=false` 缓解风险）。
+13. **无用的库表**：`init.sql:86-111` 的 `community_post` / `community_comment` 建表但零代码使用。
 
 ### 客户端
 
