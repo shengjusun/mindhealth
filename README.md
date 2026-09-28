@@ -6,7 +6,7 @@
 
 技术栈分三端：
 
-- **客户端（HarmonyOS NEXT）**：ArkTS / ArkUI，27 个 `.ets` 文件中的 34 个组件已全部迁移到 ArkTS V2 状态管理（`@ComponentV2` / `@Local` / `@Param` / `@Monitor` / `@ObservedV2` / `@Trace`，见 `client/entry/src/main/ets/`）；路由使用 `Navigation` + `NavPathStack` 声明式路由（`client/entry/src/main/resources/base/profile/route_map.json`）；网络层 `@kit.NetworkKit`；持久化 `@kit.ArkData` 的 Preferences；架构为 MVVM + Repository。
+- **客户端（HarmonyOS NEXT）**：ArkTS / ArkUI，45 个 `.ets` 文件中的 34 个组件已全部迁移到 ArkTS V2 状态管理（`@ComponentV2` / `@Local` / `@Param` / `@Monitor` / `@ObservedV2` / `@Trace`，见 `client/entry/src/main/ets/`）；路由使用 `Navigation` + `NavPathStack` 声明式路由（`client/entry/src/main/resources/base/profile/route_map.json`）；网络层 `@kit.NetworkKit`；持久化 `@kit.ArkData` 的 Preferences；架构为 MVVM + Repository。
 - **后端**：Java 17 / Spring Boot 3.1.5 / Spring Security + JWT（jjwt）/ MyBatis-Plus / MySQL 8；AI 能力为后端直连 DeepSeek Chat Completions（`backend/.../service/DeepSeekClient.java`）。
 - **管理后台**：Vue 3 + Vite + TypeScript + Element Plus + ECharts + vue-router + axios（`admin/package.json`），构建产物由 Nginx 同源反代 `/api`（`admin/nginx/admin.conf`）。
 
@@ -63,7 +63,7 @@ mh/
 
 ### 1. 登录鉴权
 
-**账号密码登录**：客户端 `LoginPage` → `AppAuthService.requestLogin`（`client/.../core/auth/AppAuthService.ets`）→ `POST /api/user/login`。后端签发 access token（24h）与 refresh token（7d），配置见 `backend/src/main/resources/application.yaml:58-61`，签发逻辑见 `backend/.../utils/JwtUtils.java:30`。
+**账号密码登录**：客户端 `LoginPage` → `AppAuthService.requestLogin`（`client/.../core/auth/AppAuthService.ets`）→ `POST /api/user/login`。后端签发 access token（24h）与 refresh token（7d），配置见 `backend/src/main/resources/application.yaml:58-61`，签发逻辑见 `backend/.../utils/JwtUtils.java:38-47`。
 
 **华为账号一键登录**：客户端 `HuaweiIdService` 取授权码 → `POST /api/user/huawei/login`；后端 `HuaweiAuthService` 用授权码换 access_token、解析 id_token 取 `union_id`，绑定本地用户后签发 JWT（`backend/.../utils/HuaweiAuthService.java`）。
 
@@ -81,11 +81,11 @@ mh/
 
 **SWR 与退避**：静默刷新失败后进入 60 秒退避窗口，避免弱网下反复发起注定失败的请求（`ScaleRepository.ets:44-47`、`isRefreshBackedOff` `:170-181`）。远端清单为空时不覆盖本地题库（`:248-255`）。
 
-**提交只报逐题作答**：客户端提交体包含逐题 `answers` 与一个 `score` 字段（`client/.../pages/assessment/AssessmentQuestionPage.ets:292-322`），注释明确「保留总分仅为兼容，服务端以 answers 为准」（同文件 `:46-48`）。
+**提交只报逐题作答**：客户端提交体包含逐题 `answers` 与一个 `score` 字段（`client/.../pages/assessment/AssessmentQuestionPage.ets:313-382`），注释明确「保留总分仅为兼容，服务端以 answers 为准」（同文件 `:46-48`）。
 
 **服务端算分**：后端按题库存的题目与选项分值重新计分，并把逐题明细序列化写入 `answers_json`；同时按量表自身的 `scoring.bands` 分级，量表未配置时按得分比例兜底（`backend/.../service/impl/AssessmentServiceImpl.java:146-204`、`resolveBand` `:238-270`）。
 
-**异步 AI 解读 + 轮询**：提交落库时 `ai_status` 置为 `pending`，随后触发异步分析，失败只写状态、不影响测评结果（`AssessmentServiceImpl.java:116-124`）。客户端在结果页按 `aiStatus` 轮询 `GET /api/assessment/result/{id}`，`pending` 时继续、`success/failed` 时分别展示或提供重试（`AssessmentQuestionPage.ets:338-395`、`:716-727`）；手动重试接口为 `POST /api/assessment/result/{id}/analyze`（`backend/.../controller/AssessmentController.java:84-93`）。
+**异步 AI 解读 + 轮询**：提交落库时 `ai_status` 置为 `pending`，随后触发异步分析，失败只写状态、不影响测评结果（`AssessmentServiceImpl.java:116-124`）。客户端在结果页按 `aiStatus` 轮询 `GET /api/assessment/result/{id}`，`pending` 时继续、`success/failed` 时分别展示或提供重试（`AssessmentQuestionPage.ets:338-395`、`:736-757`）；手动重试接口为 `POST /api/assessment/result/{id}/analyze`（`backend/.../controller/AssessmentController.java:84-93`）。
 
 ### 3. AI 陪伴聊天
 
@@ -124,12 +124,12 @@ mh/
 
 ### 已完成（均可在代码中定位）
 
-- **ArkTS V2 全量迁移**：27 个 `.ets` 文件中的 34 个组件全部为 `@ComponentV2`，`.ets` 源码中已无 V1 装饰器（`@State`/`@Prop`/`@Watch` 等仅残留在注释里）；`@Entry` 仅 `Index.ets` 一处。
+- **ArkTS V2 全量迁移**：45 个 `.ets` 文件中的 34 个组件全部为 `@ComponentV2`，`.ets` 源码中已无 V1 装饰器（`@State`/`@Prop`/`@Watch` 等仅残留在注释里）；`@Entry` 仅 `Index.ets` 一处。
 - **路由迁移**：全项目已无 `@ohos.router` 的 import 与调用，`route_map.json` 注册 13 条路由，全部经 `Navigation`/`NavPathStack` + `RouteBuilders` 承载。
 - **登录鉴权**：账号密码 + 华为授权码登录闭环，JWT 双 Token 下发与本地持久化，管理员/用户身份在过滤器内分流并按角色授权，管理端图形验证码。
 - **心理测评**：题库接口（`assessment` 表为唯一来源）、客户端四级降级、服务端算分、逐题明细入库、`scoring.bands` 分级、AI 解读异步产出与轮询/重试。
 - **AI 聊天**：后端真实调用 DeepSeek，含上下文拼接、错误分类与一次重试、单机内存限流；历史读取与清空契约已对齐。
-- **情绪日记 / 个人资料 / 头像 / 文章 / 反馈**：前后端接口闭环，数据真实落库；头像上传含大小、类型、魔数校验与 UUID 文件名。
+- **情绪日记 / 个人资料 / 头像 / 文章 / 反馈**：前后端接口闭环，数据真实落库；头像上传含大小、类型、魔数校验与 UUID 文件名（魔数校验见 `backend/.../utils/FileUploadUtil.java:18-40`）。
 - **管理后台**：独立 Vue 3 工程，覆盖用户/量表/测评/反馈/日记/操作日志/账号管理，含 ECharts 仪表盘、审计日志、超管分级。
 - **设计系统**：三套主题 × 深浅双板、令牌体系、公共组件与三态组件、温度翻译层。
 
@@ -196,7 +196,7 @@ jwt:
 3. **改手机号接口缺失/静默丢弃**：客户端资料页构造的更新体包含 `phone`（`ProfileEditPage.ets:815-831`），但后端 `UpdateUserRequest` 白名单只有 `nickname/age/gender/avatar/signature`（`UpdateUserRequest.java:9-15`），`phone` 会被静默丢弃；真正能改手机号的 `PUT /user/phone` 客户端未接入。
 4. **换绑手机号未校验验证码**：`UserServiceImpl.java:184` 为 `// TODO: 验证验证码`，`code` 参数被忽略，任意值都能换绑。
 5. **华为 id_token 未验签**：`HuaweiAuthService.java:98-100` 仅 Base64 解析 payload，未做公钥验签。
-6. **access 与 refresh 令牌等价**：JWT 的 access 与 refresh 仅在有效期上不同（24h / 7d），payload 中无 token 类型字段，也无 `jti`。因此 refresh token 可直接当 access token 调用业务接口，窗口为 7 天。正确做法是加 `typ` claim 与 `jti`，配合 Redis 黑名单与 `/user/refresh` 端点实现主动登出与刷新。当前未实现。
+6. **access 与 refresh 令牌等价**：JWT 的 access 与 refresh 仅在有效期上不同（24h / 7d），payload 中无 token 类型字段，也无 `jti`（`JwtUtils.build()` `:38-47` 只 set subject/issuedAt/expiration，access 与 refresh 共用同一分支）。因此 refresh token 可直接当 access token 调用业务接口，窗口为 7 天。正确做法是加 `typ` claim 与 `jti`，配合 Redis 黑名单与 `/user/refresh` 端点实现主动登出与刷新。当前未实现。
 7. **级联删除无事务**：全项目 0 个 `@Transactional`，管理端删除用户时先清四张从表再删用户，中途失败会留下半删除状态。
 8. **列表接口无分页**：`AIChatMapper.selectByUserId` 无 `LIMIT`（`AIChatMapper.java:19-20`），`/diary`、`/article/list`、`/ai/history` 均全量返回。
 9. **响应包体双轨**：`Result`（带 timestamp）与 `ApiResponse`（无 timestamp）并存；业务错误码存在 `5001` 与 `400` 两种（`ApiResponse` vs `GlobalExceptionHandler`）。
@@ -213,7 +213,7 @@ jwt:
 2. **无网络状态监听与恢复刷新**：未使用 `connection.createNetConnection`/`netStatusChange`，网络恢复后需手动下拉。
 3. **快照 7000 字节上限**：`SnapshotRepository` 快照超限时从尾部截断，离线展示与在线可能存在差异且无提示。
 4. **超时配置不统一**：全局 60s、登录旁路 10s、华为登录 10s/15s 三套并存。
-5. **顶部安全区部分写死**：`HelpFeedbackPage.ets:166`、`SettingsPage.ets:219` 等处仍写死 `top: 14`，部分机型顶部可能被状态栏遮挡。
+5. **顶部安全区部分写死**：`HelpFeedbackPage.ets:174`、`SettingsPage.ets:219` 等处仍写死 `top: 14`，部分机型顶部可能被状态栏遮挡。
 6. **启动串行初始化**：`EntryAbility.initAndLoadPage` 依次 await 多个初始化（`EntryAbility.ets:133-149`），冷启动首帧被拖慢。
 7. **长列表未分页（规模风险，非现存缺陷）**：`/diary`、`/article/list`、`/ai/history` 均为全量返回，客户端 5 处列表用 `ForEach` 全量渲染（全项目 `LazyForEach` 0 处）。当前数据量下无实际影响：单用户日记峰值 6 篇、AI 聊天 2 条、文章 4 篇。触发阈值约在单用户日记 200 篇 / AI 聊天 300 轮 / 单列表 50 项以上，届时需改为服务端分页 + `LazyForEach`。
 8. **默认后端地址写死**：`apiConfig.ets` 的 `DEFAULT_API_BASE_URL` 为固定地址，换网络环境需修改或用 Preferences 覆盖。
