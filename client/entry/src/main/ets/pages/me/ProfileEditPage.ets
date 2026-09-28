@@ -59,8 +59,8 @@ export struct ProfileEditPage {
   // 用于 @Monitor 监听路由层转发过来的返回手势
   @Local state: AppState = appState()
 
-  // 页面上展示的性别选项
-  genders: string[] = ['男', '女', '其他']
+  // 页面上展示的性别选项：第三项为「隐藏」（保密式设计，存储值 hidden）
+  genders: string[] = ['男', '女', '隐藏']
 
   private authService: AuthService = AuthService.getInstance()
   private avatarService: AvatarService = AvatarService.getInstance()
@@ -277,8 +277,9 @@ export struct ProfileEditPage {
       return '女'
     }
 
-    if (value === 'other' || value === 'others' || value === '3' || value === '其他') {
-      return '其他'
+    if (value === 'other' || value === 'others' || value === '3' || value === '其他'
+      || value === 'hidden' || value === '隐藏') {
+      return '隐藏'
     }
 
     return rawGender
@@ -292,8 +293,8 @@ export struct ProfileEditPage {
     if (displayGender === '女') {
       return 'female'
     }
-    if (displayGender === '其他') {
-      return 'other'
+    if (displayGender === '隐藏') {
+      return 'hidden'
     }
     return displayGender
   }

@@ -42,6 +42,15 @@ const form = reactive({
 
 const isEdit = computed(() => editingId.value !== null)
 
+// 性别显示归一：客户端存英文（male/female/hidden），历史数据与管理端旧表单存过中文，统一转中文展示
+const genderText = (value: string | null): string => {
+  const v = (value || '').trim().toLowerCase()
+  if (v === 'male' || v === 'm' || v === '1' || v === '男') return '男'
+  if (v === 'female' || v === 'f' || v === '2' || v === '女') return '女'
+  if (v === 'hidden' || v === 'other' || v === 'others' || v === '3' || v === '其他' || v === '隐藏') return '隐藏'
+  return '未填'
+}
+
 const rules = computed<FormRules>(() => ({
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
@@ -219,7 +228,7 @@ function onExport(): void {
     row.nickname || '',
     row.phone || '',
     row.isHuaweiUser ? '华为账号' : '手机号',
-    row.gender || '',
+    genderText(row.gender),
     row.age ?? '',
     formatTime(row.createTime),
     row.deleted === 1 ? '已禁用' : '正常',
@@ -343,7 +352,7 @@ onMounted(async () => {
           </template>
         </el-table-column>
         <el-table-column label="性别" width="80">
-          <template #default="{ row }">{{ row.gender || '未填' }}</template>
+          <template #default="{ row }">{{ genderText(row.gender) }}</template>
         </el-table-column>
         <el-table-column label="年龄" width="80">
           <template #default="{ row }">{{ row.age ?? '-' }}</template>
@@ -422,8 +431,9 @@ onMounted(async () => {
         </el-form-item>
         <el-form-item label="性别">
           <el-select v-model="form.gender" placeholder="选填" clearable style="width: 100%">
-            <el-option label="男" value="男" />
-            <el-option label="女" value="女" />
+            <el-option label="男" value="male" />
+            <el-option label="女" value="female" />
+            <el-option label="隐藏" value="hidden" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -500,7 +510,7 @@ onMounted(async () => {
             <div class="detail-block__title">基础资料</div>
             <div class="facts">
               <div class="fact"><span>用户 ID</span><b>{{ detail.user.id }}</b></div>
-              <div class="fact"><span>性别</span><b>{{ detail.user.gender || '未填' }}</b></div>
+              <div class="fact"><span>性别</span><b>{{ genderText(detail.user.gender) }}</b></div>
               <div class="fact"><span>年龄</span><b>{{ detail.user.age ?? '未填' }}</b></div>
               <div class="fact"><span>个性签名</span><b>{{ detail.user.signature || '未填写' }}</b></div>
               <div class="fact"><span>注册时间</span><b>{{ formatTime(detail.user.createTime) }}</b></div>

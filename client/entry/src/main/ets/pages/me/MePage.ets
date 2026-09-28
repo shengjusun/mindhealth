@@ -471,6 +471,12 @@ export struct MeView {
       return '女'
     }
 
+    // 第三项语义为「隐藏」（历史值 other，现行值 hidden），显示为隐藏而非未填写
+    if (value === 'other' || value === 'others' || value === '3' || value === '其他'
+      || value === 'hidden' || value === '隐藏') {
+      return '隐藏'
+    }
+
     return '未填写'
   }
 
