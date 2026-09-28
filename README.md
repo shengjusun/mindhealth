@@ -198,12 +198,13 @@ jwt:
 5. **华为 id_token 未验签**：`HuaweiAuthService.java:98-100` 仅 Base64 解析 payload，未做公钥验签。
 6. **access 与 refresh 令牌等价**：JWT 的 access 与 refresh 仅在有效期上不同（24h / 7d），payload 中无 token 类型字段，也无 `jti`。因此 refresh token 可直接当 access token 调用业务接口，窗口为 7 天。正确做法是加 `typ` claim 与 `jti`，配合 Redis 黑名单与 `/user/refresh` 端点实现主动登出与刷新。当前未实现。
 7. **级联删除无事务**：全项目 0 个 `@Transactional`，管理端删除用户时先清四张从表再删用户，中途失败会留下半删除状态。
-8. **列表接口无分页**：`AIChatMapper.selectByUserId` 无 `LIMIT`（`AIChatMapper.java:12-13`），`/diary`、`/article/list`、`/ai/history` 均全量返回。
+8. **列表接口无分页**：`AIChatMapper.selectByUserId` 无 `LIMIT`（`AIChatMapper.java:19-20`），`/diary`、`/article/list`、`/ai/history` 均全量返回。
 9. **响应包体双轨**：`Result`（带 timestamp）与 `ApiResponse`（无 timestamp）并存；业务错误码存在 `5001` 与 `400` 两种（`ApiResponse` vs `GlobalExceptionHandler`）。
 10. **注册并发竞态**：注册为 check-then-insert，并发同手机号时第二笔会撞唯一键并被兜底为 500。
 11. **部分配置未接线**：`file.upload.max-size` / `allowed-types` 已定义但代码内硬编码（`AvatarController`）；换头像后旧文件不删除，磁盘会单调增长。
 12. **CORS 全开**：`SecurityConfig.java:91-102` 允许任意来源（`allowCredentials=false` 缓解风险）。
 13. **无用的库表**：`init.sql:86-111` 的 `community_post` / `community_comment` 建表但零代码使用。
+14. **列表接口下发完整正文**：`/diary` 与 `/article/list` 返回完整 `content` 字段，但客户端卡片只显示 2~3 行（`MoodDiaryPage` 的 `maxLines(3)`、`MyRecordsPage` 的 `maxLines(2)`）。低成本改进是列表接口做字段投影（`LEFT(content, 80) AS excerpt`），收益在数据量上来后显现。
 
 ### 客户端
 
@@ -213,11 +214,12 @@ jwt:
 4. **超时配置不统一**：全局 60s、登录旁路 10s、华为登录 10s/15s 三套并存。
 5. **顶部安全区部分写死**：`HelpFeedbackPage.ets:166`、`SettingsPage.ets:219` 等处仍写死 `top: 14`，部分机型顶部可能被状态栏遮挡。
 6. **启动串行初始化**：`EntryAbility.initAndLoadPage` 依次 await 多个初始化（`EntryAbility.ets:133-149`），冷启动首帧被拖慢。
-7. **长列表全量渲染**：5 处列表均为 `ForEach` 无 `LazyForEach`，接口也无分页。
+7. **长列表未分页（规模风险，非现存缺陷）**：`/diary`、`/article/list`、`/ai/history` 均为全量返回，客户端 5 处列表用 `ForEach` 全量渲染（全项目 `LazyForEach` 0 处）。当前数据量下无实际影响：单用户日记峰值 6 篇、AI 聊天 2 条、文章 4 篇。触发阈值约在单用户日记 200 篇 / AI 聊天 300 轮 / 单列表 50 项以上，届时需改为服务端分页 + `LazyForEach`。
 8. **默认后端地址写死**：`apiConfig.ets` 的 `DEFAULT_API_BASE_URL` 为固定地址，换网络环境需修改或用 Preferences 覆盖。
 9. **死代码残留**：`AiChatService`、`CommonUtil`、`Enums`、`Types.ets` 大部、`AppConstants` 中若干常量、`StateComponents.NetworkErrorComponent` 及若干无调用方法未清理。
 10. **设置页两个开关无实际作用**：消息提醒/日记提醒仅写 Preferences，无读取方。
 11. **部分交互待完善**：测评记录卡片无详情入口；反馈类型固定为 `suggestion`，UI 无类型选择。
+12. **「我的」页拉全量日记仅为计数**：`MePage` 调 `getDiaryList()` 后只用 `parseCount` 取条数（`MePage.ets:418-424`），而同一份数据 `MoodDiaryPage`、`MyRecordsPage` 已各拉一次。改进方向是新增轻量计数接口，当前数据量下未做。
 
 ### 管理后台
 
