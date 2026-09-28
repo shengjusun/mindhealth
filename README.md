@@ -31,7 +31,7 @@
 [管理后台 Vue]
   视图 → api/http.ts(axios) → /api/** ──(Vite 代理 / Nginx 反代)──▶ 后端
 
-[静态题库]
+[量表题库]
   后端 ScaleService 读取 assessment 表 → /assessment/manifest、/assessment/{id}/questions
   客户端 rawfile/scales/*.json（安装包内置，断网兜底）
 ```
@@ -127,7 +127,7 @@ mh/
 - **ArkTS V2 全量迁移**：27 个 `.ets` 文件中的 34 个组件全部为 `@ComponentV2`，`.ets` 源码中已无 V1 装饰器（`@State`/`@Prop`/`@Watch` 等仅残留在注释里）；`@Entry` 仅 `Index.ets` 一处。
 - **路由迁移**：全项目已无 `@ohos.router` 的 import 与调用，`route_map.json` 注册 13 条路由，全部经 `Navigation`/`NavPathStack` + `RouteBuilders` 承载。
 - **登录鉴权**：账号密码 + 华为授权码登录闭环，JWT 双 Token 下发与本地持久化，管理员/用户身份在过滤器内分流并按角色授权，管理端图形验证码。
-- **心理测评**：题库静态化接口、客户端四级降级、服务端算分、逐题明细入库、`scoring.bands` 分级、AI 解读异步产出与轮询/重试。
+- **心理测评**：题库接口（`assessment` 表为唯一来源）、客户端四级降级、服务端算分、逐题明细入库、`scoring.bands` 分级、AI 解读异步产出与轮询/重试。
 - **AI 聊天**：后端真实调用 DeepSeek，含上下文拼接、错误分类与一次重试、单机内存限流；历史读取与清空契约已对齐。
 - **情绪日记 / 个人资料 / 头像 / 文章 / 反馈**：前后端接口闭环，数据真实落库；头像上传含大小、类型、魔数校验与 UUID 文件名。
 - **管理后台**：独立 Vue 3 工程，覆盖用户/量表/测评/反馈/日记/操作日志/账号管理，含 ECharts 仪表盘、审计日志、超管分级。
@@ -137,7 +137,6 @@ mh/
 
 - **Redis 落地**：`pom.xml` 与 `application.yaml:18-29` 已有 Redis 依赖与连接配置，但 Java 代码零使用，JWT 黑名单、分布式限流、缓存均未实现（当前限流为单机内存态）。
 - **Token 主动失效与刷新**：无登出黑名单端点，refresh token 已签发但无刷新端点。
-- **题库发布侧**：加载侧（读静态文件 + 回退数据库）已就绪，管理端改题库后**自动导出静态 JSON 的热发布链路尚未实现**。
 - **离线写队列**：断网时的日记/测评/反馈提交无本地队列与重投，当前只有离线读。
 - **网络状态监听与恢复自动刷新**：未接入 `connection.createNetConnection`。
 - **列表分页与 `LazyForEach`**：`/diary`、`/article/list`、`/ai/history` 均为全量返回，客户端用 `ForEach` 全量渲染。
@@ -178,15 +177,14 @@ mh/
 4. **改手机号接口缺失/静默丢弃**：客户端资料页构造的更新体包含 `phone`（`ProfileEditPage.ets:815-831`），但后端 `UpdateUserRequest` 白名单只有 `nickname/age/gender/avatar/signature`（`UpdateUserRequest.java:9-15`），`phone` 会被静默丢弃；真正能改手机号的 `PUT /user/phone` 客户端未接入。
 5. **换绑手机号未校验验证码**：`UserServiceImpl.java:184` 为 `// TODO: 验证验证码`，`code` 参数被忽略，任意值都能换绑。
 6. **华为 id_token 未验签**：`HuaweiAuthService.java:98-100` 仅 Base64 解析 payload，未做公钥验签。
-7. **无刷新端点，refresh token 为死凭据**：仅签发了 refresh token，后端无 `/user/refresh` 类端点。
+7. **access 与 refresh 令牌等价**：JWT 的 access 与 refresh 仅在有效期上不同（24h / 7d），payload 中无 token 类型字段，也无 `jti`。因此 refresh token 可直接当 access token 调用业务接口，窗口为 7 天。正确做法是加 `typ` claim 与 `jti`，配合 Redis 黑名单与 `/user/refresh` 端点实现主动登出与刷新。当前未实现。
 8. **级联删除无事务**：全项目 0 个 `@Transactional`，管理端删除用户时先清四张从表再删用户，中途失败会留下半删除状态。
-9. **题库发布侧缺失**：`ScaleService` 只实现了读取（`manifest()` / `questions()` / `scoringOf()`），没有把管理端改动导出为静态 JSON 的发布实现。
-10. **列表接口无分页**：`AIChatMapper.selectByUserId` 无 `LIMIT`（`AIChatMapper.java:12-13`），`/diary`、`/article/list`、`/ai/history` 均全量返回。
-11. **响应包体双轨**：`Result`（带 timestamp）与 `ApiResponse`（无 timestamp）并存；业务错误码存在 `5001` 与 `400` 两种（`ApiResponse` vs `GlobalExceptionHandler`）。
-12. **注册并发竞态**：注册为 check-then-insert，并发同手机号时第二笔会撞唯一键并被兜底为 500。
-13. **部分配置未接线**：`file.upload.max-size` / `allowed-types` 已定义但代码内硬编码（`AvatarController`）；换头像后旧文件不删除，磁盘会单调增长。
-14. **CORS 全开**：`SecurityConfig.java:91-102` 允许任意来源（`allowCredentials=false` 缓解风险）。
-15. **无用的库表**：`init.sql:86-111` 的 `community_post` / `community_comment` 建表但零代码使用。
+9. **列表接口无分页**：`AIChatMapper.selectByUserId` 无 `LIMIT`（`AIChatMapper.java:12-13`），`/diary`、`/article/list`、`/ai/history` 均全量返回。
+10. **响应包体双轨**：`Result`（带 timestamp）与 `ApiResponse`（无 timestamp）并存；业务错误码存在 `5001` 与 `400` 两种（`ApiResponse` vs `GlobalExceptionHandler`）。
+11. **注册并发竞态**：注册为 check-then-insert，并发同手机号时第二笔会撞唯一键并被兜底为 500。
+12. **部分配置未接线**：`file.upload.max-size` / `allowed-types` 已定义但代码内硬编码（`AvatarController`）；换头像后旧文件不删除，磁盘会单调增长。
+13. **CORS 全开**：`SecurityConfig.java:91-102` 允许任意来源（`allowCredentials=false` 缓解风险）。
+14. **无用的库表**：`init.sql:86-111` 的 `community_post` / `community_comment` 建表但零代码使用。
 
 ### 客户端
 
