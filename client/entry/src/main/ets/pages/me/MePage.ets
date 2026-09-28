@@ -563,15 +563,6 @@ export struct MeView {
     }
   }
 
-  /** 手机号展示掩码（仅展示层：138****8001；非 11 位原样返回，不动数据） */
-  private maskPhone(phone: string): string {
-    const trimmed: string = phone.trim()
-    if (trimmed.length === 11) {
-      return `${trimmed.substring(0, 3)}****${trimmed.substring(7)}`
-    }
-    return trimmed
-  }
-
   @Builder
   buildUserCard() {
     Column() {
@@ -584,17 +575,10 @@ export struct MeView {
             .fontWeight(FontWeight.Bold)
             .fontColor($r('app.color.text_primary'))
 
-          if (this.userPhone) {
-            Text(this.maskPhone(this.userPhone))
-              .fontSize(FontLevel.Body)
-              .fontColor($r('app.color.text_tertiary'))
-              .margin({ top: Dimension.Space2XS })
-          }
-
           Text(`年龄：${this.userAge > 0 ? this.userAge.toString() : '未填写'}   性别：${this.getGenderText()}`)
             .fontSize(12)
             .fontColor($r('app.color.text_tertiary'))
-            .margin({ top: 6 })
+            .margin({ top: 8 })
         }
         .alignItems(HorizontalAlign.Start)
         .margin({ left: 16 })
