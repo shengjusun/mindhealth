@@ -1,168 +1,208 @@
-- # HarmonyOS NEXT 心理健康辅导系统（全栈架构演进版）
+# 轻心 · HarmonyOS NEXT 心理健康辅导系统
 
-  ## 一、项目简介
+## 一、项目简介
 
-  HarmonyOS NEXT 心理健康辅导系统是一个面向个人情绪记录、心理测评与状态展示的**前后端分离 + 全栈架构**项目。
-  项目并非简单的页面展示，而是围绕“登录注册 → 个人资料 → 情绪日记 → 心理测评（离线优先） → 记录统计 → 首页状态展示 → AI陪伴聊天”构建完整的业务闭环。本项目已作为**秋招实习投递与面试讲解的核心作品**进行打磨，并持续推进架构演进。
+这是一个前后端分离的心理健康辅导系统：客户端为 HarmonyOS NEXT 应用，后端为 Spring Boot 服务，另有一个独立的 Vue 3 管理后台。业务闭环覆盖「登录注册 → 个人资料 → 情绪日记 → 心理测评（离线优先） → 记录统计 → 首页状态展示 → AI 陪伴聊天」，其中测评链路采用「客户端只上报逐题作答、服务端算分、AI 解读异步产出」的设计，题库在客户端做了内存/Preferences/rawfile/网络四级降级，断网也能答题。
 
-  本项目重点体现以下能力：
+技术栈分三端：
 
-  - HarmonyOS NEXT 应用开发与 ArkTS V1/V2 状态管理演进
-  - 前后端分离与全栈开发能力（Spring Boot 3 + MySQL）
-  - 无状态 JWT 鉴权、OAuth 2.0（华为登录）与 Redis 安全加固（规划中）
-  - 弱网环境下的离线优先（Offline-First）架构设计与多级缓存降级策略
-  - 复杂工程问题的排查、重构与版本控制能力
-  - 现代前端工程化与部署架构（Vue 3 + Vite + Nginx）
+- **客户端（HarmonyOS NEXT）**：ArkTS / ArkUI，27 个 `.ets` 文件中的 34 个组件已全部迁移到 ArkTS V2 状态管理（`@ComponentV2` / `@Local` / `@Param` / `@Monitor` / `@ObservedV2` / `@Trace`，见 `client/entry/src/main/ets/`）；路由使用 `Navigation` + `NavPathStack` 声明式路由（`client/entry/src/main/resources/base/profile/route_map.json`）；网络层 `@kit.NetworkKit`；持久化 `@kit.ArkData` 的 Preferences；架构为 MVVM + Repository。
+- **后端**：Java 17 / Spring Boot 3.1.5 / Spring Security + JWT（jjwt）/ MyBatis-Plus / MySQL 8；AI 能力为后端直连 DeepSeek Chat Completions（`backend/.../service/DeepSeekClient.java`）。
+- **管理后台**：Vue 3 + Vite + TypeScript + Element Plus + ECharts + vue-router + axios（`admin/package.json`），构建产物由 Nginx 同源反代 `/api`（`admin/nginx/admin.conf`）。
 
-  ## 二、项目背景
+## 二、系统架构
 
-  随着学习与就业压力增加，情绪记录与心理状态自我管理的需求明显。相比单一的信息展示，本项目围绕“心理状态记录与反馈”构建真实的商业雏形。用户可完成登录、日记记录、心理测评、数据统计以及基础 AI 陪伴式交互。项目包含真实用户数据、登录鉴权、业务入库、结果展示与页面联动的完整数据流。
+### 1. 请求链路（文字链路图）
 
-  ## 三、项目目标
+```
+[HarmonyOS 客户端]
+  Page(@ComponentV2) → ApiService(统一请求/401 处理) → @kit.NetworkKit(http)
+        │                                          │
+        ├─ AppAuthService(登录态/Token,Preferences) │
+        ├─ ScaleRepository(题库四级降级)            │
+        └─ SnapshotRepository(日记/记录 SWR 快照)   │
+                                                    ▼
+[后端 Spring Boot, context-path: /api]
+  JwtAuthenticationFilter → SecurityConfig(按角色授权)
+        → Controller → Service(Impl) → Mapper(MyBatis-Plus) → MySQL
+                          │
+                          └─ DeepSeekClient → DeepSeek API
 
-  ### 1. 功能目标
+[管理后台 Vue]
+  视图 → api/http.ts(axios) → /api/** ──(Vite 代理 / Nginx 反代)──▶ 后端
 
-  - 登录注册、个人资料查看与编辑
-  - 头像上传与回显、情绪日记查看与记录
-  - 心理测评列表、答题、提交与结果入库
-  - 首页状态摘要与“我的页”统计联动
-  - AI 陪伴聊天基础交互
+[静态题库]
+  后端 ScaleService 读取 assessment 表 → /assessment/manifest、/assessment/{id}/questions
+  客户端 rawfile/scales/*.json（安装包内置，断网兜底）
+```
 
-  ### 2. 工程目标
+### 2. 目录结构
 
-  搭建高可维护的前后端分离架构，形成页面层、服务层、数据存储层、统一网络请求层的清晰分层。
+```
+mh/
+├── client/                                              # HarmonyOS NEXT 客户端
+│   └── entry/src/main/
+│       ├── ets/
+│       │   ├── pages/                                   # 业务页面 + Index 入口 + RouteBuilders 路由出口
+│       │   ├── core/
+│       │   │   ├── api/ApiService.ets                   # 统一网络层
+│       │   │   ├── auth/AppAuthService.ets              # 登录态/Token
+│       │   │   ├── auth/HuaweiIdService.ets             # 华为账号授权
+│       │   │   ├── repository/ScaleRepository.ets       # 题库多级缓存
+│       │   │   └── repository/SnapshotRepository.ets    # 动态数据快照
+│       │   └── common/                                  # components / constants / state / types / utils
+│       └── resources/rawfile/scales/                    # 内置题库 1~6.json + manifest.json
+├── backend/src/main/java/com/mindhealth/backend/        # Spring Boot 后端
+│   ├── controller/  service/  service/impl/  mapper/  entity/  dto/  config/  utils/
+└── admin/                                               # Vue 3 管理后台
+    ├── src/views/  src/api/  src/components/EChart.vue
+    └── nginx/admin.conf                                 # 同源反代配置
+```
 
-  ### 3. 求职目标
+## 三、核心模块
 
-  作为暑期实习简历投递、面试项目讲解与后续可上架产品的基础版本。
+### 1. 登录鉴权
 
-  ## 四、技术栈
+**账号密码登录**：客户端 `LoginPage` → `AppAuthService.requestLogin`（`client/.../core/auth/AppAuthService.ets`）→ `POST /api/user/login`。后端签发 access token（24h）与 refresh token（7d），配置见 `backend/src/main/resources/application.yaml:58-61`，签发逻辑见 `backend/.../utils/JwtUtils.java:30`。
 
-  ### 客户端（鸿蒙）
+**华为账号一键登录**：客户端 `HuaweiIdService` 取授权码 → `POST /api/user/huawei/login`；后端 `HuaweiAuthService` 用授权码换 access_token、解析 id_token 取 `union_id`，绑定本地用户后签发 JWT（`backend/.../utils/HuaweiAuthService.java`）。
 
-  - HarmonyOS NEXT / ArkTS / ArkUI（V1 现状，V2 迁移规划中）
-  - 离线缓存：Preferences / RelationalStore（待接入）
-  - 网络层：@kit.NetworkKit
-  - 架构模式：MVVM + Repository（多级缓存策略）
+**统一鉴权**：`JwtAuthenticationFilter` 按 token subject 区分两类身份——管理员 token 的 subject 为 `admin:{id}`（`JwtUtils.SUBJECT_ADMIN_PREFIX`），其余按用户 id 处理；每次请求回查用户是否被禁用/删除，不可用则保持 `SecurityContext` 为空（fail-closed），见 `backend/.../config/JwtAuthenticationFilter.java:49-96`。
 
-  ### 后端
+**角色授权**：`SecurityConfig` 按声明顺序授权——`/admin/accounts/**` 与 `/admin/logs/**` 需 `ROLE_SUPER_ADMIN`，其余 `/admin/**` 需 `ROLE_ADMIN`，业务接口 `authenticated()`，见 `backend/.../config/SecurityConfig.java:45-84`。
 
-  - Java / Spring Boot 3
-  - Spring Security + JWT（双 Token 机制）
-  - MyBatis-Plus / MySQL
-  - Redis（黑名单与限流，规划中）
+**管理端登录**另有图形验证码（`backend/.../controller/AdminAuthController.java:84-98`）。
 
-  ### 管理后台（规划中）
+**客户端侧**：`AppAuthService` 将用户信息与 token 存入 Preferences；`ApiService` 自动携带 `Bearer` 头，并对业务码 401 及 HTTP 401/403 统一触发登出跳登录页（`client/.../core/api/ApiService.ets:133-166`、`EntryAbility.ets:156-169`）。
 
-  - Vue 3 + Vite + Element Plus + Pinia + Axios
-  - Nginx 同源反向代理，动静分离
+### 2. 心理测评（离线优先 + 服务端算分 + 异步 AI）
 
-  ## 五、系统架构
+**离线优先（题库四级降级）**：`ScaleRepository` 的读取优先级为 内存 → Preferences 缓存 → rawfile 内置题库 → 网络，任何一级失败都继续降级而不抛错（`client/.../core/repository/ScaleRepository.ets:4-11`，`getScaleLocal` 见 `:352-385`）。应用启动时用安装包内置题库给缓存打底（`seedFromRawFile` `:73-108`），内置文件为 `client/entry/src/main/resources/rawfile/scales/1~6.json`。
 
-  ### 1. 客户端架构
+**SWR 与退避**：静默刷新失败后进入 60 秒退避窗口，避免弱网下反复发起注定失败的请求（`ScaleRepository.ets:44-47`、`isRefreshBackedOff` `:170-181`）。远端清单为空时不覆盖本地题库（`:248-255`）。
 
-  - **页面层**：HomePageNew、MePage、LoginPage、ProfileEditPage、MoodDiaryPage、AssessmentsPage、AIChatPage、记录统计页。
-  - **服务层**：ApiService（统一网络请求）、AppAuthService（登录态与 Token 管理）、ScaleRepository（量表多级缓存与 SWR 降级）、HuaweiIdService（华为 OAuth）。
-  - **公共层**：AppPageHeader、AvatarComponent、StateComponents、主题令牌。
+**提交只报逐题作答**：客户端提交体包含逐题 `answers` 与一个 `score` 字段（`client/.../pages/assessment/AssessmentQuestionPage.ets:292-322`），注释明确「保留总分仅为兼容，服务端以 answers 为准」（同文件 `:46-48`）。
 
-  ### 2. 后端架构
+**服务端算分**：后端按题库存的题目与选项分值重新计分，并把逐题明细序列化写入 `answers_json`；同时按量表自身的 `scoring.bands` 分级，量表未配置时按得分比例兜底（`backend/.../service/impl/AssessmentServiceImpl.java:146-204`、`resolveBand` `:238-270`）。
 
-  典型分层：Controller → Service → Mapper → Entity/DTO。负责用户登录注册、JWT 鉴权、日记与测评接口、头像上传及数据持久化。
+**异步 AI 解读 + 轮询**：提交落库时 `ai_status` 置为 `pending`，随后触发异步分析，失败只写状态、不影响测评结果（`AssessmentServiceImpl.java:116-124`）。客户端在结果页按 `aiStatus` 轮询 `GET /api/assessment/result/{id}`，`pending` 时继续、`success/failed` 时分别展示或提供重试（`AssessmentQuestionPage.ets:338-395`、`:716-727`）；手动重试接口为 `POST /api/assessment/result/{id}/analyze`（`backend/.../controller/AssessmentController.java:84-93`）。
 
-  ### 3. 管理后台（独立部署）
+### 3. AI 陪伴聊天
 
-  前端独立 Vue 工程，通过 Nginx 同源反代 `/api` 到 Spring Boot 服务，解决跨域并实现前后端彻底分离。
+客户端 `AIChatPage` 通过 `ApiService.sendMessage` 调用 `POST /api/ai/chat`（`client/.../pages/ai/AIChatPage.ets:323`、`client/.../core/api/ApiService.ets:441`）。后端为**真实调用大模型**，非模拟：
 
-  ## 六、核心业务模块（升级重点）
+- `AIController` 收请求并返回统一响应体（`backend/.../controller/AIController.java:17-33`）。
+- `AIServiceImpl` 组装 system prompt + 最近 10 轮历史 + 本次输入，调用 DeepSeek 并在成功后落库（`backend/.../service/impl/AIServiceImpl.java:78-98`、`buildMessages` `:147-173`）。
+- HTTP 调用与错误分类集中在 `DeepSeekClient`：401 配置错误 / 402 额度不足 / 429 与 5xx 退避重试一次 / 超时与 IO 异常分别归类，均抛出对用户可读的中文提示（`backend/.../service/DeepSeekClient.java:54-105`）；`stream=false`（同文件 `:116`）。
+- 限流为**单机内存态滑动窗口**，每用户每分钟最多 10 次，并有定时清理避免 map 膨胀（`AIServiceImpl.java:44-56`、`checkRateLimit` `:113-131`）。该限流不依赖 Redis。
 
-  ### 1. 登录注册模块
+历史读取 `GET /api/ai/history` 与清空 `DELETE /api/ai/history` 均已包装为统一响应体（`AIController.java:22-33`）。客户端聊天记录仅存内存，无本地持久化。
 
-  已实现账号密码登录、JWT 下发、本地持久化与静默恢复。华为 OAuth 授权码一键登录链路已闭环，后端通过 `HuaweiAuthService` 换取 UnionId 并自动绑定本地用户，签发 JWT。
+### 4. 情绪日记
 
-  ### 2. 心理测评模块（痛点改造）
+后端 `DiaryController` / `DiaryServiceImpl` 提供增删改查，三处单条操作均校验 `diary.userId == userId`，列表按 token 中的 userId 过滤（`backend/.../service/impl/DiaryServiceImpl.java:37-75`）。
 
-  **原痛点**：题目存在后端数据库，每次做题都需网络请求，弱网或断网直接导致核心功能不可用。
-  **重构方案**：
+客户端页面：`MoodDiaryPage`（列表）、`DiaryEditPage`（新增/编辑）、`DiaryDetailPage`（详情）。列表与首页/我的页通过 `SnapshotRepository` 写入 Preferences 快照，在弱网/断网时降级展示（`client/.../core/repository/SnapshotRepository.ets`）。快照有 7000 字节上限，超出时从尾部逐条截断（见第六节）。
 
-  - **题库静态化**：后端将题库导出为 `static/scales/{id}.json`，通过 `ScalePublishService` 管理发布。
-  - **离线优先（Offline-First）**：客户端 `ScaleRepository` 采用 **SWR（Stale-While-Revalidate）** 策略。
-  - **多级降级**：内存 → 本地 Preferences 缓存 → 网络拉取 → `rawfile` 兜底（确保零网络也能答题）。
-  - **幂等提交**：断网时写入本地 `RelationalStore` 队列，联网后由 `PendingSubmitWorker` 自动重投，通过 `clientSubmitId` 唯一索引保证不会重复计分。
+### 5. 设计系统（主题 / 令牌 / 温度翻译层）
 
-  ### 3. AI 陪伴聊天模块
+- **令牌**：`client/.../common/constants/Theme.ets` 定义尺寸令牌 `Dimension`、字号令牌 `FontLevel`、主按钮配方 `ButtonStyle`，以及主题表 `THEMES`（`misty`、`sunset`、`tagBlue` 三套，每套含深/浅两版品牌色，见 `:252-333`）。品牌色通过运行时函数 `brand()` 解析（`:336`），中性色走资源系统随深浅色自动切换。
+- **主题状态**：`AppState` 用 `@ObservedV2` + `@Trace` 暴露 `themeId` / `isDark`（`client/.../common/state/AppState.ets:14-49`），主题选择经 `AppSettings` 存入 Preferences，并在 `loadContent` 之前恢复以防首帧闪色（`EntryAbility.ets:139-141`）。
+- **公共组件**：`AppButton`、`AppChip`、`AppPageHeader`、`SubPageHeader`、`Skeleton`、`StateComponents`（加载/空/错误三态）、`AvatarComponent`，均位于 `client/.../common/components/`。
+- **温度翻译层**：`client/.../common/utils/AssessmentTone.ets` 把后端的等级词、情绪强度等量化值翻译为不带体检感的用户话术（`softLevel` / `softIntensity` / `softLevelKind` / `emotionChipKind`），首页、结果页、记录卡共用。
 
-  页面结构、对话列表与输入区域已完成，后续可接入真实 AI 接口与大模型流式输出（利用 V2 的 `@Trace` 对象实时刷新特性）。
+### 6. 管理后台
 
-  ### 4. 其他模块
+`admin/` 是一个**独立的完整 Vue 3 工程**（非内联 HTML），依赖见 `admin/package.json`：`vue` + `vue-router` + `element-plus` + `echarts` + `axios`（未使用 Pinia）。页面（`admin/src/views/`）共 11 个：登录、仪表盘、用户列表、量表管理、测评结果、反馈管理、操作日志、个人资料、管理员账号管理、日记-用户列表、日记-用户详情。
 
-  个人资料、头像、日记、统计等模块均已完成前后端接口联调闭环，支持数据真实落库。
+- **登录**：走 `POST /api/admin/login`，含图形验证码；登录后按角色渲染菜单。
+- **超管分级**：前端 `admin/src/auth.ts:77` 判断 `SUPER_ADMIN`，仅超管可见账号管理与操作日志；后端由 `SecurityConfig.java:48-56` 强制校验 `ROLE_SUPER_ADMIN`，并在 `AdminManageController` 中对角色变更、超管保底做了约束（`AdminManageController.java:150-244`）。
+- **审计日志**：`AdminAuditInterceptor` 拦截管理端写操作并落库（`backend/.../config/AdminAuditInterceptor.java`），实体 `AdminOperationLog`，仅超管可读（`AdminLogController`、`admin/src/views/OperationLog.vue`）。
+- **图表**：`ECharts` 按需引入（`admin/src/utils/echarts.ts`），仪表盘用折线/饼图展示趋势与分布（`admin/src/views/Dashboard.vue`）。
 
-  ## 七、数据库设计
+## 四、已完成 / 规划中
 
-  - **user**：用户基本信息。
-  - **diary**：情绪日记，按 user_id 与时间复合索引。
-  - **assessment**：测评定义与类型信息。
-  - **assessment_result**：测评结果，包含得分、等级与建议。
-    *补充：添加了 migration 脚本，修复了历史上因 SQL 迁移脚本导致的题库覆盖问题，确保新老数据一致。*
+### 已完成（均可在代码中定位）
 
-  ## 八、登录鉴权流程（安全加固）
+- **ArkTS V2 全量迁移**：27 个 `.ets` 文件中的 34 个组件全部为 `@ComponentV2`，`.ets` 源码中已无 V1 装饰器（`@State`/`@Prop`/`@Watch` 等仅残留在注释里）；`@Entry` 仅 `Index.ets` 一处。
+- **路由迁移**：全项目已无 `@ohos.router` 的 import 与调用，`route_map.json` 注册 13 条路由，全部经 `Navigation`/`NavPathStack` + `RouteBuilders` 承载。
+- **登录鉴权**：账号密码 + 华为授权码登录闭环，JWT 双 Token 下发与本地持久化，管理员/用户身份在过滤器内分流并按角色授权，管理端图形验证码。
+- **心理测评**：题库静态化接口、客户端四级降级、服务端算分、逐题明细入库、`scoring.bands` 分级、AI 解读异步产出与轮询/重试。
+- **AI 聊天**：后端真实调用 DeepSeek，含上下文拼接、错误分类与一次重试、单机内存限流；历史读取与清空契约已对齐。
+- **情绪日记 / 个人资料 / 头像 / 文章 / 反馈**：前后端接口闭环，数据真实落库；头像上传含大小、类型、魔数校验与 UUID 文件名。
+- **管理后台**：独立 Vue 3 工程，覆盖用户/量表/测评/反馈/日记/操作日志/账号管理，含 ECharts 仪表盘、审计日志、超管分级。
+- **设计系统**：三套主题 × 深浅双板、令牌体系、公共组件与三态组件、温度翻译层。
 
-  1. 用户登录/华为 OAuth 授权，前端拿到 code 或账号密码。
-  2. 后端校验成功，生成 JWT（Access）和 RefreshToken。
-  3. 前端 `TokenManager` 统一保存，`ApiService` 拦截器自动携带 `Bearer Token`。
-  4. 后端 Spring Security 过滤器解析 Token，注入 UserId。
-  5. **安全升级（规划）**：JWT payload 加入 `typ`（user/admin）与 `role` 字段，实现权限分级隔离；引入 Redis 黑名单机制，解决无状态 JWT 无法主动登出的痛点。
-  6. 401 统一拦截，前端清理缓存并跳转登录页。
+### 规划中（尚未实现）
 
-  ## 九、项目亮点（面试必考）
+- **Redis 落地**：`pom.xml` 与 `application.yaml:18-29` 已有 Redis 依赖与连接配置，但 Java 代码零使用，JWT 黑名单、分布式限流、缓存均未实现（当前限流为单机内存态）。
+- **Token 主动失效与刷新**：无登出黑名单端点，refresh token 已签发但无刷新端点。
+- **题库发布侧**：加载侧（读静态文件 + 回退数据库）已就绪，管理端改题库后**自动导出静态 JSON 的热发布链路尚未实现**。
+- **离线写队列**：断网时的日记/测评/反馈提交无本地队列与重投，当前只有离线读。
+- **网络状态监听与恢复自动刷新**：未接入 `connection.createNetConnection`。
+- **列表分页与 `LazyForEach`**：`/diary`、`/article/list`、`/ai/history` 均为全量返回，客户端用 `ForEach` 全量渲染。
+- **全量事务化**：项目当前无 `@Transactional`，管理端级联删除（删日记/反馈/测评/AI 记录后删用户）非原子。
 
-  1. **弱网多级缓存与 SWR 降级**：彻底解决测评断网不可用，从架构层面保证高可用。
-  2. **无状态鉴权安全加固**：双 Token + Redis 黑名单 + 角色分离（规划/实施中）。
-  3. **题库动态发布闭环**：后台管理修改题库 → 触发静态 JSON 导出 → 客户端通过 manifest 版本号增量更新。
-  4. **前后端分离工程化**：管理后台从 600 行内联 HTML 重构为 Vue 3 独立工程，Nginx 反代部署。
-  5. **真实工程问题排查**：定位并修复 SQL 迁移脚本中的 `WHERE` 条件死角，防止业务数据错乱。
+## 五、本地运行
 
-  ## 十、当前完成情况
+### 1. 客户端（HarmonyOS）
 
-  ### 已完成
+1. 用 DevEco Studio 打开 `client/` 工程，等待依赖同步。
+2. 启动模拟器或真机运行。
+3. 后端地址默认写在 `client/entry/src/main/ets/common/constants/apiConfig.ets` 的 `DEFAULT_API_BASE_URL`，演示/换网络环境时改这一行；也可通过 Preferences 的 `api_base_url` 在启动时覆盖，无需重新打包（`EntryAbility.ets:133`、`apiConfig.ets:102-105`）。
+4. 断开网络时，题库走内置 rawfile 仍可答题；已缓存过的日记/记录可看快照。
 
-  - S0：死代码清理，模块重构（清除 `mindHealth/` 残留，统一工程目录为 `client/`）
-  - S2：题库静态化（后端 JSON 导出 + 接口放行 + SQL 数据迁移 Bug 修复）
-  - 核心业务：登录注册、JWT 鉴权、日记、测评、资料编辑、统计等主链路全部闭环，本地可完整演示。
+### 2. 后端（Spring Boot）
 
-  ### 进行中（AI 代理自动化执行）
+1. 准备 MySQL 8，创建 `mindhealth` 库并执行 `backend/src/main/resources/init.sql`（另有若干 `migration_*.sql` 增量脚本）。
+2. 数据库账号、密码、华为与 DeepSeek 的密钥等敏感配置放在 `backend/src/main/resources/application-local.yaml`（已 gitignore），不要写进 `application.yaml`。
+3. 启动：`cd backend && mvn spring-boot:run`，服务端口 `9000`，`context-path` 为 `/api`（`application.yaml:44-47`）。
+4. 测试完毕请立即关闭服务，避免进程常驻。
 
-  - S3：客户端 `ScaleRepository` 接入离线题库与 rawfile 兜底
-  - S4-S6：ArkTS V1 向 V2（`@ComponentV2`、`@Trace`）状态管理迁移
-  - S7-S8：后端 Redis 黑名单与独立 Vue 管理后台重构
+### 3. 管理后台（Vue）
 
-  ## 十一、项目收获（从工程视角）
+1. `cd admin && npm install`。
+2. 开发：`npm run dev`，默认端口 5173，Vite 代理 `/api` 到 `http://localhost:9000`（`admin/vite.config.ts:8-16`）。
+3. 构建：`npm run build`，产物输出到 `admin/dist`。
+4. 生产部署参考 `admin/nginx/admin.conf`：静态资源 + `/api` 同源反代，注意后端 `context-path` 已是 `/api`，`proxy_pass` 末尾不可带斜杠。
 
-  - 掌握了 HarmonyOS NEXT 端云一体与离线缓存架构
-  - 理解并实践了 JWT、OAuth 2.0、Redis 等无状态鉴权体系
-  - 提升了多模块 Monorepo 版本管理与 Git 分支/标签控制能力
-  - 提升了全栈排查问题、重构代码与验证生产级可用性的能力
+## 六、已知限制
 
-  ## 十二、后续计划
+以下为当前代码中确实存在、尚未修复的问题，按模块列出，均可对照代码验证。
 
-  - 完成 ArkTS V2 状态管理迁移（视 S4-S6 验收结果决定是否回滚至 V1）
-  - 接入 Redis 实现 JWT 黑名单与 AI 接口限流
-  - 完成 Vue 3 + Vite 管理后台独立部署，Nginx 同源反代
-  - 打磨演示视频与作品集 PDF，直接用于秋招投递
+### 后端
 
-  ## 十三、运行说明
+1. **管理端种子账号为固定弱口令**：`init.sql:126-127` 种子的管理员使用固定 BCrypt 哈希，部署到实际环境前必须改密。
+2. **JWT 密钥存在硬编码兜底**：`application.yaml:59` 的 `jwt.secret` 在未注入环境变量时回退到源码内明文值，可导致 token 被离线伪造；生产环境必须注入 `JWT_SECRET`。
+3. **MyBatis 全量 SQL 打印到 stdout**：`application.yaml:42` 为 `StdOutImpl`，会把含手机号、日记原文、聊天内容的 SQL 刷到日志，生产环境应改为 slf4j 或仅在 local profile 开启。
+4. **改手机号接口缺失/静默丢弃**：客户端资料页构造的更新体包含 `phone`（`ProfileEditPage.ets:815-831`），但后端 `UpdateUserRequest` 白名单只有 `nickname/age/gender/avatar/signature`（`UpdateUserRequest.java:9-15`），`phone` 会被静默丢弃；真正能改手机号的 `PUT /user/phone` 客户端未接入。
+5. **换绑手机号未校验验证码**：`UserServiceImpl.java:184` 为 `// TODO: 验证验证码`，`code` 参数被忽略，任意值都能换绑。
+6. **华为 id_token 未验签**：`HuaweiAuthService.java:98-100` 仅 Base64 解析 payload，未做公钥验签。
+7. **无刷新端点，refresh token 为死凭据**：仅签发了 refresh token，后端无 `/user/refresh` 类端点。
+8. **级联删除无事务**：全项目 0 个 `@Transactional`，管理端删除用户时先清四张从表再删用户，中途失败会留下半删除状态。
+9. **题库发布侧缺失**：`ScaleService` 只实现了读取（`manifest()` / `questions()` / `scoringOf()`），没有把管理端改动导出为静态 JSON 的发布实现。
+10. **列表接口无分页**：`AIChatMapper.selectByUserId` 无 `LIMIT`（`AIChatMapper.java:12-13`），`/diary`、`/article/list`、`/ai/history` 均全量返回。
+11. **响应包体双轨**：`Result`（带 timestamp）与 `ApiResponse`（无 timestamp）并存；业务错误码存在 `5001` 与 `400` 两种（`ApiResponse` vs `GlobalExceptionHandler`）。
+12. **注册并发竞态**：注册为 check-then-insert，并发同手机号时第二笔会撞唯一键并被兜底为 500。
+13. **部分配置未接线**：`file.upload.max-size` / `allowed-types` 已定义但代码内硬编码（`AvatarController`）；换头像后旧文件不删除，磁盘会单调增长。
+14. **CORS 全开**：`SecurityConfig.java:91-102` 允许任意来源（`allowCredentials=false` 缓解风险）。
+15. **无用的库表**：`init.sql:86-111` 的 `community_post` / `community_comment` 建表但零代码使用。
 
-  ### 客户端
+### 客户端
 
-  1. 使用 DevEco Studio 打开 `client/` 工程
-  2. 启动模拟器或真机运行（断网测试可提前体验离线题库）
+1. **无离线写队列**：断网时发日记、提交测评、发反馈失败后内容即丢失，无本地队列与重投（全项目无 RelationalStore 及队列表）。
+2. **无网络状态监听与恢复刷新**：未使用 `connection.createNetConnection`/`netStatusChange`，网络恢复后需手动下拉。
+3. **快照 7000 字节上限**：`SnapshotRepository` 快照超限时从尾部截断，离线展示与在线可能存在差异且无提示。
+4. **超时配置不统一**：全局 60s、登录旁路 10s、华为登录 10s/15s 三套并存。
+5. **顶部安全区部分写死**：`HelpFeedbackPage.ets:166`、`SettingsPage.ets:219` 等处仍写死 `top: 14`，部分机型顶部可能被状态栏遮挡。
+6. **启动串行初始化**：`EntryAbility.initAndLoadPage` 依次 await 多个初始化（`EntryAbility.ets:133-149`），冷启动首帧被拖慢。
+7. **长列表全量渲染**：5 处列表均为 `ForEach` 无 `LazyForEach`，接口也无分页。
+8. **默认后端地址写死**：`apiConfig.ets` 的 `DEFAULT_API_BASE_URL` 为固定地址，换网络环境需修改或用 Preferences 覆盖。
+9. **死代码残留**：`AiChatService`、`CommonUtil`、`Enums`、`Types.ets` 大部、`AppConstants` 中若干常量、`StateComponents.NetworkErrorComponent` 及若干无调用方法未清理。
+10. **设置页两个开关无实际作用**：消息提醒/日记提醒仅写 Preferences，无读取方。
+11. **部分交互待完善**：测评记录卡片无详情入口；反馈类型固定为 `suggestion`，UI 无类型选择。
 
-  ### 后端
+### 管理后台
 
-  1. 启动 MySQL，配置 `application.yaml` 连接（本地开发用 `application-local.yaml`）
-  2. 启动 Spring Boot 项目（`mvn spring-boot:run`），端口 9000
-
-  ### 管理后台（S8 完成后）
-
-  1. `cd admin && npm install && npm run dev`
-  2. 开发环境 Vite 代理 `/api` 到 `localhost:9000`；生产环境由 Nginx 接管
+1. **依赖本机后端地址**：开发态代理固定指向 `localhost:9000`；生产部署须按实际环境调整 `admin/nginx/admin.conf`。
+2. **无独立鉴权续期**：沿用后端 JWT 有效期，无刷新与主动登出黑名单（与后端限制同源）。
