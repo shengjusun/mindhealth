@@ -221,6 +221,8 @@ jwt:
 10. **设置页两个开关无实际作用**：消息提醒/日记提醒仅写 Preferences，无读取方。
 11. **部分交互待完善**：测评记录卡片无详情入口；反馈类型固定为 `suggestion`，UI 无类型选择。
 12. **「我的」页拉全量日记仅为计数**：`MePage` 调 `getDiaryList()` 后只用 `parseCount` 取条数（`MePage.ets:418-424`），而同一份数据 `MoodDiaryPage`、`MyRecordsPage` 已各拉一次。改进方向是新增轻量计数接口，当前数据量下未做。
+13. **最近状态卡可能被空响应清空**：`HomePageNew.ets:181` 在服务端返回空数组时把 `latestAssessment` 置为 `null`，并调用 `saveAssessmentResults([])`（`:184`）覆盖本地快照，卡片会从「有数据」跳成「无数据」且无提示。仅在服务端异常返回空数组时触发，正常路径不出现。
+14. **AI 解读状态为 none 时无出口**：`AssessmentQuestionPage.ets:361` 在 `result.aiStatus` 为空时置为 `'none'`；`:368` 只在 `'pending'` 时启动轮询，而 `:771-777` 的兜底分支会渲染「正在生成…」且不提供重试入口。后端提交时恒置 `pending`，正常路径不触发；若后端返回空 `aiStatus` 则永久停在假加载态。
 
 ### 管理后台
 
