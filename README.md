@@ -106,7 +106,7 @@ mh/
 
 ### 5. 设计系统（主题 / 令牌 / 温度翻译层）
 
-- **令牌**：`client/.../common/constants/Theme.ets` 定义尺寸令牌 `Dimension`、字号令牌 `FontLevel`、主按钮配方 `ButtonStyle`，以及主题表 `THEMES`（`misty`、`sunset`、`tagBlue` 三套，每套含深/浅两版品牌色，见 `:252-333`）。品牌色通过运行时函数 `brand()` 解析（`:336`），中性色走资源系统随深浅色自动切换。
+- **令牌**：`client/.../common/constants/Theme.ets` 定义尺寸令牌 `Dimension`、字号令牌 `FontLevel`、主按钮配方 `ButtonStyle`，以及主题表 `THEMES`（`misty` 晨雾蓝、`forest` 森林绿、`sunset` 暖阳橙 三套，每套含深/浅两版品牌色，见 `:252-328`）。品牌色通过运行时函数 `brand()` 解析（`:336`），中性色走资源系统随深浅色自动切换。
 - **主题状态**：`AppState` 用 `@ObservedV2` + `@Trace` 暴露 `themeId` / `isDark`（`client/.../common/state/AppState.ets:14-49`），主题选择经 `AppSettings` 存入 Preferences，并在 `loadContent` 之前恢复以防首帧闪色（`EntryAbility.ets:139-141`）。
 - **公共组件**：`AppButton`、`AppChip`、`AppPageHeader`、`SubPageHeader`、`Skeleton`、`StateComponents`（加载/空/错误三态）、`AvatarComponent`，均位于 `client/.../common/components/`。
 - **温度翻译层**：`client/.../common/utils/AssessmentTone.ets` 把后端的等级词、情绪强度等量化值翻译为不带体检感的用户话术（`softLevel` / `softIntensity` / `softLevelKind` / `emotionChipKind`），首页、结果页、记录卡共用。
