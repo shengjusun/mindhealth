@@ -184,15 +184,20 @@ export struct MyRecordsPage {
   @Builder
   buildTabCard() {
     // 官方分段控件形态：bg-subtle 胶囊 + 选中段主色底白字（与资料编辑性别分段同款语言）
-    Row() {
-      this.buildTabItem('状态足迹', 'assessment')
-      this.buildTabItem('心情日记', 'diary')
+    // 外层补与列表卡一致的左右边距，避免分段控件贴屏幕边
+    Column() {
+      Row() {
+        this.buildTabItem('状态足迹', 'assessment')
+        this.buildTabItem('心情日记', 'diary')
+      }
+      .width('100%')
+      .height(36)
+      .padding(2)
+      .borderRadius(Dimension.RadiusFull)
+      .backgroundColor($r('app.color.surface_soft'))
     }
     .width('100%')
-    .height(36)
-    .padding(2)
-    .borderRadius(Dimension.RadiusFull)
-    .backgroundColor($r('app.color.surface_soft'))
+    .padding({ left: Dimension.SpaceL, right: Dimension.SpaceL })
     .margin({ bottom: Dimension.SpaceL })
   }
 

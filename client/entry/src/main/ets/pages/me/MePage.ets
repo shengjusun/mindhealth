@@ -1,5 +1,5 @@
 import { Logger } from '../../common/utils/Logger'
-import { pushRoute, resetRoute } from '../../common/state/AppState'
+import { pushRoute, pushRouteWithParam, resetRoute } from '../../common/state/AppState'
 import { AuthService, UserAuthInfo } from '../../core/auth/AppAuthService'
 import { ApiService } from '../../core/api/ApiService'
 import { AvatarComponent } from '../../common/components/AvatarComponent'
@@ -175,7 +175,7 @@ export struct MeView {
     { id: 'records', icon: $r('sys.symbol.doc_text'), title: '我的记录', subtitle: '心情日记与状态足迹', showArrow: true },
     { id: 'settings', icon: $r('sys.symbol.gearshape'), title: '设置', subtitle: '账号、缓存与通用配置', showArrow: true },
     { id: 'help', icon: $r('sys.symbol.ellipsis_bubble'), title: '帮助与反馈', subtitle: '问题反馈与使用帮助', showArrow: true },
-    { id: 'about', icon: $r('sys.symbol.heart'), title: '关于我们', subtitle: '项目介绍与版本信息', showArrow: true }
+    { id: 'about', icon: $r('sys.symbol.heart'), title: '关于我们', subtitle: '项目介绍', showArrow: true }
   ]
 
   aboutToAppear(): void {
@@ -488,7 +488,6 @@ export struct MeView {
             this.buildStatsCard()
             this.buildQuickActionCard()
             this.buildMenuList()
-            this.buildLogoutButton()
           } else {
             this.buildLoginPrompt()
           }
@@ -498,7 +497,7 @@ export struct MeView {
           left: Dimension.SpaceL,
           right: Dimension.SpaceL,
           top: 6,
-          // 底部留出悬浮胶囊栏的高度，否则退出登录按钮被栏挡住
+          // 底部留出悬浮胶囊栏的高度，避免最后一张卡片被栏挡住
           bottom: Dimension.pillSafeArea(this.state.bottomIndicatorVp)
         })
       }
@@ -769,19 +768,6 @@ export struct MeView {
     .margin({ bottom: 16 })
   }
 
-  @Builder
-  buildLogoutButton() {
-    AppButton({
-      label: '退出登录',
-      kind: 'primary',
-      danger: true,
-      block: true,
-      onPress: () => {
-        this.handleLogout()
-      }
-    })
-  }
-
   async handleLogin(): Promise<void> {
     try {
       pushRoute('LoginPage')
@@ -806,36 +792,11 @@ export struct MeView {
       return
     }
 
-    AlertDialog.show({
-      title: '关于我们',
-      message: '这是一个情绪记录、状态自查与 AI 陪伴的 HarmonyOS NEXT 全栈项目。',
-      primaryButton: { value: '知道了', action: () => {} }
-    })
-  }
-
-  handleLogout(): void {
-    AlertDialog.show({
-      title: '退出登录',
-      message: '确定要退出登录吗？',
-      primaryButton: {
-        value: '确定',
-        action: async () => {
-          try {
-            await this.authService.logout()
-            this.resetUserState()
-
-            // 登出后清空导航栈，避免返回键回退到已登出账号的页面
-            resetRoute('LoginPage')
-          } catch (error) {
-            Logger.error(TAG, `退出登录失败: ${error}`)
-          }
-        }
-      },
-      secondaryButton: {
-        value: '取消',
-        action: () => {}
-      }
-    })
+    if (id === 'about') {
+      // 内容型说明统一由 ContentPage 页面承载（与设置页隐私说明同款），不再用弹窗
+      const params: Record<string, string> = { 'title': '关于我们', 'type': 'about' }
+      pushRouteWithParam('ContentPage', params)
+    }
   }
 
   private ensureLogin(): boolean {

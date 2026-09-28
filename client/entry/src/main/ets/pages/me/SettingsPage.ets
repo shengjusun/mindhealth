@@ -6,6 +6,9 @@ import { common, bundleManager } from '@kit.AbilityKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { AppSettings } from '../../common/utils/AppSettings'
 import { ToastUtil } from '../../common/utils/ToastUtil'
+import { notificationManager } from '@kit.NotificationKit'
+import { BusinessError } from '@kit.BasicServicesKit'
+import { AppButton } from '../../common/components/AppButton'
 
 const TAG = 'SettingsPage'
 
@@ -26,12 +29,25 @@ export struct SettingsPage {
     const context = getContext(this) as common.Context
     AppSettings.getBoolean(context, 'notificationEnabled', true).then((value: boolean) => {
       this.notificationEnabled = value
+      this.syncNotificationPermission()
     })
     AppSettings.getBoolean(context, 'diaryReminderEnabled', true).then((value: boolean) => {
       this.diaryReminderEnabled = value
     })
     this.refreshCacheSize()
     this.loadVersion()
+  }
+
+  /** 进页时与系统真实授权对齐：用户在系统设置里关了通知，这里不能还显示开着 */
+  private syncNotificationPermission(): void {
+    notificationManager.isNotificationEnabled().then((sysEnabled: boolean) => {
+      if (!sysEnabled && this.notificationEnabled) {
+        this.notificationEnabled = false
+        AppSettings.setBoolean(getContext(this) as common.Context, 'notificationEnabled', false)
+      }
+    }).catch((error: BusinessError) => {
+      Logger.warn(TAG, `读取通知授权状态失败: ${error.code} ${error.message}`)
+    })
   }
 
   private loadVersion(): void {
@@ -49,9 +65,30 @@ export struct SettingsPage {
     popRoute()
   }
 
-  private toggleNotification(enabled: boolean): void {
-    this.notificationEnabled = enabled
-    AppSettings.setBoolean(getContext(this) as common.Context, 'notificationEnabled', enabled)
+  /**
+   * 消息提醒开关：打开时向系统申请通知授权；拒绝过一次后系统不再弹窗，
+   * 这里回弹开关并提示去系统设置。关闭只是应用内不再提醒，无需系统调用。
+   */
+  private async toggleNotification(enabled: boolean): Promise<void> {
+    const context = getContext(this) as common.UIAbilityContext
+
+    if (!enabled) {
+      this.notificationEnabled = false
+      AppSettings.setBoolean(context, 'notificationEnabled', false)
+      return
+    }
+
+    try {
+      await notificationManager.requestEnableNotification(context)
+      this.notificationEnabled = true
+      AppSettings.setBoolean(context, 'notificationEnabled', true)
+    } catch (error) {
+      const err = error as BusinessError
+      Logger.warn(TAG, `通知授权未通过: ${err.code} ${err.message}`)
+      this.notificationEnabled = false
+      AppSettings.setBoolean(context, 'notificationEnabled', false)
+      ToastUtil.showLong('未获得通知权限，可在系统设置中为轻心开启通知')
+    }
   }
 
   private toggleDiaryReminder(enabled: boolean): void {
@@ -154,6 +191,7 @@ export struct SettingsPage {
           this.buildPreferenceCard()
           this.buildSupportCard()
           this.buildVersionCard()
+          this.buildLogoutButton()
 
           Blank()
             .height(24)
@@ -174,6 +212,43 @@ export struct SettingsPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.app_background'))
+  }
+
+  /** 账号操作放在设置页尾部（与微信/QQ/淘宝布局惯例一致），「我的」页专注内容入口 */
+  @Builder
+  buildLogoutButton() {
+    AppButton({
+      label: '退出登录',
+      kind: 'primary',
+      danger: true,
+      block: true,
+      onPress: () => {
+        this.handleLogout()
+      }
+    })
+  }
+
+  private handleLogout(): void {
+    AlertDialog.show({
+      title: '退出登录',
+      message: '确定要退出登录吗？',
+      primaryButton: {
+        value: '确定',
+        action: async () => {
+          try {
+            await this.authService.logout()
+            // 登出后清空导航栈，避免返回键回退到已登出账号的页面
+            resetRoute('LoginPage')
+          } catch (error) {
+            Logger.error(TAG, `退出登录失败: ${JSON.stringify(error)}`)
+          }
+        }
+      },
+      secondaryButton: {
+        value: '取消',
+        action: () => {}
+      }
+    })
   }
 
   @Builder
