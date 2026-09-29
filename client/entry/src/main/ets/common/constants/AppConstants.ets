@@ -49,6 +49,9 @@ export class SnapshotConfig {
   static readonly KEY_ASSESSMENT_LIST: string = 'snapshot_assessment_list';
   static readonly KEY_ASSESSMENT_TS: string = 'snapshot_assessment_ts';
 
+  // 测评快照最多保留条数（投影后单条约 200 字节，20 条远在字节上限内）
+  static readonly ASSESSMENT_MAX_COUNT: number = 20;
+
   // 统计数字单独存：日记快照会被截断到 20 条，不能直接拿列表长度当总数
   static readonly KEY_DIARY_COUNT: string = 'snapshot_diary_count';
   static readonly KEY_ASSESSMENT_COUNT: string = 'snapshot_assessment_count';

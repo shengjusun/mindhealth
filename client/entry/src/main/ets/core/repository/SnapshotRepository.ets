@@ -172,8 +172,14 @@ export class SnapshotRepository {
   }
 
   async saveAssessmentResults(list: Object[]): Promise<void> {
+    // 后端 /assessment/results 返回完整实体行，answers_json（逐题明细）与 ai_analysis
+    // （AI 长文）会让单条记录达到 12KB+，直接序列化必然超出 MAX_BYTES 且截断救不回来
+    // （裁到 0 条才能达标），表现为快照永远写入失败、离线降级对测评记录失效。
+    // 快照只服务展示：这里投影出 UI 实际读取的字段后再走截断落盘。
+    const slim: Object[] = list.map((item: Object): Object => SnapshotRepository.projectAssessmentRecord(item))
+    const text: string = SnapshotRepository.serializeWithLimit(slim, SnapshotConfig.ASSESSMENT_MAX_COUNT)
     await this.write(SnapshotConfig.KEY_ASSESSMENT_LIST, SnapshotConfig.KEY_ASSESSMENT_TS,
-      JSON.stringify(list), list.length)
+      text, slim.length)
     await this.writeCount(SnapshotConfig.KEY_ASSESSMENT_COUNT, list.length)
   }
 
@@ -244,6 +250,23 @@ export class SnapshotRepository {
     }
   }
 
+  /**
+   * 测评记录快照字段白名单：只保留列表卡与首页最近状态卡实际读取的字段。
+   * 已知消费方：MyRecordsPage（assessmentTitle/score/level/suggestion/createTime）、
+   * HomePageNew（assessmentTitle/score/level/suggestion/createTime）。
+   */
+  private static projectAssessmentRecord(item: Object): Object {
+    const src = item as Record<string, Object>
+    const out: Record<string, Object> = {}
+    const keep: string[] = ['id', 'assessmentTitle', 'score', 'level', 'suggestion', 'createTime', 'aiStatus']
+    for (const key of keep) {
+      if (src[key] !== undefined && src[key] !== null) {
+        out[key] = src[key]
+      }
+    }
+    return out
+  }
+
   // ===================== 工具 =====================
 
   /**
@@ -260,7 +283,7 @@ export class SnapshotRepository {
     }
 
     if (items.length < list.length) {
-      Logger.warn(TAG, `日记快照已截断：${list.length} 条 -> ${items.length} 条`)
+      Logger.warn(TAG, `快照已按条数截断：${list.length} 条 -> ${items.length} 条`)
     }
     return text
   }

@@ -222,7 +222,22 @@ export default class EntryAbility extends UIAbility {
         Logger.info(TAG, 'System bar updated, isDark=%{public}s', String(isDark));
       });
     }).catch((err: Object) => {
-      Logger.error(TAG, 'Failed to update system bar: %{public}s', JSON.stringify(err));
+      // 冷启动时窗口可能尚未就绪（1300002 window state abnormal），延迟重试一次
+      Logger.warn(TAG, 'System bar not ready, retry once: %{public}s', JSON.stringify(err));
+      setTimeout(() => {
+        window.getLastWindow(this.context).then((win) => {
+          win.setWindowSystemBarProperties({
+            statusBarColor: '#00000000',
+            statusBarContentColor: isDark ? '#FFFFFF' : '#000000',
+            navigationBarColor: '#00000000',
+            navigationBarContentColor: isDark ? '#FFFFFF' : '#000000',
+            isStatusBarLightIcon: isDark,
+            isNavigationBarLightIcon: isDark
+          });
+        }).catch((retryErr: Object) => {
+          Logger.error(TAG, 'Failed to update system bar: %{public}s', JSON.stringify(retryErr));
+        });
+      }, 600);
     });
   }
 
