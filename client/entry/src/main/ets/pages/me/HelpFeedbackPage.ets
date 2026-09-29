@@ -171,7 +171,7 @@ export struct HelpFeedbackPage {
     .padding({
       left: Dimension.SpaceL,
       right: Dimension.SpaceL,
-      top: 14,
+      top: this.state.topAvoidVp > 0 ? this.state.topAvoidVp + 8 : 22,
       bottom: 10
     })
     .backgroundColor($r('app.color.app_background'))

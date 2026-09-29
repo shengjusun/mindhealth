@@ -30,10 +30,10 @@ export struct AppPageHeader {
     }
   }
 
-  /** 顶部避让：优先窗口避让区高度，读不到（预览器等）回退旧值 14 */
+  /** 顶部避让：状态栏高度 + 8vp 呼吸间距（紧贴状态栏太靠上）；读不到避让区（预览器等）回退 14+8 */
   private topInset(): number {
     const avoid: number = appState().topAvoidVp
-    return avoid > 0 ? avoid : 14
+    return (avoid > 0 ? avoid : 14) + 8
   }
 
   build() {
