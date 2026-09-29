@@ -132,6 +132,7 @@ mh/
 - **情绪日记 / 个人资料 / 头像 / 文章 / 反馈**：前后端接口闭环，数据真实落库；头像上传含大小、类型、魔数校验与 UUID 文件名（魔数校验见 `backend/.../utils/FileUploadUtil.java:18-40`）。
 - **管理后台**：独立 Vue 3 工程，覆盖用户/量表/测评/反馈/日记/操作日志/账号管理，含 ECharts 仪表盘、审计日志、超管分级。
 - **设计系统**：三套主题 × 深浅双板、令牌体系、公共组件与三态组件、温度翻译层。
+- **品牌与合规细节**：自定义启动图、桌面分层图标（前景/背景）与默认头像（SVG 源稿与栅格化脚本在 `docs/brand/`）；注册页隐私政策勾选；昵称/日记标题长度上限与年龄范围校验；「消息提醒」接系统通知授权；性别第三项为「隐藏」（保密式设计，历史值已迁移）。
 
 ### 规划中（尚未实现）
 
@@ -213,16 +214,15 @@ jwt:
 2. **无网络状态监听与恢复刷新**：未使用 `connection.createNetConnection`/`netStatusChange`，网络恢复后需手动下拉。
 3. **快照 7000 字节上限**：`SnapshotRepository` 快照超限时从尾部截断，离线展示与在线可能存在差异且无提示。
 4. **超时配置不统一**：全局 60s、登录旁路 10s、华为登录 10s/15s 三套并存。
-5. **顶部安全区部分写死**：`HelpFeedbackPage.ets:174`、`SettingsPage.ets:219` 等处仍写死 `top: 14`，部分机型顶部可能被状态栏遮挡。
-6. **启动串行初始化**：`EntryAbility.initAndLoadPage` 依次 await 多个初始化（`EntryAbility.ets:133-149`），冷启动首帧被拖慢。
-7. **长列表未分页（规模风险，非现存缺陷）**：`/diary`、`/article/list`、`/ai/history` 均为全量返回，客户端 5 处列表用 `ForEach` 全量渲染（全项目 `LazyForEach` 0 处）。当前数据量下无实际影响：单用户日记峰值 6 篇、AI 聊天 2 条、文章 4 篇。触发阈值约在单用户日记 200 篇 / AI 聊天 300 轮 / 单列表 50 项以上，届时需改为服务端分页 + `LazyForEach`。
-8. **默认后端地址写死**：`apiConfig.ets` 的 `DEFAULT_API_BASE_URL` 为固定地址，换网络环境需修改或用 Preferences 覆盖。
-9. **死代码残留**：`AiChatService`、`CommonUtil`、`Enums`、`Types.ets` 大部、`AppConstants` 中若干常量、`StateComponents.NetworkErrorComponent` 及若干无调用方法未清理。
-10. **「日记提醒」开关无实际作用**：「消息提醒」已接系统通知授权（打开开关时申请权限、拒绝引导系统设置、进设置页与系统状态对齐），但「日记提醒」仍仅写 Preferences——真实现需要 reminderAgent 定时提醒支持，未做。
-11. **部分交互待完善**：测评记录卡片无详情入口；反馈类型固定为 `suggestion`，UI 无类型选择。
-12. **「我的」页拉全量日记仅为计数**：`MePage` 调 `getDiaryList()` 后只用 `parseCount` 取条数（`MePage.ets:418-424`），而同一份数据 `MoodDiaryPage`、`MyRecordsPage` 已各拉一次。改进方向是新增轻量计数接口，当前数据量下未做。
-13. **最近状态卡可能被空响应清空**：`HomePageNew.ets:181` 在服务端返回空数组时把 `latestAssessment` 置为 `null`，并调用 `saveAssessmentResults([])`（`:184`）覆盖本地快照，卡片会从「有数据」跳成「无数据」且无提示。仅在服务端异常返回空数组时触发，正常路径不出现。
-14. **AI 解读状态为 none 时无出口**：`AssessmentQuestionPage.ets:361` 在 `result.aiStatus` 为空时置为 `'none'`；`:368` 只在 `'pending'` 时启动轮询，而 `:771-777` 的兜底分支会渲染「正在生成…」且不提供重试入口。后端提交时恒置 `pending`，正常路径不触发；若后端返回空 `aiStatus` 则永久停在假加载态。
+5. **启动串行初始化**：`EntryAbility.initAndLoadPage` 依次 await 多个初始化（`EntryAbility.ets:133-149`），冷启动首帧被拖慢。
+6. **长列表未分页（规模风险，非现存缺陷）**：`/diary`、`/article/list`、`/ai/history` 均为全量返回，客户端 5 处列表用 `ForEach` 全量渲染（全项目 `LazyForEach` 0 处）。当前数据量下无实际影响：单用户日记峰值 6 篇、AI 聊天 2 条、文章 4 篇。触发阈值约在单用户日记 200 篇 / AI 聊天 300 轮 / 单列表 50 项以上，届时需改为服务端分页 + `LazyForEach`。
+7. **默认后端地址写死**：`apiConfig.ets` 的 `DEFAULT_API_BASE_URL` 为固定地址，换网络环境需修改或用 Preferences 覆盖。
+8. **死代码残留（已收窄）**：`AiChatService`、`CommonUtil`、`Enums`、`NetworkErrorComponent` 等主要死代码已清理；`Types.ets` 与 `AppConstants.ets`（289/181 行）中仍有无引用的类型与常量未裁剪。
+9. **「日记提醒」开关无实际作用**：「消息提醒」已接系统通知授权（打开开关时申请权限、拒绝引导系统设置、进设置页与系统状态对齐），但「日记提醒」仍仅写 Preferences——真实现需要 reminderAgent 定时提醒支持，未做。
+10. **部分交互待完善**：测评记录卡片无详情入口（日记卡可点进详情，测评卡暂无对应详情页路由）；反馈类型固定为 `suggestion`，UI 无类型选择。
+11. **「我的」页拉全量日记仅为计数**：`MePage` 调 `getDiaryList()` 后只用 `parseCount` 取条数（`MePage.ets:420`），而同一份数据 `MoodDiaryPage`、`MyRecordsPage` 已各拉一次。改进方向是新增轻量计数接口，当前数据量下未做。
+12. **最近状态卡可能被空响应清空**：`HomePageNew.ets:181` 在服务端返回空数组时把 `latestAssessment` 置为 `null`，并调用 `saveAssessmentResults([])`（`:184`）覆盖本地快照，卡片会从「有数据」跳成「无数据」且无提示。仅在服务端异常返回空数组时触发，正常路径不出现。
+13. **AI 解读状态为 none 时无出口**：`AssessmentQuestionPage.ets:361` 在 `result.aiStatus` 为空时置为 `'none'`；`:368` 只在 `'pending'` 时启动轮询，而 `:771-777` 的兜底分支会渲染「正在生成…」且不提供重试入口。后端提交时恒置 `pending`，正常路径不触发；若后端返回空 `aiStatus` 则永久停在假加载态。
 
 ### 管理后台
 
