@@ -218,7 +218,7 @@ jwt:
 7. **长列表未分页（规模风险，非现存缺陷）**：`/diary`、`/article/list`、`/ai/history` 均为全量返回，客户端 5 处列表用 `ForEach` 全量渲染（全项目 `LazyForEach` 0 处）。当前数据量下无实际影响：单用户日记峰值 6 篇、AI 聊天 2 条、文章 4 篇。触发阈值约在单用户日记 200 篇 / AI 聊天 300 轮 / 单列表 50 项以上，届时需改为服务端分页 + `LazyForEach`。
 8. **默认后端地址写死**：`apiConfig.ets` 的 `DEFAULT_API_BASE_URL` 为固定地址，换网络环境需修改或用 Preferences 覆盖。
 9. **死代码残留**：`AiChatService`、`CommonUtil`、`Enums`、`Types.ets` 大部、`AppConstants` 中若干常量、`StateComponents.NetworkErrorComponent` 及若干无调用方法未清理。
-10. **设置页两个开关无实际作用**：消息提醒/日记提醒仅写 Preferences，无读取方。
+10. **「日记提醒」开关无实际作用**：「消息提醒」已接系统通知授权（打开开关时申请权限、拒绝引导系统设置、进设置页与系统状态对齐），但「日记提醒」仍仅写 Preferences——真实现需要 reminderAgent 定时提醒支持，未做。
 11. **部分交互待完善**：测评记录卡片无详情入口；反馈类型固定为 `suggestion`，UI 无类型选择。
 12. **「我的」页拉全量日记仅为计数**：`MePage` 调 `getDiaryList()` 后只用 `parseCount` 取条数（`MePage.ets:418-424`），而同一份数据 `MoodDiaryPage`、`MyRecordsPage` 已各拉一次。改进方向是新增轻量计数接口，当前数据量下未做。
 13. **最近状态卡可能被空响应清空**：`HomePageNew.ets:181` 在服务端返回空数组时把 `latestAssessment` 置为 `null`，并调用 `saveAssessmentResults([])`（`:184`）覆盖本地快照，卡片会从「有数据」跳成「无数据」且无提示。仅在服务端异常返回空数组时触发，正常路径不出现。

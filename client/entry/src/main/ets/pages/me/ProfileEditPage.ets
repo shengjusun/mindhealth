@@ -592,6 +592,7 @@ export struct ProfileEditPage {
             .layoutWeight(1)
             .height(36)
             .fontSize(FontLevel.Body)
+            .maxLength(50)
             .backgroundColor($r('app.color.surface_soft'))
             .borderRadius(Dimension.RadiusS)
             .onChange((value: string) => {
@@ -651,6 +652,7 @@ export struct ProfileEditPage {
             .height(36)
             .fontSize(FontLevel.Body)
             .type(InputType.Number)
+            .maxLength(3)
             .backgroundColor($r('app.color.surface_soft'))
             .borderRadius(Dimension.RadiusS)
             .onChange((value: string) => {
@@ -795,10 +797,10 @@ export struct ProfileEditPage {
 
     if (hasAge) {
       ageNum = Number(this.userAge)
-      if (isNaN(ageNum)) {
+      if (isNaN(ageNum) || ageNum < 0 || ageNum > 150) {
         AlertDialog.show({
           title: '提示',
-          message: '年龄格式不正确',
+          message: '年龄需为 0~150 之间的数字',
           primaryButton: {
             value: '知道了',
             action: () => {}

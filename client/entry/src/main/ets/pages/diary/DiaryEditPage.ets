@@ -251,6 +251,7 @@ export struct DiaryEditPage {
         .width('100%')
         .height(Dimension.InputHeight)
         .fontSize(15)
+        .maxLength(100)
         .backgroundColor($r('app.color.surface_soft'))
         .borderRadius(12)
         .onChange((value: string) => {

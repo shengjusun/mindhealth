@@ -1,4 +1,4 @@
-import { appState, AppState, popRoute } from '../../common/state/AppState'
+import { appState, AppState, popRoute, pushRouteWithParam } from '../../common/state/AppState'
 import { ApiService } from '../../core/api/ApiService'
 import { AppPageHeader } from '../../common/components/AppPageHeader'
 import { brand, Dimension, ShadowStyle } from '../../common/constants/Theme'
@@ -19,6 +19,7 @@ export struct RegisterPage {
   @Local phone: string = ''
   @Local password: string = ''
   @Local confirmPassword: string = ''
+  @Local agreed: boolean = false
   @Local isLoading: boolean = false
 
   /**
@@ -207,13 +208,41 @@ export struct RegisterPage {
   @Builder
   buildActionArea() {
     Column() {
+      // 国内上架合规：注册前需取得用户对隐私政策的同意（说明内容走 ContentPage）
+      Row() {
+        Checkbox({ name: 'privacy-agree' })
+          .select(this.agreed)
+          .selectedColor(brand().primary)
+          .width(18)
+          .height(18)
+          .onChange((value: boolean) => {
+            this.agreed = value
+          })
+
+        Text('我已阅读并同意')
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+
+        Text('《隐私说明》')
+          .fontSize(12)
+          .fontColor(brand().primary)
+          .padding({ left: 2, right: 2, top: 6, bottom: 6 })
+          .onClick(() => {
+            const params: Record<string, string> = { 'title': '隐私说明', 'type': 'privacy' }
+            pushRouteWithParam('ContentPage', params)
+          })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+      .margin({ top: 18 })
+
       AppButton({
         label: this.isLoading ? '注册中...' : '立即注册',
         kind: 'primary',
         block: true,
         loading: this.isLoading,
         active: !this.isLoading,
-        outerMargin: { top: 20, bottom: 16 },
+        outerMargin: { top: 12, bottom: 16 },
         onPress: () => {
           this.handleRegister()
         }
@@ -254,6 +283,11 @@ export struct RegisterPage {
   }
 
   private async handleRegister(): Promise<void> {
+    if (!this.agreed) {
+      this.showToast('请先阅读并同意《隐私说明》')
+      return
+    }
+
     const phoneValue: string = this.phone.trim()
     const passwordValue: string = this.password.trim()
     const confirmPasswordValue: string = this.confirmPassword.trim()
