@@ -217,7 +217,7 @@ jwt:
 5. **启动串行初始化**：`EntryAbility.initAndLoadPage` 依次 await 多个初始化（`EntryAbility.ets:133-149`），冷启动首帧被拖慢。
 6. **长列表未分页（规模风险，非现存缺陷）**：`/diary`、`/article/list`、`/ai/history` 均为全量返回，客户端 5 处列表用 `ForEach` 全量渲染（全项目 `LazyForEach` 0 处）。当前数据量下无实际影响：单用户日记峰值 6 篇、AI 聊天 2 条、文章 4 篇。触发阈值约在单用户日记 200 篇 / AI 聊天 300 轮 / 单列表 50 项以上，届时需改为服务端分页 + `LazyForEach`。
 7. **默认后端地址写死**：`apiConfig.ets` 的 `DEFAULT_API_BASE_URL` 为固定地址，换网络环境需修改或用 Preferences 覆盖。
-8. **死代码残留（已收窄）**：`AiChatService`、`CommonUtil`、`Enums`、`NetworkErrorComponent` 等主要死代码已清理；`Types.ets` 与 `AppConstants.ets`（289/181 行）中仍有无引用的类型与常量未裁剪。
+8. ~~**死代码残留**~~：已清零——`AiChatService`、`CommonUtil`、`Enums`、`NetworkErrorComponent` 等死文件已删；`Types.ets` 裁至仅剩 AvatarService 使用的 3 个符号（289→33 行），`AppConstants.ets` 裁至 ScaleConfig/SnapshotConfig 两类（181→66 行）。
 9. **「日记提醒」开关无实际作用**：「消息提醒」已接系统通知授权（打开开关时申请权限、拒绝引导系统设置、进设置页与系统状态对齐），但「日记提醒」仍仅写 Preferences——真实现需要 reminderAgent 定时提醒支持，未做。
 10. **部分交互待完善**：测评记录卡片无详情入口（日记卡可点进详情，测评卡暂无对应详情页路由）；反馈类型固定为 `suggestion`，UI 无类型选择。
 11. **「我的」页拉全量日记仅为计数**：`MePage` 调 `getDiaryList()` 后只用 `parseCount` 取条数（`MePage.ets:420`），而同一份数据 `MoodDiaryPage`、`MyRecordsPage` 已各拉一次。改进方向是新增轻量计数接口，当前数据量下未做。
