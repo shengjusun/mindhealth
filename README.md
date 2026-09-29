@@ -85,6 +85,8 @@ mh/
 
 **服务端算分**：后端按题库存的题目与选项分值重新计分，并把逐题明细序列化写入 `answers_json`；同时按量表自身的 `scoring.bands` 分级，量表未配置时按得分比例兜底（`backend/.../service/impl/AssessmentServiceImpl.java:146-204`、`resolveBand` `:238-270`）。
 
+**0-100 状态分（越高越健康）**：原始分按量表极性归一化——症状量表（情绪/压力/焦虑/抑郁/睡眠）反转取 `100 - 占比`（积极选项得高分），正向量表（心理韧性）直接取占比；`max_score` 统一为 100，bands 阈值按 0-100 配置（25/50/75/100），逐题原始分保留在 `answers_json` 可回溯（`normalizeToWellness`，迁移见 `migration_score_normalized.sql`）。
+
 **异步 AI 解读 + 轮询**：提交落库时 `ai_status` 置为 `pending`，随后触发异步分析，失败只写状态、不影响测评结果（`AssessmentServiceImpl.java:116-124`）。客户端在结果页按 `aiStatus` 轮询 `GET /api/assessment/result/{id}`，`pending` 时继续、`success/failed` 时分别展示或提供重试（`AssessmentQuestionPage.ets:338-395`、`:736-757`）；手动重试接口为 `POST /api/assessment/result/{id}/analyze`（`backend/.../controller/AssessmentController.java:84-93`）。
 
 ### 3. AI 陪伴聊天
