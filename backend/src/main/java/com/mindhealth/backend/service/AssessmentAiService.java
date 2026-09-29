@@ -380,13 +380,13 @@ public class AssessmentAiService {
     /**
      * 是否落在该量表最严重的档位。
      *
-     * <p><b>不能</b>按「bands 最后一条 = 最严重」判断：心理韧性是正向量表，
-     * 分数越高韧性越好，最后一条是「韧性良好」——按位置判断会把韧性满分
-     * 强制置成危机状态（riskLevel=high + 求助热线），属于产品安全事故。
+     * <p>2026-09-29 起分数统一为 0-100 状态分（越高越健康），bands 按阈值升序排列、
+     * <b>最差档在第一条</b>（max=25）。因此「命中 bands[0]」即最严重档；再叠加
+     * 负向关键词（明显/过载/较重/较差）兜底——心理韧性的最差档是「韧性偏弱」，
+     * 不含这些词，不会把韧性低分误判成危机。
      *
-     * <p>正确规则：先按分数命中档位，再要求命中的是<b>最后一条</b>（症状量表的
-     * 最重档）且其文案带负向关键词（明显/过载/较重/较差）。正向量表的最高档
-     * 文案不含这些词，天然不会被误判。
+     * <p>历史沿革：旧机制按「最后一条 = 最重档」判断，当时韧性是正向量表、
+     * 满分即最高档，会把韧性满分强制置成危机状态（产品安全事故），已废弃。
      */
     private boolean isSevereBand(AssessmentResult result) {
         if (result.getAssessmentId() == null || result.getScore() == null) {
@@ -396,10 +396,10 @@ public class AssessmentAiService {
             JsonNode scoring = scaleService.scoringOf(result.getAssessmentId());
             JsonNode bands = scoring == null ? null : scoring.path("bands");
             if (bands == null || !bands.isArray() || bands.isEmpty()) {
-                // 无题库配置的旧数据：按比例文案的关键词兜底
+                // 无 bands 配置的数据：按档位文案的关键词兜底
                 String level = result.getLevel();
                 return level != null && (level.contains("较重") || level.contains("较高")
-                        || level.contains("风险"));
+                        || level.contains("明显") || level.contains("过载") || level.contains("较差"));
             }
             JsonNode matched = null;
             for (JsonNode band : bands) {
@@ -409,10 +409,11 @@ public class AssessmentAiService {
                 }
             }
             if (matched == null) {
-                matched = bands.get(bands.size() - 1);
+                // 分数超出全部阈值（异常数据）：按最差档处理
+                matched = bands.get(0);
             }
-            boolean isLastBand = matched == bands.get(bands.size() - 1);
-            if (!isLastBand) {
+            boolean isWorstBand = matched == bands.get(0);
+            if (!isWorstBand) {
                 return false;
             }
             String levelText = matched.path("level").asText();

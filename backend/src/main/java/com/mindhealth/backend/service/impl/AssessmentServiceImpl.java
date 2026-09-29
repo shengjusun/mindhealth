@@ -101,7 +101,7 @@ public class AssessmentServiceImpl implements AssessmentService {
         }
 
         List<ScaleService.Question> questions = scaleService.parseQuestions(request.getAssessmentId());
-        Scoring scoring = score(questions, request);
+        Scoring scoring = score(assessment.getId(), questions, request);
         Band band = resolveBand(assessment.getId(), scoring.score, scoring.maxScore);
 
         AssessmentResult result = new AssessmentResult();
@@ -143,7 +143,7 @@ public class AssessmentServiceImpl implements AssessmentService {
 
     // ------------------------------------------------------------------ 算分
 
-    private Scoring score(List<ScaleService.Question> questions, AssessmentRequest request) {
+    private Scoring score(long assessmentId, List<ScaleService.Question> questions, AssessmentRequest request) {
         Scoring out = new Scoring();
 
         if (questions == null || questions.isEmpty()) {
@@ -164,8 +164,9 @@ public class AssessmentServiceImpl implements AssessmentService {
         if (!hasAnswers) {
             // 旧版客户端只上报总分：保持可用，但仍然补上满分为后续分析提供分母
             log.info("本次提交未携带答题明细（旧客户端），使用客户端分数");
-            out.score = clamp(request.getScore() == null ? 0 : request.getScore(), fullScore);
-            out.maxScore = fullScore;
+            int raw = clamp(request.getScore() == null ? 0 : request.getScore(), fullScore);
+            out.score = normalizeToWellness(assessmentId, raw, fullScore);
+            out.maxScore = 100;
             out.answersJson = null;
             return out;
         }
@@ -197,10 +198,31 @@ public class AssessmentServiceImpl implements AssessmentService {
             details.add(detail);
         }
 
-        out.score = total;
-        out.maxScore = fullScore;
+        out.score = normalizeToWellness(assessmentId, total, fullScore);
+        out.maxScore = 100;
         out.answersJson = toJson(details);
         return out;
+    }
+
+    /**
+     * 把量表原始得分归一化为 0-100 的「状态分」，<b>越高越健康</b>。
+     *
+     * <p>症状量表（情绪/压力/焦虑/抑郁/睡眠）的原始分越高越糟，直接展示会让
+     * 「全选积极选项」的用户得到 0 分——心理自助产品里这是反直觉的。这里按
+     * scoring.polarity 反转：症状量表取 100 - 占比，正向量表（心理韧性）取占比。
+     * bands 阈值也按 0-100 配置（见 migration_score_normalized.sql）。
+     * answers_json 里保留逐题原始得分，原始分永远可回溯。
+     */
+    private int normalizeToWellness(long assessmentId, int raw, int full) {
+        if (full <= 0) {
+            return raw;
+        }
+        JsonNode scoring = scaleService.scoringOf(assessmentId);
+        String polarity = scoring == null ? "symptom" : scoring.path("polarity").asText("symptom");
+        double ratio = (double) raw / full;
+        return "positive".equals(polarity)
+                ? (int) Math.round(100.0 * ratio)
+                : (int) Math.round(100.0 * (1.0 - ratio));
     }
 
     private int questionMax(ScaleService.Question question) {
