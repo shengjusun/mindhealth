@@ -43,9 +43,9 @@ export default class EntryAbility extends UIAbility {
     // Main window is created, set main page for this ability
     Logger.info(TAG, '%{public}s', 'Ability onWindowStageCreate');
 
-    // 必须在 loadContent 之前同步完成：HomeView 等仍是 V1 组件，观察不到 @Trace 变化，
-    // 只有首帧 build 时读到的值才有效，晚于页面渲染再写入对它们不生效
-    // （此时全屏尚未生效，值可能偏小——全屏回调里会再同步一次真实值）
+    // 在 loadContent 之前先同步一次：让首帧 build 就能读到避让区，避免第一帧按 0 布局、
+    // 第二帧才跳到真实高度（视觉上是一次抖动）。
+    // 此时全屏尚未生效，值可能偏小——全屏回调里会再同步一次真实值。
     this.syncAvoidAreas(windowStage.getMainWindowSync());
     // 同理：首帧就得知道深色模式，否则品牌色会取错那一套色板
     this.syncColorMode();

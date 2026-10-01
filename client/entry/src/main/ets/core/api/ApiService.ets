@@ -3,6 +3,23 @@ import { Logger } from '../../common/utils/Logger'
 import { http } from '@kit.NetworkKit'
 import { fileIo } from '@kit.CoreFileKit'
 
+/**
+ * 网络请求的统一封装 —— 全 App 的「跑腿的」。
+ *
+ * 页面不直接调鸿蒙的 http，一律走这里，好处是三件事只需要做一遍：
+ *   1. 统一带 token：每个请求自动加 Authorization: Bearer xxx，页面不用管；
+ *   2. 统一解析响应：后端固定返回 { code, message, data, timestamp }，
+ *      在这里转成 ApiResponse<T> 再交给调用方；
+ *   3. 统一处理登录态失效：见 request() 里那两处 authExpiredHandler 调用。
+ *
+ * 结构上是一个漏斗：所有业务接口（get / post / put / delete …）
+ * 最终都收敛到 request<T>() 一个方法，只有头像上传因为要发
+ * multipart/form-data 单独开了一条栈，逻辑与主栈重复，见 uploadAvatar 的注释。
+ *
+ * 边界：登录链路因为要处理 token 落盘，AuthService 自己也会创建 http
+ * （见 core/auth/AppAuthService.ets），并非全项目只有本文件发请求。
+ */
+
 // 日志标签，用来标记日志来自 ApiService 模块
 const TAG = 'ApiService'
 
@@ -72,6 +89,12 @@ export class ApiService {
    * endpoint：接口路径，比如 /api/diary
    * data：请求体，POST / PUT 时一般会传
    * timeoutMs：超时毫秒数，默认前台档；静默刷新走 getSilent 传 8 秒
+   *
+   * 响应判断分两段，缺一不可：
+   *   第一段看 HTTP 状态码（通信是否成功），第二段看 body.code（业务是否成功）。
+   *   登录态失效有两条路进来：HTTP 200 + body.code===401（后端异常处理器返回），
+   *   以及 HTTP 401/403（Spring Security 过滤链直接拦下、body 为空）。
+   *   只判前者会漏掉后者，表现为 token 过期后卡在页面上、永不跳登录页。
    */
   private async request<T>(
     method: http.RequestMethod,

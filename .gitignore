@@ -48,6 +48,8 @@ admin/.env.*.local
 # ===== 本地验证产物与工具目录 =====
 docs/_shots/
 .workbuddy/
- 
-# ���ش������ 
-*.zip 
+docs/mindhealth-interview-pack/
+resume/
+
+# 本地打包产物
+*.zip

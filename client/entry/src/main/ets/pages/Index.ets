@@ -13,10 +13,16 @@ const TAG = 'Index'
  *
  * 启动分流（登录/未登录）原先在 EntryAbility 的 loadContent 里做，
  * 现在搬到这里 —— 因为 loadContent 只能决定"加载哪个 @Entry"，而 @Entry 只剩一个了。
+ *
+ * 【一句话】这是全 App 唯一的大门：用户进来先看哪个页面，由这里决定。
+ * 注意它并不 new 一个新栈，而是从 AppState 那块白板上取同一个 pathStack ——
+ * 全 App 只有这一份栈，其他页面通过 AppState.ets 里的 pushRoute / popRoute 等函数操作它。
  */
 @Entry
 @ComponentV2
 struct Index {
+  // 不是 new 一个新栈，而是从白板上取「同一个」栈（AppStorageV2 全局单例）。
+  // 全 App 只有这一份 pathStack，Index 是唯一持有它的组件。
   private stack: NavPathStack = appState().pathStack
 
   aboutToAppear(): void {
@@ -51,6 +57,7 @@ struct Index {
     }
     .width('100%')
     .height('100%')
+    // 各页面头部由页面自己画（AppPageHeader），不叠加 Navigation 自带标题栏
     .hideNavBar(true)
     .backgroundColor($r('app.color.app_background'))
     .onAppear(() => {

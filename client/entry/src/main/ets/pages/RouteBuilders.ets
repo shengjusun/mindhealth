@@ -12,6 +12,7 @@ import { DiaryDetailPage } from './diary/DiaryDetailPage'
 import { AssessmentQuestionPage } from './assessment/AssessmentQuestionPage'
 import { ContentPage } from './ContentPage'
 import { appState } from '../common/state/AppState'
+import { ToastUtil } from '../common/utils/ToastUtil'
 
 /**
  * 全 App 的路由出口（系统路由表 route_map.json 的 buildFunction 都指向本文件）
@@ -23,6 +24,27 @@ import { appState } from '../common/state/AppState'
  *
  * 代价：首次进入任意页面会一次性加载本文件（页面数再翻倍时应改为按页拆分）。
  */
+
+// ===== 主页面「再按一次退出」=====
+//
+// 状态放模块级，不放 MainPage 的组件字段：组件实例会随重渲染重建，实例字段会被重置，
+// 武装标记活不到第二次按键。
+// 也不走 backPressedTick + @Monitor 握手 —— 该链路在 Navigation 根页面 + HdsTabs 上
+// 触发次数不稳定，实测要按四次才生效。
+let mainPageExitArmed: boolean = false
+let mainPageExitTimerId: number = -1
+
+// 首次按下后 2 秒内再按才生效，超时自动解除武装
+const EXIT_ARM_WINDOW_MS: number = 2000
+
+/** 解除武装并清掉定时器。第二次按下、以及 2 秒超时都走这里 */
+function disarmMainPageExit(): void {
+  if (mainPageExitTimerId !== -1) {
+    clearTimeout(mainPageExitTimerId)
+    mainPageExitTimerId = -1
+  }
+  mainPageExitArmed = false
+}
 
 // ===== 无入参页面：直接包一层 NavDestination =====
 
@@ -50,6 +72,20 @@ export function MainPageBuilder() {
   // 不能用 onReady —— 它只在首次入栈触发一次，返回场景不会触发。
   .onShown(() => {
     appState().meRefreshTick++
+  })
+  // 主页面是栈底：首次按提示并武装，2 秒内再按则放行交给系统（最小化到后台）。
+  // 全部逻辑收在本文件，不经过 AppState / @Monitor —— 原因见文件上方的说明。
+  .onBackPressed(() => {
+    if (mainPageExitArmed) {
+      disarmMainPageExit()
+      return false
+    }
+    mainPageExitArmed = true
+    ToastUtil.show('再按一次退出应用')
+    mainPageExitTimerId = setTimeout(() => {
+      disarmMainPageExit()
+    }, EXIT_ARM_WINDOW_MS)
+    return true
   })
 }
 
