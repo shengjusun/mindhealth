@@ -6,7 +6,7 @@
 
 技术栈分三端：
 
-- **客户端（HarmonyOS NEXT）**：ArkTS / ArkUI，45 个 `.ets` 文件中的 34 个组件已全部迁移到 ArkTS V2 状态管理（`@ComponentV2` / `@Local` / `@Param` / `@Monitor` / `@ObservedV2` / `@Trace`，见 `client/entry/src/main/ets/`）；路由使用 `Navigation` + `NavPathStack` 声明式路由（`client/entry/src/main/resources/base/profile/route_map.json`）；网络层 `@kit.NetworkKit`；持久化 `@kit.ArkData` 的 Preferences；架构为 MVVM + Repository。
+- **客户端（HarmonyOS NEXT）**：ArkTS / ArkUI，46 个 `.ets` 文件中的 36 个组件已全部迁移到 ArkTS V2 状态管理（`@ComponentV2` / `@Local` / `@Param` / `@Monitor` / `@ObservedV2` / `@Trace`，见 `client/entry/src/main/ets/`）；路由使用 `Navigation` + `NavPathStack` 声明式路由（`client/entry/src/main/resources/base/profile/route_map.json`）；网络层 `@kit.NetworkKit`；持久化 `@kit.ArkData` 的 Preferences；架构为 MVVM + Repository。
 - **后端**：Java 17 / Spring Boot 3.1.5 / Spring Security + JWT（jjwt）/ MyBatis-Plus / MySQL 8；AI 能力为后端直连 DeepSeek Chat Completions（`backend/.../service/DeepSeekClient.java`）。
 - **管理后台**：Vue 3 + Vite + TypeScript + Element Plus + ECharts + vue-router + axios（`admin/package.json`），构建产物由 Nginx 同源反代 `/api`（`admin/nginx/admin.conf`）。
 
@@ -126,8 +126,8 @@ mh/
 
 ### 已完成（均可在代码中定位）
 
-- **ArkTS V2 全量迁移**：45 个 `.ets` 文件中的 34 个组件全部为 `@ComponentV2`，`.ets` 源码中已无 V1 装饰器（`@State`/`@Prop`/`@Watch` 等仅残留在注释里）；`@Entry` 仅 `Index.ets` 一处。
-- **路由迁移**：全项目已无 `@ohos.router` 的 import 与调用，`route_map.json` 注册 13 条路由，全部经 `Navigation`/`NavPathStack` + `RouteBuilders` 承载。
+- **ArkTS V2 全量迁移**：46 个 `.ets` 文件中的 36 个组件全部为 `@ComponentV2`，`.ets` 源码中已无 V1 装饰器（`@State`/`@Prop`/`@Watch` 等仅残留在注释里）；`@Entry` 仅 `Index.ets` 一处。
+- **路由迁移**：全项目已无 `@ohos.router` 的 import 与调用，`route_map.json` 注册 14 条路由，全部经 `Navigation`/`NavPathStack` + `RouteBuilders` 承载。
 - **登录鉴权**：账号密码 + 华为授权码登录闭环，JWT 双 Token 下发与本地持久化，管理员/用户身份在过滤器内分流并按角色授权，管理端图形验证码。
 - **心理测评**：题库接口（`assessment` 表为唯一来源）、客户端四级降级、服务端算分、逐题明细入库、`scoring.bands` 分级、AI 解读异步产出与轮询/重试。
 - **AI 聊天**：后端真实调用 DeepSeek，含上下文拼接、错误分类与一次重试、单机内存限流；历史读取与清空契约已对齐。
@@ -221,7 +221,7 @@ jwt:
 7. **默认后端地址写死**：`apiConfig.ets` 的 `DEFAULT_API_BASE_URL` 为固定地址，换网络环境需修改或用 Preferences 覆盖。
 8. ~~**死代码残留**~~：已清零——`AiChatService`、`CommonUtil`、`Enums`、`NetworkErrorComponent` 等死文件已删；`Types.ets` 裁至仅剩 AvatarService 使用的 3 个符号（289→33 行），`AppConstants.ets` 裁至 ScaleConfig/SnapshotConfig 两类（181→66 行）。
 9. **「日记提醒」开关无实际作用**：「消息提醒」已接系统通知授权（打开开关时申请权限、拒绝引导系统设置、进设置页与系统状态对齐），但「日记提醒」仍仅写 Preferences——真实现需要 reminderAgent 定时提醒支持，未做。
-10. **部分交互待完善**：测评记录卡片无详情入口（日记卡可点进详情，测评卡暂无对应详情页路由）；反馈类型固定为 `suggestion`，UI 无类型选择。
+10. **部分交互待完善**：~~测评记录卡片无详情入口~~（已修：新增 `AssessmentResultPage` 结果回放路由，测评卡可点进详情，AI 解读支持失败重试）；反馈类型固定为 `suggestion`，UI 无类型选择。
 11. **「我的」页拉全量日记仅为计数**：`MePage` 调 `getDiaryList()` 后只用 `parseCount` 取条数（`MePage.ets:420`），而同一份数据 `MoodDiaryPage`、`MyRecordsPage` 已各拉一次。改进方向是新增轻量计数接口，当前数据量下未做。
 12. **最近状态卡可能被空响应清空**：`HomePageNew.ets:181` 在服务端返回空数组时把 `latestAssessment` 置为 `null`，并调用 `saveAssessmentResults([])`（`:184`）覆盖本地快照，卡片会从「有数据」跳成「无数据」且无提示。仅在服务端异常返回空数组时触发，正常路径不出现。
 13. **AI 解读状态为 none 时无出口**：`AssessmentQuestionPage.ets:361` 在 `result.aiStatus` 为空时置为 `'none'`；`:368` 只在 `'pending'` 时启动轮询，而 `:771-777` 的兜底分支会渲染「正在生成…」且不提供重试入口。后端提交时恒置 `pending`，正常路径不触发；若后端返回空 `aiStatus` 则永久停在假加载态。

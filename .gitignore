@@ -49,7 +49,12 @@ admin/.env.*.local
 docs/_shots/
 .workbuddy/
 docs/mindhealth-interview-pack/
+docs/handoff-孙胜举.md
 resume/
 
 # 本地打包产物
 *.zip
+
+# 个人学习文档（已迁至个人仓库，防误提交）
+docs/学习路线.md
+docs/交接-学习进行时.md
