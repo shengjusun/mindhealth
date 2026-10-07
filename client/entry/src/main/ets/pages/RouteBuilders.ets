@@ -10,6 +10,7 @@ import { ArticleDetailPage } from './ArticleDetailPage'
 import { DiaryEditPage } from './diary/DiaryEditPage'
 import { DiaryDetailPage } from './diary/DiaryDetailPage'
 import { AssessmentQuestionPage } from './assessment/AssessmentQuestionPage'
+import { AssessmentResultPage } from './assessment/AssessmentResultPage'
 import { ContentPage } from './ContentPage'
 import { appState } from '../common/state/AppState'
 import { ToastUtil } from '../common/utils/ToastUtil'
@@ -20,7 +21,7 @@ import { ToastUtil } from '../common/utils/ToastUtil'
  * 为什么集中在一个文件而不是每个页面各写一个 builder：
  * 1. NavDestination 的包装、标题栏、生命周期钩子是路由层的事，不该污染页面本体；
  * 2. 迁移期间页面本体完全不用改，只在末尾加 export 即可；
- * 3. 12 条路由集中在一处，加/删/改名一眼看全。
+ * 3. 14 条路由集中在一处，加/删/改名一眼看全。
  *
  * 代价：首次进入任意页面会一次性加载本文件（页面数再翻倍时应改为按页拆分）。
  */
@@ -306,4 +307,29 @@ struct AssessmentQuestionRoute {
 @Builder
 export function AssessmentQuestionPageBuilder() {
   AssessmentQuestionRoute()
+}
+
+// 结果回放页：只读页面，无未保存内容，不需要返回拦截；断网时页面内部自给失败态
+@ComponentV2
+struct AssessmentResultRoute {
+  @Local routeParam: Record<string, Object> | undefined = undefined
+  @Local paramReady: boolean = false
+
+  build() {
+    NavDestination() {
+      if (this.paramReady) {
+        AssessmentResultPage({ routeParam: this.routeParam })
+      }
+    }
+    .hideTitleBar(true)
+    .onReady((ctx: NavDestinationContext) => {
+      this.routeParam = ctx.pathInfo.param as Record<string, Object> | undefined
+      this.paramReady = true
+    })
+  }
+}
+
+@Builder
+export function AssessmentResultPageBuilder() {
+  AssessmentResultRoute()
 }

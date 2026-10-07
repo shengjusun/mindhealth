@@ -10,6 +10,9 @@ export struct AppPageHeader {
   @Param subtitle: string = ''
   @Param showBack: boolean = false
   @Param actionText: string = ''
+  // 右上角图标按钮（如「我的」页的设置齿轮）：低频全局入口收进头部右上角是成熟 App 惯例，
+  // 不占页面内容区的菜单位。与 actionText 二选一，同时传时图标优先；都不传则右侧占位对齐标题
+  @Param actionIcon: Resource | undefined = undefined
   @Param useDefaultBack: boolean = true
   // 右上角文字的点击回调。默认空实现，老调用方不传即维持原来的纯展示行为
   @Param onAction: () => void = () => {}
@@ -72,7 +75,21 @@ export struct AppPageHeader {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Center)
 
-      if (this.actionText && this.actionText.length > 0) {
+      if (this.actionIcon !== undefined) {
+        // 命中区域与左侧返回键一致（40×40），图标色随正文主色，深浅色模式自动跟随
+        Row() {
+          SymbolGlyph(this.actionIcon)
+            .fontSize(22)
+            .fontColor([$r('app.color.text_primary')])
+        }
+        .width(40)
+        .height(40)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .onClick(() => {
+          this.handleAction()
+        })
+      } else if (this.actionText && this.actionText.length > 0) {
         Text(this.actionText)
           .height(40)
           .fontSize(14)

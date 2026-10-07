@@ -1,5 +1,5 @@
 import { Logger } from '../../common/utils/Logger'
-import { pushRoute, pushRouteWithParam, resetRoute } from '../../common/state/AppState'
+import { pushRoute, resetRoute } from '../../common/state/AppState'
 import { AuthService, UserAuthInfo } from '../../core/auth/AppAuthService'
 import { ApiService } from '../../core/api/ApiService'
 import { AvatarComponent } from '../../common/components/AvatarComponent'
@@ -173,9 +173,7 @@ export struct MeView {
 
   menuItems: MenuItem[] = [
     { id: 'records', icon: $r('sys.symbol.doc_text'), title: '我的记录', subtitle: '心情日记与状态足迹', showArrow: true },
-    { id: 'settings', icon: $r('sys.symbol.gearshape'), title: '设置', subtitle: '账号、缓存与通用配置', showArrow: true },
-    { id: 'help', icon: $r('sys.symbol.ellipsis_bubble'), title: '帮助与反馈', subtitle: '问题反馈与使用帮助', showArrow: true },
-    { id: 'about', icon: $r('sys.symbol.heart'), title: '关于我们', subtitle: '项目介绍', showArrow: true }
+    { id: 'help', icon: $r('sys.symbol.ellipsis_bubble'), title: '帮助与反馈', subtitle: '问题反馈与使用帮助', showArrow: true }
   ]
 
   aboutToAppear(): void {
@@ -482,9 +480,14 @@ export struct MeView {
 
   build() {
     Column() {
+      // 设置是低频全局入口：按成熟 App 惯例收进右上角齿轮，不再占内容区菜单位
       AppPageHeader({
         title: '我的',
-        subtitle: '把状态看见，也把自己照顾好'
+        subtitle: '把状态看见，也把自己照顾好',
+        actionIcon: $r('sys.symbol.gearshape'),
+        onAction: () => {
+          pushRoute('SettingsPage')
+        }
       })
 
       Scroll() {
@@ -788,20 +791,9 @@ export struct MeView {
       return
     }
 
-    if (id === 'settings') {
-      pushRoute('SettingsPage')
-      return
-    }
-
     if (id === 'help') {
       pushRoute('HelpFeedbackPage')
       return
-    }
-
-    if (id === 'about') {
-      // 内容型说明统一由 ContentPage 页面承载（与设置页隐私说明同款），不再用弹窗
-      const params: Record<string, string> = { 'title': '关于我们', 'type': 'about' }
-      pushRouteWithParam('ContentPage', params)
     }
   }
 

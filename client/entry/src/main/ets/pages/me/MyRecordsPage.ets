@@ -42,6 +42,11 @@ interface DiaryDetailParams {
   createTime: string
 }
 
+// 传给结果回放页的路由参数
+interface AssessmentResultParams {
+  resultId: number
+}
+
 // 传给主页的路由参数：指定落地 Tab
 interface MainPageTabParams {
   tab: string
@@ -158,6 +163,15 @@ export struct MyRecordsPage {
       createTime: item.createTime ?? ''
     }
     pushRouteWithParam('DiaryDetailPage', params)
+  }
+
+  // 测评卡与日记卡交互对齐：卡片可点进详情（UX 走查 P1-3）
+  private goResultDetail(item: AssessmentRecordItem): void {
+    if (item.id === undefined || item.id === null || item.id <= 0) {
+      return
+    }
+    const params: AssessmentResultParams = { resultId: item.id }
+    pushRouteWithParam('AssessmentResultPage', params)
   }
 
   build() {
@@ -547,6 +561,9 @@ export struct MyRecordsPage {
     .borderRadius(Dimension.CardRadius)
     .shadow(ShadowStyle.Card)
     .margin({ bottom: index === this.assessmentRecords.length - 1 ? 0 : Dimension.SpaceXXL })
+    .onClick(() => {
+      this.goResultDetail(item)
+    })
   }
 
   private ensureLogin(): boolean {
