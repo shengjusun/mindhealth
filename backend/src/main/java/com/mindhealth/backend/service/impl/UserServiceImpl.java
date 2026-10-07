@@ -181,7 +181,7 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("手机号已被使用");
         }
 
-        // TODO: 验证验证码（需要实现验证码服务）
+        // 手机号变更暂未接入短信验证码校验（验证码服务尚未实现）。
 
         // 更新手机号
         User user = userMapper.selectById(userId);

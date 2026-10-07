@@ -1,7 +1,7 @@
 /**
  * 心理量表数据模型
- * 字段与后端 src/main/resources/static/scales/*.json 一一对应，
- * 也与客户端 rawfile/scales/*.json 一致，保证三处（后端静态文件 / 客户端内置 / 本地缓存）结构统一。
+ * 与客户端 rawfile/scales/*.json（安装包内置题库）及本地缓存结构一致；
+ * 后端唯一来源是 assessment 表，题目包接口下发的 JSON 同构——三处结构保持统一。
  */
 
 // 单个选项

@@ -252,8 +252,8 @@ export class SnapshotRepository {
 
   /**
    * 测评记录快照字段白名单：只保留列表卡与首页最近状态卡实际读取的字段。
-   * 已知消费方：MyRecordsPage（assessmentTitle/score/level/suggestion/createTime）、
-   * HomePageNew（assessmentTitle/score/level/suggestion/createTime）。
+   * 已知消费方：MyRecordsPage / HomePageNew（assessmentTitle/score/level/suggestion/createTime）、
+   * HomePageNew（aiStatus，空响应防护判断）；id 保留——记录卡进结果详情要按它跳转。
    */
   private static projectAssessmentRecord(item: Object): Object {
     const src = item as Record<string, Object>

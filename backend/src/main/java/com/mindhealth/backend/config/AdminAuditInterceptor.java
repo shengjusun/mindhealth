@@ -221,6 +221,10 @@ public class AdminAuditInterceptor implements HandlerInterceptor {
     /**
      * 与 {@code GlobalExceptionHandler} 的 @ExceptionHandler 映射保持一致，那边调整时这里需同步。
      * <p>
+     * {@code MethodArgumentTypeMismatchException} 与 {@code HttpMessageNotReadableException}
+     * 不在此显式列出——二者都是 {@code RuntimeException} 的子类，走下方 RuntimeException → 400
+     * 分支，与异常处理器 handleBadRequest 的 400 结果一致，行为无差别。
+     * <p>
      * 顺序有讲究：{@code MissingServletRequestParameterException} 是
      * {@code ServletRequestBindingException} 的子类，但前者按 400、后者按 401 返回，
      * 所以子类必须先判断。

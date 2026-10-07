@@ -92,7 +92,7 @@ export class AvatarService {
       if (!extension || !this.SUPPORTED_FORMATS.includes(extension.toLowerCase())) {
         return {
           valid: false,
-          error: '不支持该图片格式,请选择JPG或PNG格式图片',
+          error: '不支持该图片格式,请选择JPG/PNG/WebP格式图片',
           errorCode: AvatarUploadErrorCode.INVALID_FORMAT
         }
       }

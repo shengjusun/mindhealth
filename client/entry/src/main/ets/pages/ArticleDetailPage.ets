@@ -48,8 +48,9 @@ export struct ArticleDetailPage {
   }
 
   /**
-   * 尝试从后端拉取最新详情
-   * 后端暂未提供文章接口时（404），静默使用列表传参的内容，不打扰阅读
+   * 尝试从后端拉取最新详情。
+   * 非 200（如「文章不存在」由后端统一返回 400）或请求异常时，静默沿用列表传参的内容，
+   * 不打扰阅读；只有本地也没有正文时才置 loadFailed。
    */
   private async loadDetail(): Promise<void> {
     if (!this.article || this.article.id === undefined) {

@@ -67,9 +67,6 @@ public class SecurityConfig {
                         // 量表题库静态化接口：题库是公开只读配置，未登录也应可拉取（客户端首次启动预缓存）
                         .requestMatchers("/assessment/manifest", "/assessment/{id}/questions").permitAll()
 
-                        // 题库静态文件（classpath:static/scales/**），可由 Nginx/CDN 直接托管
-                        .requestMatchers("/scales/**").permitAll()
-
                         // 心理科普文章：公开只读内容，未登录也可浏览（客户端进入科普 Tab 即拉取）
                         .requestMatchers("/article/**").permitAll()
 

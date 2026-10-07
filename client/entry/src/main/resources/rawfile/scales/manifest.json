@@ -1,53 +1,60 @@
 {
-  "version" : 1790496890,
-  "updatedAt" : "2026-09-27T16:14:50",
-  "scales" : [ {
-    "id" : 1,
-    "name" : "情绪状态自评",
-    "type" : "emotion",
-    "description" : "帮助你了解最近一周的整体情绪状态，包含情绪低落、烦躁、兴趣与精力等方面，适合日常自查。",
-    "questionCount" : 12,
-    "maxScore" : 36,
-    "version" : 1790496890
-  }, {
-    "id" : 2,
-    "name" : "压力水平测试",
-    "type" : "stress",
-    "description" : "评估最近一周学习、工作与生活带来的压力程度，帮助识别压力来源与身体反应。",
-    "questionCount" : 12,
-    "maxScore" : 36,
-    "version" : 1790496890
-  }, {
-    "id" : 3,
-    "name" : "焦虑倾向筛查",
-    "type" : "anxiety",
-    "description" : "用于初步评估最近一周是否存在焦虑倾向与紧张反应，包含担心、躯体反应与回避行为。",
-    "questionCount" : 12,
-    "maxScore" : 36,
-    "version" : 1790496890
-  }, {
-    "id" : 4,
-    "name" : "抑郁情绪筛查",
-    "type" : "depression",
-    "description" : "用于初步识别最近一周是否存在持续低落、兴趣减退、精力下降等情况。本测评不是诊断工具。",
-    "questionCount" : 12,
-    "maxScore" : 36,
-    "version" : 1790496890
-  }, {
-    "id" : 5,
-    "name" : "睡眠质量评估",
-    "type" : "sleep",
-    "description" : "了解最近一周的入睡速度、夜间觉醒、睡眠时长与白天恢复情况。",
-    "questionCount" : 12,
-    "maxScore" : 36,
-    "version" : 1790496890
-  }, {
-    "id" : 6,
-    "name" : "心理韧性测试",
-    "type" : "resilience",
-    "description" : "评估面对挫折、压力和变化时的恢复能力与适应能力。这是正向指标，分数越高代表韧性越好。",
-    "questionCount" : 12,
-    "maxScore" : 36,
-    "version" : 1790496890
-  } ]
+  "version": 1790496890,
+  "updatedAt": "2026-09-27T16:14:50",
+  "scales": [
+    {
+      "id": 1,
+      "name": "情绪状态自评",
+      "type": "emotion",
+      "description": "帮助你了解最近一周的整体情绪状态，包含情绪低落、烦躁、兴趣与精力等方面，适合日常自查。",
+      "questionCount": 12,
+      "maxScore": 100,
+      "version": 1790496890
+    },
+    {
+      "id": 2,
+      "name": "压力水平测试",
+      "type": "stress",
+      "description": "评估最近一周学习、工作与生活带来的压力程度，帮助识别压力来源与身体反应。",
+      "questionCount": 12,
+      "maxScore": 100,
+      "version": 1790496890
+    },
+    {
+      "id": 3,
+      "name": "焦虑倾向筛查",
+      "type": "anxiety",
+      "description": "用于初步评估最近一周是否存在焦虑倾向与紧张反应，包含担心、躯体反应与回避行为。",
+      "questionCount": 12,
+      "maxScore": 100,
+      "version": 1790496890
+    },
+    {
+      "id": 4,
+      "name": "抑郁情绪筛查",
+      "type": "depression",
+      "description": "用于初步识别最近一周是否存在持续低落、兴趣减退、精力下降等情况。本测评不是诊断工具。",
+      "questionCount": 12,
+      "maxScore": 100,
+      "version": 1790496890
+    },
+    {
+      "id": 5,
+      "name": "睡眠质量评估",
+      "type": "sleep",
+      "description": "了解最近一周的入睡速度、夜间觉醒、睡眠时长与白天恢复情况。",
+      "questionCount": 12,
+      "maxScore": 100,
+      "version": 1790496890
+    },
+    {
+      "id": 6,
+      "name": "心理韧性测试",
+      "type": "resilience",
+      "description": "评估面对挫折、压力和变化时的恢复能力与适应能力。这是正向指标，分数越高代表韧性越好。",
+      "questionCount": 12,
+      "maxScore": 100,
+      "version": 1790496890
+    }
+  ]
 }

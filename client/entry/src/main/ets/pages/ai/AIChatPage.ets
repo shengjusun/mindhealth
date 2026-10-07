@@ -322,7 +322,7 @@ export struct AIChatView {
       const reqBody: AIChatRequest = { content: text }
       const res = await this.apiService.sendMessage(reqBody)
 
-      // 后端统一以 HTTP 200 返回，业务失败体现在 code != 200（如 429 请求过于频繁）
+      // 后端统一以 HTTP 200 返回，业务失败体现在 code != 200（如 400 请求过于频繁）
       if (res.code !== 200) {
         throw new Error(res.message && res.message.length > 0 ? res.message : 'AI 请求失败')
       }

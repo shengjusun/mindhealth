@@ -29,7 +29,7 @@ public class AssessmentController {
 
     /**
      * 量表清单（含版本号）。公开接口，未登录也能拉取，便于客户端启动即预缓存题库。
-     * 返回 static/scales/manifest.json 的内容。
+     * 由 ScaleService 从数据库实时生成（数据库是题库唯一来源，管理端改完立即生效）。
      */
     @GetMapping("/manifest")
     public ApiResponse<Object> getScaleManifest() {
@@ -44,7 +44,7 @@ public class AssessmentController {
     /**
      * 单套量表题目。公开接口，返回内容与 assessment.questions 结构一致：
      * {"id":1,"version":1,"maxScore":15,"questions":[{"id":1,"title":"...","options":[{"key":"A","text":"...","score":0}]}]}
-     * 静态文件缺失时自动回退数据库。
+     * 题目包由 ScaleService 从数据库组装；量表不存在或未配置题目时返回 404。
      */
     @GetMapping("/{id}/questions")
     public ApiResponse<Object> getScaleQuestions(@PathVariable Long id) {

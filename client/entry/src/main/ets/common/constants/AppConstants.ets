@@ -66,7 +66,5 @@ export class SnapshotConfig {
   // 单条快照序列化后的字节上限（超出继续从尾部截断，直到满足）
   static readonly MAX_BYTES: number = 7000;
 
-  // 超过这个时长认为快照「偏旧」，UI 需要标注数据时间；
-  // 注意：过期只影响提示，绝不阻止读取，离线永远返回快照
-  static readonly STALE_TTL: number = 24 * 60 * 60 * 1000;
+  // 快照「偏旧」的判定不走固定时长：写入时另存时间戳，UI 用 formatAgoText 显示「更新于 X 前」
 }

@@ -35,7 +35,7 @@ public class GlobalExceptionHandler {
         return ApiResponse.error(400, "请求参数错误");
     }
 
-    /** 缺少登录态（@RequestAttribute("userId") 绑定失败） */
+    /** 缺少登录态（@RequestAttribute 注入的 userId / adminId 绑定失败都走这里） */
     @ExceptionHandler(ServletRequestBindingException.class)
     public ApiResponse<Object> handleUnauthenticated(ServletRequestBindingException e) {
         log.warn("缺少登录态: {}", e.getMessage());
