@@ -40,9 +40,9 @@ interface ApiEndpoints {
 }
 
 /**
- * 默认后端地址。演示 / 换网络环境时改这里 —— 现场最常改的一行。
+ * 默认后端地址。演示 / 换网络环境时改这里 —— 现场最常改的一行，这里改成本地的运行端口和ip地址
  */
-const DEFAULT_API_BASE_URL: string = 'http://REMOVED:9000';
+const DEFAULT_API_BASE_URL: string = '';
 
 export class ApiConfig  {
 
