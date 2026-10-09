@@ -58,3 +58,6 @@ resume/
 # 个人学习文档（已迁至个人仓库，防误提交）
 docs/学习路线.md
 docs/交接-学习进行时.md
+
+# JiuwenSwarm runtime file operation logs
+.agent_history/

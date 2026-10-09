@@ -1,0 +1,34 @@
+<!-- AI生成 -->
+<!doctype html>
+<html lang="zh-CN" data-theme="teal" data-mode="light">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="轻心 · 情绪日记、心理自查与 AI 陪伴，一处安放你的心情" />
+    <title>轻心 · 你的情绪陪伴</title>
+    <script>
+      // 首屏前置：在样式生效前恢复主题，避免深浅色闪烁（FOUC）
+      (function () {
+        try {
+          var mode = localStorage.getItem('user_theme_mode') || 'auto'
+          var theme = localStorage.getItem('user_theme_id') || 'teal'
+          var dark =
+            mode === 'dark' ||
+            (mode === 'auto' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          var el = document.documentElement
+          el.setAttribute('data-theme', theme)
+          el.setAttribute('data-mode', dark ? 'dark' : 'light')
+        } catch (e) {
+          /* 忽略：极端情况下退回 index.html 上的默认主题 */
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
