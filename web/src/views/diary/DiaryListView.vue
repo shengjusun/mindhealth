@@ -66,7 +66,7 @@
       </AppEmpty>
 
       <div v-else class="list">
-        <article v-for="d in visible" :key="d.id" class="item">
+        <article v-for="(d, i) in visible" :key="d.id" class="item" v-reveal="i * 60">
           <div class="item__top">
             <AppTag :kind="emotionKind(d.emotion)" size="sm">
               {{ emotionEmoji(d.emotion) }} {{ d.emotion }}

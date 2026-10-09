@@ -18,7 +18,7 @@
       </header>
 
       <section class="entries">
-        <RouterLink v-for="e in entries" :key="e.to" :to="e.to" class="entry">
+        <RouterLink v-for="(e, i) in entries" :key="e.to" :to="e.to" class="entry" v-reveal="i * 70">
           <span class="entry__icon"><AppIcon :name="e.icon" :size="20" /></span>
           <span class="entry__text">
             <span class="entry__title">{{ e.title }}</span>

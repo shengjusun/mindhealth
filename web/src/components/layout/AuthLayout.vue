@@ -65,8 +65,10 @@ const POINTS = [
   justify-content: center;
   gap: var(--space-3xl);
   padding: var(--space-4xl) 8%;
-  background: var(--bg);
-  border-right: 1px solid var(--line);
+  background:
+    radial-gradient(58% 48% at 10% 6%, var(--primary-weak), transparent 60%),
+    radial-gradient(52% 46% at 96% 94%, var(--accent-weak), transparent 62%),
+    var(--bg);
 }
 .auth__brand {
   position: absolute;

@@ -27,7 +27,7 @@
         />
 
         <div v-else class="grid">
-          <article v-for="s in scales" :key="s.id" class="scale">
+          <article v-for="(s, i) in scales" :key="s.id" class="scale" v-reveal="i * 80">
             <div class="scale__top">
               <AppIcon name="clipboard" :size="18" />
               <span class="scale__version">v{{ s.version }}</span>

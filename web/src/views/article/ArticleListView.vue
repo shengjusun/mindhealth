@@ -48,10 +48,11 @@
 
       <div v-else class="grid">
         <RouterLink
-          v-for="a in visibleArticles"
+          v-for="(a, i) in visibleArticles"
           :key="a.id"
           :to="`/articles/${a.id}`"
           class="card"
+          v-reveal="i * 70"
         >
           <span v-if="a.category" class="card__cat">{{ a.category }}</span>
           <h2 class="card__title">{{ a.title }}</h2>
@@ -195,7 +196,7 @@ onMounted(async () => {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--space-l);
 }
 .card {

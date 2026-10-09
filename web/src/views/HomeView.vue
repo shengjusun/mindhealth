@@ -3,7 +3,7 @@
     <!-- Hero -->
     <section class="hero">
       <div class="container hero__inner">
-        <div class="hero__copy">
+        <div class="hero__copy" v-reveal>
           <AppTag kind="primary" icon="sparkles" size="md">温柔的情绪陪伴</AppTag>
           <h1 class="hero__title">
             把心情，<br />
@@ -29,7 +29,7 @@
           </p>
         </div>
 
-        <div class="hero__visual">
+        <div class="hero__visual" v-reveal.right>
           <div class="glass">
             <div class="glass__head">
               <span class="glass__label">今天的心情</span>
@@ -45,8 +45,8 @@
               <span class="glass__quote">{{ QUOTE }}</span>
             </div>
           </div>
-          <span class="hero__blob hero__blob--a"></span>
-          <span class="hero__blob hero__blob--b"></span>
+          <span class="hero__blob hero__blob--a" v-parallax="0.06"></span>
+          <span class="hero__blob hero__blob--b" v-parallax="-0.045"></span>
         </div>
       </div>
     </section>
@@ -55,8 +55,14 @@
     <section class="stats">
       <div class="container">
         <div class="stats__card">
-          <div v-for="s in stats" :key="s.label" class="stat">
-            <span class="stat__value" :class="{ 'stat__value--dim': s.dim }">{{ s.value }}</span>
+          <div v-for="(s, i) in stats" :key="s.label" class="stat" v-reveal="i * 70">
+            <AppCountUp
+              v-if="s.num !== undefined"
+              class="stat__value"
+              :value="s.num ?? 0"
+              :suffix="s.suffix"
+            />
+            <span v-else class="stat__value stat__value--dim">{{ s.text }}</span>
             <span class="stat__label">{{ s.label }}</span>
           </div>
         </div>
@@ -65,13 +71,13 @@
 
     <!-- 功能 -->
     <section class="block container">
-      <header class="block__head">
+      <header class="block__head" v-reveal>
         <h2 class="block__title">四件小事，慢慢照看自己</h2>
         <p class="block__sub">不需要一次做完，挑一件此刻愿意做的就好。</p>
       </header>
 
       <div class="features">
-        <RouterLink v-for="f in FEATURES" :key="f.to" :to="f.to" class="feature">
+        <RouterLink v-for="(f, i) in FEATURES" :key="f.to" :to="f.to" class="feature" v-reveal="i * 80" v-tilt="4">
           <span class="feature__icon"><AppIcon :name="f.icon" :size="22" /></span>
           <h3 class="feature__title">{{ f.title }}</h3>
           <p class="feature__desc">{{ f.desc }}</p>
@@ -86,12 +92,12 @@
     <!-- 三步 -->
     <section class="block steps-block">
       <div class="container">
-        <header class="block__head">
+        <header class="block__head" v-reveal>
           <h2 class="block__title">三步，认识此刻的自己</h2>
           <p class="block__sub">从记录到理解，是一段温柔的自我对话。</p>
         </header>
         <ol class="steps">
-          <li v-for="(s, i) in STEPS" :key="s.title" class="step">
+          <li v-for="(s, i) in STEPS" :key="s.title" class="step" v-reveal="i * 90">
             <span class="step__index">{{ i + 1 }}</span>
             <div class="step__body">
               <h3 class="step__title">{{ s.title }}</h3>
@@ -104,7 +110,7 @@
 
     <!-- 文章 -->
     <section class="block container">
-      <header class="block__head block__head--row">
+      <header class="block__head block__head--row" v-reveal>
         <div>
           <h2 class="block__title">读一点，心里松一点</h2>
           <p class="block__sub">来自轻心编辑部的精选内容。</p>
@@ -129,10 +135,11 @@
 
       <div v-else class="articles">
         <RouterLink
-          v-for="a in articles"
+          v-for="(a, i) in articles"
           :key="a.id"
           :to="`/articles/${a.id}`"
           class="article"
+          v-reveal="i * 80"
         >
           <AppTag v-if="a.category" kind="accent" size="sm">{{ a.category }}</AppTag>
           <h3 class="article__title">{{ a.title }}</h3>
@@ -148,7 +155,7 @@
 
     <!-- CTA -->
     <section class="cta container">
-      <div class="cta__card">
+      <div class="cta__card" v-reveal.scale>
         <div class="cta__text">
           <h2 class="cta__title">今天的心情，值得被记下</h2>
           <p class="cta__desc">哪怕只是一句话。轻心会替你把它们好好收着。</p>
@@ -172,6 +179,7 @@ import type { ArticleVO } from '../api/types'
 import { useAuthStore } from '../stores/auth'
 import { EMOTIONS, emotionKind, formatDate } from '../utils/format'
 import AppButton from '../components/ui/AppButton.vue'
+import AppCountUp from '../components/ui/AppCountUp.vue'
 import AppEmpty from '../components/ui/AppEmpty.vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 import AppSkeleton from '../components/ui/AppSkeleton.vue'
@@ -221,24 +229,31 @@ const scaleCount = ref(0)
 const diaryCount = ref(0)
 const resultCount = ref(0)
 
-const stats = computed(() => {
-  const isDim = (value: string) => value.startsWith('0') || value === '—'
-  const base = [
-    { label: '状态自查量表', value: scaleCount.value > 0 ? `${scaleCount.value} 份` : '—' },
-    { label: '精选文章', value: articles.value.length > 0 ? `${articles.value.length} 篇` : '—' },
+interface StatRow {
+  label: string
+  /** 可滚动展示的数字；没有则退回 text */
+  num?: number
+  suffix?: string
+  text?: string
+}
+
+const stats = computed<StatRow[]>(() => {
+  const rows: StatRow[] = [
+    scaleCount.value > 0
+      ? { label: '状态自查量表', num: scaleCount.value, suffix: ' 份' }
+      : { label: '状态自查量表', text: '—' },
+    articles.value.length > 0
+      ? { label: '精选文章', num: articles.value.length, suffix: ' 篇' }
+      : { label: '精选文章', text: '—' },
   ]
   if (auth.isLoggedIn) {
-    base.push(
-      { label: '我写过的日记', value: `${diaryCount.value} 篇` },
-      { label: '我做过的自查', value: `${resultCount.value} 次` },
-    )
+    rows.push({ label: '我写过的日记', num: diaryCount.value, suffix: ' 篇' })
+    rows.push({ label: '我做过的自查', num: resultCount.value, suffix: ' 次' })
   } else {
-    base.push(
-      { label: '情绪可记录种类', value: `${EMOTIONS.length} 种` },
-      { label: '树洞陪伴', value: '随时在线' },
-    )
+    rows.push({ label: '情绪可记录种类', num: EMOTIONS.length, suffix: ' 种' })
+    rows.push({ label: '树洞陪伴', text: '随时在线' })
   }
-  return base.map((s) => ({ ...s, dim: isDim(s.value) }))
+  return rows
 })
 
 onMounted(async () => {
@@ -311,7 +326,7 @@ onMounted(async () => {
   z-index: -1;
 }
 .hero__desc {
-  margin-top: var(--space-xl);
+  margin-top: var(--space-l);
   max-width: 520px;
   font-size: var(--font-xl);
   line-height: 2;
@@ -320,7 +335,7 @@ onMounted(async () => {
 .hero__actions {
   display: flex;
   gap: var(--space-m);
-  margin-top: var(--space-3xl);
+  margin-top: var(--space-2xl);
   flex-wrap: wrap;
 }
 .hero__hint {
@@ -342,7 +357,7 @@ onMounted(async () => {
   position: relative;
   z-index: 2;
   width: 100%;
-  max-width: 384px;
+  max-width: 430px;
   padding: var(--space-2xl);
   border-radius: var(--radius-2xl);
   background: var(--card);
@@ -435,6 +450,7 @@ onMounted(async () => {
   filter: blur(60px);
   opacity: 0.7;
   z-index: 1;
+  animation: qh-breathe 11s ease-in-out infinite;
 }
 .hero__blob--a {
   width: 250px;
@@ -449,6 +465,7 @@ onMounted(async () => {
   bottom: -64px;
   left: -4%;
   background: var(--accent-weak);
+  animation-delay: -5.5s;
 }
 
 /* ---------------------------------------------------------------- 数据条 */
@@ -456,6 +473,8 @@ onMounted(async () => {
   padding-top: var(--space-4xl);
 }
 .stats__card {
+  position: relative;
+  overflow: hidden;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   padding: var(--space-2xl) var(--space-l);
@@ -463,6 +482,13 @@ onMounted(async () => {
   background: var(--card);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-md), inset 0 1px 0 var(--glass-sheen);
+}
+.stats__card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
 }
 .stat {
   position: relative;
@@ -485,15 +511,9 @@ onMounted(async () => {
   font-size: var(--font-stat);
   font-weight: 800;
   letter-spacing: -0.01em;
-  background: linear-gradient(180deg, var(--primary), color-mix(in srgb, var(--primary) 82%, #000));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+  color: var(--primary);
 }
 .stat__value--dim {
-  background: none;
-  -webkit-text-fill-color: var(--text-3);
   color: var(--text-3);
 }
 .stat__label {
@@ -559,19 +579,29 @@ onMounted(async () => {
     box-shadow var(--motion-normal) var(--ease-standard);
 }
 .feature:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
   border-color: var(--primary-border);
   box-shadow: var(--shadow-md);
+}
+.feature:hover .feature__icon {
+  transform: translateY(-2px) scale(1.06) rotate(-3deg);
 }
 .feature__icon {
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   border-radius: var(--radius-md);
-  background: linear-gradient(160deg, var(--primary-weak2), var(--primary-weak));
-  color: var(--primary);
-  box-shadow: inset 0 1px 0 var(--glass-sheen);
+  background: linear-gradient(150deg, var(--primary), var(--primary-pressed));
+  color: var(--primary-contrast);
+  box-shadow: var(--shadow-glow);
+  transition: transform var(--motion-normal) var(--ease-spring);
+}
+.feature:hover .feature__more {
+  gap: 10px;
+}
+.feature__more {
+  transition: gap var(--motion-fast) var(--ease-standard);
 }
 .feature__title {
   font-size: var(--font-xl);
@@ -667,6 +697,10 @@ onMounted(async () => {
 .article__title {
   font-size: var(--font-xl);
   line-height: 1.5;
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+.article:hover .article__title {
+  color: var(--primary);
 }
 .article__summary {
   flex: 1;

@@ -1,0 +1,154 @@
+/* =============================================================================
+ * 动效系统 Motion System
+ * -----------------------------------------------------------------------------
+ * 原则：动效只服务「理解」与「手感」，不做装饰性炫技。
+ *   · 入场：滚动进入视口时淡入 + 轻微上移，列表按索引错峰（stagger）
+ *   · 反馈：悬停/按下给 140~240ms 的即时回应
+ *   · 时长与曲线全部走 tokens，页面不写死
+ * 无障碍：prefers-reduced-motion 下直接落到终态，不做位移与淡入。
+ * ========================================================================== */
+
+:root {
+  --reveal-distance: 18px;
+  --reveal-duration: 640ms;
+  --stagger-step: 70ms;
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ---------------------------------------------------------------- 滚动揭示 */
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, var(--reveal-distance), 0);
+  transition:
+    opacity var(--reveal-duration) var(--ease-emphasized),
+    transform var(--reveal-duration) var(--ease-emphasized);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.reveal--in {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+/* 方向变体 */
+.reveal--left {
+  transform: translate3d(calc(var(--reveal-distance) * -1.4), 0, 0);
+}
+.reveal--right {
+  transform: translate3d(calc(var(--reveal-distance) * 1.4), 0, 0);
+}
+.reveal--scale {
+  transform: scale(0.965);
+}
+.reveal--fade {
+  transform: none;
+}
+
+/* 位移距离档位 */
+.reveal--sm {
+  --reveal-distance: 10px;
+}
+.reveal--lg {
+  --reveal-distance: 28px;
+}
+
+/* ---------------------------------------------------------------- 关键帧 */
+@keyframes qh-fade-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes qh-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 氛围光缓慢呼吸：给首屏一点"活着"的感觉，幅度极小不抢注意力 */
+/* 只动 opacity，不动 transform —— 否则会和 v-parallax 写的内联 transform 打架 */
+@keyframes qh-breathe {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+@keyframes qh-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 var(--primary-weak2);
+  }
+  70% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* 骨架屏微光扫过 */
+@keyframes qh-shimmer {
+  from {
+    background-position: -160% 0;
+  }
+  to {
+    background-position: 260% 0;
+  }
+}
+
+@keyframes qh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------------------------------------------------------- 组合工具类 */
+.anim-fade-up {
+  animation: qh-fade-up var(--reveal-duration) var(--ease-emphasized) both;
+}
+.anim-pop {
+  animation: qh-pop 520ms var(--ease-spring) both;
+}
+.anim-breathe {
+  animation: qh-breathe 9s ease-in-out infinite;
+}
+
+/* 揭示完成后，数字做一个轻微的"弹入"，强调数据感 */
+.reveal--in .anim-on-reveal {
+  animation: qh-pop 560ms var(--ease-spring) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+/* ---------------------------------------------------------------- 无障碍 */
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    will-change: auto;
+  }
+  .anim-fade-up,
+  .anim-pop,
+  .anim-breathe,
+  .reveal--in .anim-on-reveal {
+    animation: none;
+  }
+}
