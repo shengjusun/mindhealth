@@ -1,5 +1,6 @@
 import { ApiConfig  } from '../../common/constants/apiConfig'
 import { Logger } from '../../common/utils/Logger'
+import { ErrorText } from '../../common/utils/ErrorText'
 import { http } from '@kit.NetworkKit'
 import { fileIo } from '@kit.CoreFileKit'
 
@@ -18,6 +19,9 @@ import { fileIo } from '@kit.CoreFileKit'
  *
  * 边界：登录链路因为要处理 token 落盘，AuthService 自己也会创建 http
  * （见 core/auth/AppAuthService.ets），并非全项目只有本文件发请求。
+ *
+ * 错误文案：本层抛出的 Error.message 一律取 ErrorText 的人类可读文案，
+ * 不再把「请求失败: 500」这类原始状态码直接抛给页面（用户看到的是人话）。
  */
 
 // 日志标签，用来标记日志来自 ApiService 模块
@@ -138,7 +142,7 @@ export class ApiService {
             // err 表示网络层异常，比如 IP 不通、后端没启动、连接超时等
             if (err) {
               Logger.error(TAG, `请求失败: ${JSON.stringify(err)}`)
-              reject(new Error(`请求失败: ${err.message || '未知错误'}`))
+              reject(new Error(ErrorText.network()))
               return
             }
 
@@ -163,7 +167,7 @@ export class ApiService {
               } catch (parseError) {
                 // JSON 解析失败，说明后端返回结构可能不是预期 JSON
                 Logger.error(TAG, `解析响应失败: ${JSON.stringify(parseError)}`)
-                reject(new Error('解析响应失败'))
+                reject(new Error(ErrorText.parse()))
               }
             } else {
               const httpCode: number = response.responseCode
@@ -183,11 +187,11 @@ export class ApiService {
                 } else {
                   Logger.warn(TAG, `登录态已失效（HTTP ${httpCode}），触发统一登出`)
                   this.authExpiredHandler?.()
-                  reject(new Error('登录已过期，请重新登录'))
+                  reject(new Error(ErrorText.loginExpired()))
                 }
               } else {
                 Logger.error(TAG, `请求失败: ${httpCode}`)
-                reject(new Error(`请求失败: ${httpCode}`))
+                reject(new Error(ErrorText.byHttpCode(httpCode)))
               }
             }
           } finally {
@@ -200,7 +204,7 @@ export class ApiService {
         httpRequest?.destroy()
         const err = error as Error
         Logger.error(TAG, `请求异常: ${err.message}`)
-        reject(err)
+        reject(new Error(ErrorText.request()))
       }
     })
   }
@@ -366,7 +370,7 @@ export class ApiService {
           try {
             if (err) {
               Logger.error(TAG, `上传失败: ${JSON.stringify(err)}`)
-              reject(new Error(`上传失败: ${err.message || '未知错误'}`))
+              reject(new Error(ErrorText.network()))
               return
             }
 
@@ -377,7 +381,7 @@ export class ApiService {
                 resolve(result)
               } catch (parseError) {
                 Logger.error(TAG, `解析响应失败: ${JSON.stringify(parseError)}`)
-                reject(new Error('解析响应失败'))
+                reject(new Error(ErrorText.parse()))
               }
             } else {
               const httpCode: number = response.responseCode
@@ -393,13 +397,13 @@ export class ApiService {
                 } else {
                   Logger.warn(TAG, `登录态已失效（HTTP ${httpCode}），触发统一登出`)
                   this.authExpiredHandler?.()
-                  reject(new Error('登录已过期，请重新登录'))
+                  reject(new Error(ErrorText.loginExpired()))
                 }
                 return
               }
 
               Logger.error(TAG, `上传失败: ${httpCode}, result=${response.result}`)
-              reject(new Error(`上传失败: ${httpCode}`))
+              reject(new Error(ErrorText.byHttpCode(httpCode)))
             }
           } finally {
             httpRequest?.destroy()
@@ -409,7 +413,7 @@ export class ApiService {
         httpRequest?.destroy()
         const err = error as Error
         Logger.error(TAG, `上传异常: ${err.message}`)
-        reject(err)
+        reject(new Error(ErrorText.action()))
       }
     })
   }
@@ -451,12 +455,12 @@ export class ApiService {
 
   // 单条测评结果：用于轮询 AI 解读的生成进度
   async getAssessmentResult(id: number): Promise<ApiResponse<Object>> {
-    return this.get<Object>(`${ApiConfig.ENDPOINTS.ASSESSMENT_RESULT_DETAIL}/${id}`)
+    return this.get<Object>(`${ApiConfig .ENDPOINTS.ASSESSMENT_RESULT_DETAIL}/${id}`)
   }
 
   // 重试生成 AI 解读（首次失败时用）
   async retriggerAssessmentAi(id: number): Promise<ApiResponse<Object>> {
-    return this.post<Object>(`${ApiConfig.ENDPOINTS.ASSESSMENT_RESULT_DETAIL}/${id}/analyze`)
+    return this.post<Object>(`${ApiConfig .ENDPOINTS.ASSESSMENT_RESULT_DETAIL}/${id}/analyze`)
   }
 
 

@@ -8,6 +8,7 @@
  */
 import { preferences } from '@kit.ArkData'
 import { Logger } from '../../common/utils/Logger'
+import { ErrorText } from '../../common/utils/ErrorText'
 import { common } from '@kit.AbilityKit'
 import { http } from '@kit.NetworkKit'
 import { ApiConfig  } from '../../common/constants/apiConfig'
@@ -122,8 +123,9 @@ export class AuthService {
       // 再统一处理登录结果
       await this.handleLoginResult(result, callback)
     } catch (error) {
-      const errorMsg = `登录流程异常: ${JSON.stringify(error)}`
-      Logger.error(TAG, errorMsg)
+      // 走到这里说明是流程级异常（非后端业务失败）：只记日志，对用户给通用文案
+      const errorMsg = ErrorText.request()
+      Logger.error(TAG, `登录流程异常: ${JSON.stringify(error)}`)
       callback?.(false, undefined, errorMsg)
     }
   }
@@ -167,7 +169,7 @@ export class AuthService {
       if (response.responseCode !== 200) {
         return {
           success: false,
-          error: `服务器错误: ${response.responseCode}`
+          error: ErrorText.byHttpCode(response.responseCode)
         }
       }
 
@@ -200,7 +202,7 @@ export class AuthService {
       Logger.error(TAG, `登录请求异常: ${JSON.stringify(error)}`)
       return {
         success: false,
-        error: `网络错误: ${JSON.stringify(error)}`
+        error: ErrorText.network()
       }
     } finally {
       try {
@@ -227,8 +229,11 @@ export class AuthService {
       // 第二步、第三步与官方组件回调路径共用同一套逻辑
       await this.loginWithHuaweiCode(authorizationCode, callback)
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : `华为登录流程异常: ${JSON.stringify(error)}`
-      Logger.error(TAG, `华为登录失败: ${errorMsg}`)
+      // 授权组件抛出的 Error 自带可读 message（如用户取消授权）优先透出，
+      // 只有拿不到 message 时才回退通用文案
+      const hasReadable: boolean = error instanceof Error && !!error.message
+      const errorMsg = hasReadable ? (error as Error).message : ErrorText.request()
+      Logger.error(TAG, `华为登录失败: ${JSON.stringify(error)}`)
       callback?.(false, undefined, errorMsg)
     }
   }
@@ -248,9 +253,8 @@ export class AuthService {
       const result = await this.requestHuaweiLogin(authorizationCode.trim())
       await this.handleLoginResult(result, callback)
     } catch (error) {
-      const errorMsg = `华为登录流程异常: ${JSON.stringify(error)}`
-      Logger.error(TAG, errorMsg)
-      callback?.(false, undefined, errorMsg)
+      Logger.error(TAG, `华为登录流程异常: ${JSON.stringify(error)}`)
+      callback?.(false, undefined, ErrorText.request())
     }
   }
 
@@ -273,7 +277,7 @@ export class AuthService {
       })
 
       if (response.responseCode !== 200) {
-        return { success: false, error: `服务器错误: ${response.responseCode}` }
+        return { success: false, error: ErrorText.byHttpCode(response.responseCode) }
       }
 
       const result: LoginResponse = JSON.parse(response.result as string)
@@ -290,7 +294,7 @@ export class AuthService {
       return { success: false, error: result.message || '华为登录失败' }
     } catch (error) {
       Logger.error(TAG, `华为登录请求异常: ${JSON.stringify(error)}`)
-      return { success: false, error: `网络错误: ${JSON.stringify(error)}` }
+      return { success: false, error: ErrorText.network() }
     } finally {
       try {
         httpRequest.destroy()

@@ -8,6 +8,7 @@ import { ApiService } from '../../core/api/ApiService'
 import { brand, ShadowStyle, Dimension, FontLevel } from '../../common/constants/Theme'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 import { ApiConfig } from '../../common/constants/apiConfig'
+import { ErrorText } from '../../common/utils/ErrorText'
 
 const TAG = 'ProfileEditPage'
 
@@ -394,13 +395,18 @@ export struct ProfileEditPage {
         // 避免请求回来后把用户刚输入的内容冲掉
         const canOverwriteForm: boolean = !this.hasFormChanged()
 
+        // 头像只可能来自「上传」，页面没有让用户手改 URL 的入口，因此它和表单脏状态无关：
+        // 必须始终按后端最新值回显。否则「先改昵称/签名，再换头像」时会被下面的守卫挡掉，
+        // 出现「提示上传成功、页面却还是旧头像」的假成功。
+        // 注意顺序：先应用头像，再在可覆盖时 syncOriginalForm，保证原始值抓到的是新头像。
+        this.avatarUrl = displayAvatar
+
         if (canOverwriteForm) {
           this.userName = user.nickname ? user.nickname : ''
           this.userPhone = user.phone ? user.phone : ''
           this.userAge = user.age !== undefined ? String(user.age) : ''
           this.userGender = this.normalizeGenderForDisplay(user.gender ? String(user.gender) : '')
           this.userSignature = user.signature ? user.signature : ''
-          this.avatarUrl = displayAvatar
 
           // 当前表单加载完成后，记录一份原始值
           this.syncOriginalForm()
@@ -427,14 +433,7 @@ export struct ProfileEditPage {
       }
     } catch (error) {
       Logger.error(TAG, `加载用户信息失败: ${JSON.stringify(error)}`)
-      AlertDialog.show({
-        title: '提示',
-        message: '加载用户信息失败，请稍后重试',
-        primaryButton: {
-          value: '知道了',
-          action: () => {}
-        }
-      })
+      ToastUtil.show(ErrorText.network())
     }
   }
 
@@ -449,14 +448,7 @@ export struct ProfileEditPage {
 
       // 未登录不能更换头像
       if (!userInfo || !userInfo.isLoggedIn) {
-        AlertDialog.show({
-          title: '提示',
-          message: '请先登录后再更换头像',
-          primaryButton: {
-            value: '知道了',
-            action: () => {}
-          }
-        })
+        ToastUtil.show('请先登录后再更换头像')
         return
       }
 
@@ -472,36 +464,16 @@ export struct ProfileEditPage {
       if (result.success) {
         // 上传成功后重新从后端拉取用户信息
         // 这样可以拿到后端保存后的头像路径
-        await this.loadUserInfo()
+        // 传 true 强制给头像 URL 加时间戳：即使后端文件名未变，也能破系统图片缓存（双保险）
+        await this.loadUserInfo(true)
 
-        AlertDialog.show({
-          title: '成功',
-          message: '头像上传成功',
-          primaryButton: {
-            value: '好的',
-            action: () => {}
-          }
-        })
+        ToastUtil.show('头像上传成功')
       } else {
-        AlertDialog.show({
-          title: '失败',
-          message: result.errorMessage || '头像上传失败，请稍后重试',
-          primaryButton: {
-            value: '知道了',
-            action: () => {}
-          }
-        })
+        ToastUtil.show(result.errorMessage || '头像上传失败，请稍后重试')
       }
     } catch (error) {
       Logger.error(TAG, `更换头像失败: ${JSON.stringify(error)}`)
-      AlertDialog.show({
-        title: '错误',
-        message: '操作失败，请稍后重试',
-        primaryButton: {
-          value: '知道了',
-          action: () => {}
-        }
-      })
+      ToastUtil.show(ErrorText.action())
     }
   }
 
@@ -852,34 +824,13 @@ export struct ProfileEditPage {
           return
         }
 
-        AlertDialog.show({
-          title: '保存成功',
-          message: '个人信息已更新',
-          primaryButton: {
-            value: '好的',
-            action: () => {}
-          }
-        })
+        ToastUtil.show('个人信息已更新')
       } else {
-        AlertDialog.show({
-          title: '保存失败',
-          message: res.message ? res.message : '更新失败，请稍后重试',
-          primaryButton: {
-            value: '知道了',
-            action: () => {}
-          }
-        })
+        ToastUtil.show(res.message ? res.message : '更新失败，请稍后重试')
       }
     } catch (error) {
       Logger.error(TAG, `保存个人信息失败: ${JSON.stringify(error)}`)
-      AlertDialog.show({
-        title: '保存失败',
-        message: '网络好像不太顺畅，稍后再试试',
-        primaryButton: {
-          value: '知道了',
-          action: () => {}
-        }
-      })
+      ToastUtil.show(ErrorText.network())
     } finally {
       // 无论保存成功还是失败，都结束保存状态
       this.isSaving = false

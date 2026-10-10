@@ -23,6 +23,10 @@
       {
         "name": "EntryAbility",
         "srcEntry": "./ets/entryability/EntryAbility.ets",
+        // 应用接续（跨端迁移）：不声明则系统视为「不可迁移」，对端连接续入口都不出现
+        "continuable": true,
+        // 接续推荐单实例：保证对端走 onNewWant（热启动）而不是新开实例，避免多实例数据不一致
+        "launchType": "singleton",
         "description": "$string:EntryAbility_desc",
         "icon": "$media:layered_image",
         "label": "$string:EntryAbility_label",
@@ -58,6 +62,10 @@
     "requestPermissions": [
       {
         "name": "ohos.permission.INTERNET"
+      },
+      {
+        // 读取网络连接状态：用于把「请求失败」区分为「断网」还是「网络/服务侧问题」
+        "name": "ohos.permission.GET_NETWORK_INFO"
       },
       {
         "name": "ohos.permission.READ_MEDIA",

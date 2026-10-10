@@ -1,4 +1,4 @@
-import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want, wantConstant } from '@kit.AbilityKit';
 import { Logger } from '../common/utils/Logger'
 import { display, window } from '@kit.ArkUI';
 import { AuthService } from '../core/auth/AppAuthService';
@@ -8,6 +8,7 @@ import { SnapshotRepository } from '../core/repository/SnapshotRepository';
 import { appState, resetRoute } from '../common/state/AppState';
 import { AppSettings } from '../common/utils/AppSettings';
 import { ApiConfig, setApiBaseUrl } from '../common/constants/apiConfig';
+import { CONTINUE_KEY, ContinueState, isContinuationLaunch, packContinueState, unpackContinueState } from '../common/utils/ContinueState';
 
 const TAG = 'EntryAbility';
 
@@ -26,28 +27,119 @@ class EntryAvoidArea {
 }
 
 export default class EntryAbility extends UIAbility {
+  /**
+   * 源端搬过来的接续状态，先暂存在这里。
+   *
+   * 【为什么不直接在 onCreate 里写 appState()】
+   * onCreate 早于 UI 建立，而主题还要等 initAndLoadPage 从本机 Preferences 读回来
+   * （异步，见 143 行附近）。若在 onCreate 就落值，会被那次读取覆盖掉。
+   * 所以这里只「解包暂存」，真正落值放到「读回本机偏好之后」，避开这个竞态。
+   */
+  private pendingContinue: ContinueState | null = null
+
+  /**
+   * loadContent 幂等保护。
+   * 正常启动走 onWindowStageCreate、接续启动走 onWindowStageRestore，两者理论上互斥；
+   * 但兜底起见：万一两个都走到，loadContent 也绝不能执行两次。
+   */
+  private pageLoaded: boolean = false
+
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     try {
       this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
     } catch (err) {
       Logger.error(TAG, 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
+
+    // 接续（冷启动 / 多实例热启动）：只解包暂存，落值在 initAndLoadPage 里做
+    if (isContinuationLaunch(launchParam)) {
+      this.pendingContinue = unpackContinueState(want)
+      Logger.warn(TAG, `onCreate: 接续启动，已解析=${this.pendingContinue !== null}`);
+    }
+
     Logger.info(TAG, '%{public}s', 'Ability onCreate');
+  }
+
+  /**
+   * 单实例热启动：对端本来就开着这个 App 时接续过来走这里（launchType=singleton）。
+   * 此时 UI 已就绪，可以直接落值。
+   */
+  onNewWant(want: Want, launchParams: AbilityConstant.LaunchParam): void {
+    if (!isContinuationLaunch(launchParams)) {
+      return;
+    }
+
+    const state: ContinueState | null = unpackContinueState(want);
+    if (state === null) {
+      Logger.warn(TAG, 'onNewWant: 接续启动但数据不可用，按普通启动处理');
+      return;
+    }
+
+    appState().mainTabIndex = state.mainTabIndex;
+    appState().themeId = state.themeId;
+    // 主题同时写回本机偏好，否则用户下次冷启动又变回本机旧主题
+    AppSettings.setString(this.context, 'themeId', state.themeId);
+
+    // 本方案只接力到「主 Tab」：把可能残留的二级页面清掉，
+    // 否则对端可能停在上次没退出的详情/编辑页，接续过去看到的是个中间态。
+    resetRoute('MainPage');
+
+    Logger.warn(TAG, `onNewWant: 接续恢复 tab=${state.mainTabIndex}, theme=${state.themeId}`);
+  }
+
+  /**
+   * 源端：系统发起接续时回调。在这里打包要搬走的数据，并决定同不同意迁移。
+   * 返回值：AGREE 同意 / REJECT 拒绝 / MISMATCH 版本不匹配。
+   */
+  onContinue(wantParam: Record<string, Object>): AbilityConstant.OnContinueResult {
+    const logged: boolean = AuthService.getInstance().isLoggedIn();
+    Logger.warn(TAG, `onContinue: isLoggedIn=${logged}`);
+
+    if (!logged) {
+      // 源端自己都没登录，没有「当前位置」值得接力 —— 直接拒绝，
+      // 免得把用户送到对端一个必须先登录的空壳里。
+      return AbilityConstant.OnContinueResult.REJECT;
+    }
+
+    // ⭐ 关掉系统默认的「页面栈迁移」（默认 true = 自动把源端页面栈迁到对端）。
+    //   ① 语义上就不该迁 —— 本方案只接力到主 Tab，二级页（编辑/新建）过去是空白中间态；
+    //   ② 实测默认的页面栈恢复会让**对端卡死在启动窗口**：
+    //      对端 onCreate 之后 onWindowStageCreate 不会被调用 → loadContent 不执行 →
+    //      系统报 SetUIContent timeout → WINDOW_FROZEN_DETECTION（双真机复现）。
+    //   关掉后对端走普通冷启动：Index 自己建栈 push MainPage，再按接续来的 tabIndex 切 Tab。
+    wantParam[wantConstant.Params.SUPPORT_CONTINUE_PAGE_STACK_KEY] = false;
+
+    wantParam[CONTINUE_KEY] = packContinueState();
+    return AbilityConstant.OnContinueResult.AGREE;
   }
 
   onDestroy(): void {
     Logger.info(TAG, '%{public}s', 'Ability onDestroy');
   }
 
-  onWindowStageCreate(windowStage: window.WindowStage): void {
-    // Main window is created, set main page for this ability
-    Logger.info(TAG, '%{public}s', 'Ability onWindowStageCreate');
+  /**
+   * 窗口阶段初始化 —— onWindowStageCreate 与 onWindowStageRestore **共用**的收口。
+   *
+   * ⭐⭐ 这是接续卡启动页的**真正根因**：
+   * SDK 注释原文（UIAbility.d.ts:415）——应用因迁移（接续）启动时，系统触发的是
+   * **onWindowStageRestore() 而不是 onWindowStageCreate()**。
+   * 如果只在 Create 里 loadContent，接续到另一台设备时对端永远不会执行 loadContent
+   * → 界面卡死在启动窗口（系统报 SetUIContent timeout + WINDOW_FROZEN_DETECTION）。
+   * 所以两个回调必须走同一套初始化，这里就是那个收口。
+   */
+  private setupWindowStage(windowStage: window.WindowStage): void {
+    Logger.warn(TAG, 'setupWindowStage: start');
 
-    // 在 loadContent 之前先同步一次：让首帧 build 就能读到避让区，避免第一帧按 0 布局、
-    // 第二帧才跳到真实高度（视觉上是一次抖动）。
-    // 此时全屏尚未生效，值可能偏小——全屏回调里会再同步一次真实值。
-    this.syncAvoidAreas(windowStage.getMainWindowSync());
-    // 同理：首帧就得知道深色模式，否则品牌色会取错那一套色板
+    // ⚠️ getMainWindowSync() 在窗口尚未就绪时会抛异常（编译器提示 "may throw"）。
+    //    接续启动的窗口时序与正常启动不同，这里不能让异常中断后续 loadContent。
+    //    拿不到就跳过这次预同步，下面异步 getMainWindow 回调里会再做完整同步。
+    try {
+      this.syncAvoidAreas(windowStage.getMainWindowSync());
+    } catch (err) {
+      Logger.error(TAG, 'getMainWindowSync failed, skip pre-sync (async will sync): %{public}s', JSON.stringify(err));
+    }
+
+    // 首帧就得知道深色模式，否则品牌色会取错那一套色板
     this.syncColorMode();
 
     // 设置全屏模式
@@ -56,7 +148,7 @@ export default class EntryAbility extends UIAbility {
         Logger.error(TAG, 'Failed to obtain the main window. Cause: %{public}s', JSON.stringify(err));
         return;
       }
-      
+
       try {
         // 设置全屏模式 - 隐藏状态栏和导航栏
         mainWindow.setWindowLayoutFullScreen(true);
@@ -81,7 +173,33 @@ export default class EntryAbility extends UIAbility {
       }
     });
 
+    // 幂等保护：loadContent 只允许执行一次（见 pageLoaded 注释）
+    if (this.pageLoaded) {
+      Logger.warn(TAG, 'setupWindowStage: 页面已加载，跳过重复 loadContent');
+      return;
+    }
+    this.pageLoaded = true;
+
+    // 哨兵：这行出现 = loadContent 一定会被调用
+    Logger.warn(TAG, 'setupWindowStage: about to initAndLoadPage');
     this.initAndLoadPage(windowStage);
+  }
+
+  onWindowStageCreate(windowStage: window.WindowStage): void {
+    // Main window is created, set main page for this ability（正常启动走这里）
+    Logger.info(TAG, '%{public}s', 'Ability onWindowStageCreate');
+    // 接续调试期临时用 warn（info 在 release 构建里被 Logger 的 debug 开关吞掉，hilog 里看不到）
+    Logger.warn(TAG, 'onWindowStageCreate: start');
+    this.setupWindowStage(windowStage);
+  }
+
+  /**
+   * ⭐ 应用接续（迁移）启动时，系统走这里而**不是** onWindowStageCreate —— 见 setupWindowStage 注释。
+   */
+  onWindowStageRestore(windowStage: window.WindowStage): void {
+    Logger.info(TAG, '%{public}s', 'Ability onWindowStageRestore');
+    Logger.warn(TAG, 'onWindowStageRestore: start');
+    this.setupWindowStage(windowStage);
   }
 
   /**
@@ -129,7 +247,9 @@ export default class EntryAbility extends UIAbility {
     try {
       // 后端地址允许现场临时覆盖（演示时换网络不必重新打包）：
       // 读 Preferences 的 api_base_url，读不到就回退 apiConfig 里的默认值。
-      // 必须放在最前面 —— ApiService 是单例，一旦被 getInstance() 创建就会按当时的地址发请求。
+      // 必须放在最前面 —— ApiService 每次发请求时才现读 ApiConfig.API_BASE_URL
+      // （ApiService 有意不把地址缓存到字段，见 ApiService.ets 顶部注释），
+      // 所以要保证「第一个请求发出之前」地址已经就位，否则请求会打到默认/错误地址。
       setApiBaseUrl(await AppSettings.getString(this.context, 'api_base_url', ''));
       Logger.info(TAG, `后端地址: ${ApiConfig.API_BASE_URL}`);
 
@@ -139,6 +259,18 @@ export default class EntryAbility extends UIAbility {
       // 恢复用户选择的主题。必须在 loadContent 之前：晚于首帧再改会让页面
       // 先用默认色渲染、再跳成用户主题，肉眼可见地闪一下。
       appState().themeId = await AppSettings.getString(this.context, 'themeId', 'misty');
+
+      // 接续（冷启动）：把源端搬过来的状态「盖」在本机偏好之上。
+      // 位置很关键 —— 必须在上一步「读回本机主题」之后，反了会被本机旧值覆盖。
+      if (this.pendingContinue !== null) {
+        const cont: ContinueState = this.pendingContinue as ContinueState;
+        this.pendingContinue = null;
+        appState().mainTabIndex = cont.mainTabIndex;
+        appState().themeId = cont.themeId;
+        // 同时写回本机偏好，否则用户下次冷启动又变回本机旧主题
+        await AppSettings.setString(this.context, 'themeId', cont.themeId);
+        Logger.warn(TAG, `接续恢复(冷启动): tab=${cont.mainTabIndex}, theme=${cont.themeId}`);
+      }
 
       // 量表题库：注入 Context，保证断网时能读本地缓存 / rawfile 内置题库
       const scaleRepo = ScaleRepository.getInstance();

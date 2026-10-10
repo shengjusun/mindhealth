@@ -40,7 +40,11 @@ export struct MainPage {
   }
 
   build() {
-    HdsTabs({ controller: this.tabsController }) {
+    // index 必须显式绑上 state.mainTabIndex：
+    // 下面的 @Monitor 只在值「发生变化」时触发，管不了「创建时就非 0」的情况
+    // （应用接续把 tabIndex 预设好再交给本页，正属于这种）。缺了它，
+    // 接续过去会停在首页 —— 是那种「连上了但没切 Tab」的隐性 bug。
+    HdsTabs({ controller: this.tabsController, index: this.state.mainTabIndex }) {
       TabContent() {
         HomeView()
       }

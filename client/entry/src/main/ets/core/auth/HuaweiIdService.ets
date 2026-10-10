@@ -32,7 +32,8 @@ export class HuaweiIdService {
     if (code === 1001502005) {
       return '网络异常，请检查网络后重试'
     }
-    return `华为账号授权失败(${code})，请稍后重试`
+    // 未知错误码兜底：不把原始 code 抛给用户，只给可读文案（code 已在上方 Logger 记录）
+    return '华为账号授权失败，请稍后重试'
   }
   /**
    * 诊断：读取包内 module.json5 的 client_id metadata
