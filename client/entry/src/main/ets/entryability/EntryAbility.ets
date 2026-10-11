@@ -8,7 +8,7 @@ import { SnapshotRepository } from '../core/repository/SnapshotRepository';
 import { appState, resetRoute } from '../common/state/AppState';
 import { AppSettings } from '../common/utils/AppSettings';
 import { ApiConfig, setApiBaseUrl } from '../common/constants/apiConfig';
-import { CONTINUE_KEY, ContinueState, isContinuationLaunch, packContinueState, unpackContinueState } from '../common/utils/ContinueState';
+import { cardTargetToTab, CONTINUE_KEY, ContinueState, isStateRestoreLaunch, packContinueState, unpackContinueState } from '../common/utils/ContinueState';
 
 const TAG = 'EntryAbility';
 
@@ -51,10 +51,16 @@ export default class EntryAbility extends UIAbility {
       Logger.error(TAG, 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
 
-    // 接续（冷启动 / 多实例热启动）：只解包暂存，落值在 initAndLoadPage 里做
-    if (isContinuationLaunch(launchParam)) {
+    // 接续 / 故障恢复（冷启动）：只解包暂存，落值在 initAndLoadPage 里做
+    if (isStateRestoreLaunch(launchParam)) {
       this.pendingContinue = unpackContinueState(want)
-      Logger.warn(TAG, `onCreate: 接续启动，已解析=${this.pendingContinue !== null}`);
+      Logger.warn(TAG, `onCreate: 恢复启动（接续/故障恢复），已解析=${this.pendingContinue !== null}`);
+    } else {
+      // 服务卡片快捷入口（冷启动）：与接续共用同一条「落到指定 Tab」的通道
+      this.pendingContinue = this.readCardTarget(want)
+      if (this.pendingContinue !== null) {
+        Logger.warn(TAG, `onCreate: 卡片快捷入口 → tab=${this.pendingContinue.mainTabIndex}`);
+      }
     }
 
     Logger.info(TAG, '%{public}s', 'Ability onCreate');
@@ -65,13 +71,19 @@ export default class EntryAbility extends UIAbility {
    * 此时 UI 已就绪，可以直接落值。
    */
   onNewWant(want: Want, launchParams: AbilityConstant.LaunchParam): void {
-    if (!isContinuationLaunch(launchParams)) {
-      return;
+    // 两个来源共用一条落地通道：接续/故障恢复走 wantParam，卡片走 cardTarget
+    let state: ContinueState | null = null
+    if (isStateRestoreLaunch(launchParams)) {
+      state = unpackContinueState(want)
+      if (state === null) {
+        Logger.warn(TAG, 'onNewWant: 恢复启动但数据不可用，按普通启动处理');
+        return;
+      }
+    } else {
+      state = this.readCardTarget(want)
     }
 
-    const state: ContinueState | null = unpackContinueState(want);
     if (state === null) {
-      Logger.warn(TAG, 'onNewWant: 接续启动但数据不可用，按普通启动处理');
       return;
     }
 
@@ -80,11 +92,32 @@ export default class EntryAbility extends UIAbility {
     // 主题同时写回本机偏好，否则用户下次冷启动又变回本机旧主题
     AppSettings.setString(this.context, 'themeId', state.themeId);
 
-    // 本方案只接力到「主 Tab」：把可能残留的二级页面清掉，
-    // 否则对端可能停在上次没退出的详情/编辑页，接续过去看到的是个中间态。
-    resetRoute('MainPage');
+    // 未登录时不能把 MainPage 压到登录页上面 —— 那会让人不登录就看到主界面
+    if (AuthService.getInstance().isLoggedIn()) {
+      // 本方案只接力到「主 Tab」：把可能残留的二级页面清掉，
+      // 否则对端可能停在上次没退出的详情/编辑页，接续过去看到的是个中间态。
+      resetRoute('MainPage');
+    }
 
-    Logger.warn(TAG, `onNewWant: 接续恢复 tab=${state.mainTabIndex}, theme=${state.themeId}`);
+    Logger.warn(TAG, `onNewWant: 恢复/卡片跳转 tab=${state.mainTabIndex}, theme=${state.themeId}`);
+  }
+
+  /**
+   * 服务卡片快捷入口：读 want 里的 cardTarget，转成「落哪个 Tab」。
+   * 返回 null 表示这次启动不是卡片点击（调用方继续走别的分支）。
+   * 与接续/故障恢复共用 pendingContinue 通道 —— 落地逻辑（设 mainTabIndex）完全一样。
+   */
+  private readCardTarget(want: Want): ContinueState | null {
+    const raw: Object | undefined = want.parameters ? want.parameters['cardTarget'] : undefined;
+    if (raw === undefined || raw === null) {
+      return null;
+    }
+    const tab: number = cardTargetToTab(raw as string);
+    if (tab < 0) {
+      return null;
+    }
+    // 主题保持本机当前值不变 —— 卡片只是「去某个 Tab」，不携带主题
+    return { mainTabIndex: tab, themeId: appState().themeId };
   }
 
   /**
@@ -111,6 +144,19 @@ export default class EntryAbility extends UIAbility {
 
     wantParam[CONTINUE_KEY] = packContinueState();
     return AbilityConstant.OnContinueResult.AGREE;
+  }
+
+  /**
+   * 故障恢复：进程被 JS 异常 / 冻结 / 崩溃杀死前，系统先调这里让应用保存现场；
+   * 重启后的 onCreate 会以 launchReason = APP_RECOVERY 把这份数据带回来。
+   * 与接续共用同一套打包逻辑和同一个 key —— 恢复代码完全复用，不另写一套。
+   */
+  onSaveState(reason: AbilityConstant.StateType, wantParam: Record<string, Object>): AbilityConstant.OnSaveResult {
+    Logger.warn(TAG, `onSaveState: reason=${reason}`);
+    if (reason === AbilityConstant.StateType.APP_RECOVERY && AuthService.getInstance().isLoggedIn()) {
+      wantParam[CONTINUE_KEY] = packContinueState();
+    }
+    return AbilityConstant.OnSaveResult.ALL_AGREE;
   }
 
   onDestroy(): void {

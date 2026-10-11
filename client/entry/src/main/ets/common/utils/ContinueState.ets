@@ -102,3 +102,31 @@ export function unpackContinueState(want: Want): ContinueState | null {
 export function isContinuationLaunch(launchParam: AbilityConstant.LaunchParam): boolean {
   return launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION
 }
+
+/**
+ * 本次启动是否需要恢复「搬运状态」—— 接续（CONTINUATION）与故障恢复（APP_RECOVERY）共用同一套
+ * wantParam 数据和同一个 key，所以入口判断也共用这一个。
+ */
+export function isStateRestoreLaunch(launchParam: AbilityConstant.LaunchParam): boolean {
+  return launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION
+      || launchParam.launchReason === AbilityConstant.LaunchReason.APP_RECOVERY
+}
+
+// 服务卡片快捷入口的 target → 主 Tab 索引。
+// 顺序必须与 MainPage 的 tabs 数组一致（0 首页 / 1 树洞 / 2 日记 / 3 自查 / 4 我的）。
+const TAB_TREEHOLE: number = 1
+const TAB_DIARY: number = 2
+const TAB_ASSESS: number = 3
+const TAB_ME: number = 4
+
+/**
+ * 卡片点击带过来的 cardTarget 字符串 → 主 Tab 索引；不认识的返回 -1（调用方忽略）。
+ * 卡片与接续/故障恢复共用同一条「落到指定 Tab」的通道，这里只做映射。
+ */
+export function cardTargetToTab(target: string): number {
+  if (target === 'treehole') return TAB_TREEHOLE
+  if (target === 'diary') return TAB_DIARY
+  if (target === 'assess') return TAB_ASSESS
+  if (target === 'me') return TAB_ME
+  return -1
+}

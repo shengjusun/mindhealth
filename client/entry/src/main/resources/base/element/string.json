@@ -15,6 +15,14 @@
     {
       "name": "read_media_reason",
       "value": "需要访问相册以选择头像图片"
+    },
+    {
+      "name": "quick_card_display_name",
+      "value": "轻心快捷入口"
+    },
+    {
+      "name": "quick_card_desc",
+      "value": "写日记、树洞、状态自查的桌面快捷方式"
     }
   ]
 }

@@ -4,6 +4,8 @@
     "type": "entry",
     "description": "$string:module_desc",
     "mainElement": "EntryAbility",
+    // 模块级 AbilityStage：开启应用故障恢复（appRecovery），闪退后自动重启并回传现场
+    "srcEntry": "./ets/entryability/MyAbilityStage.ets",
     "deviceTypes": [
       "phone",
       "tablet"
@@ -57,6 +59,21 @@
             "resource": "$profile:backup_config"
           }
         ]
+      },
+      {
+        // 服务卡片：桌面快捷入口（写日记 / 树洞 / 自查 / 我的）
+        "name": "DiaryFormAbility",
+        "srcEntry": "./ets/formability/DiaryFormAbility.ets",
+        "label": "$string:quick_card_display_name",
+        "description": "$string:quick_card_desc",
+        "type": "form",
+        "exported": true,
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_config"
+          }
+        ]
       }
     ],
     "requestPermissions": [
@@ -66,6 +83,11 @@
       {
         // 读取网络连接状态：用于把「请求失败」区分为「断网」还是「网络/服务侧问题」
         "name": "ohos.permission.GET_NETWORK_INFO"
+      },
+      {
+        // 系统代理提醒：每日写日记提醒（reminderAgentManager.publishReminder），
+        // 注册一次由系统准点代发，App 不需要常驻。normal 级权限，声明即可用。
+        "name": "ohos.permission.PUBLISH_AGENT_REMINDER"
       },
       {
         "name": "ohos.permission.READ_MEDIA",

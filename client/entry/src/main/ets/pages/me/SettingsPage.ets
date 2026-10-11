@@ -8,6 +8,7 @@ import { AppSettings } from '../../common/utils/AppSettings'
 import { ToastUtil } from '../../common/utils/ToastUtil'
 import { notificationManager } from '@kit.NotificationKit'
 import { BusinessError } from '@kit.BasicServicesKit'
+import { disableDailyReminder, enableDailyReminder, isDailyReminderActive } from '../../common/utils/DiaryReminder'
 import { AppButton } from '../../common/components/AppButton'
 
 const TAG = 'SettingsPage'
@@ -33,6 +34,19 @@ export struct SettingsPage {
     })
     AppSettings.getBoolean(context, 'diaryReminderEnabled', true).then((value: boolean) => {
       this.diaryReminderEnabled = value
+      // 与系统真实状态对齐：偏好开着但系统里没有（重装/被系统清理），补建；
+      // 偏好关了但系统里还挂着，取消。以系统为准，偏好只代表用户意愿。
+      isDailyReminderActive().then((active: boolean) => {
+        if (value && !active) {
+          enableDailyReminder(getContext(this) as common.UIAbilityContext).catch((err: BusinessError) => {
+            Logger.warn(TAG, `启动时补建日记提醒失败: ${JSON.stringify(err)}`)
+          })
+        } else if (!value && active) {
+          disableDailyReminder().catch((err: BusinessError) => {
+            Logger.warn(TAG, `启动时清理日记提醒失败: ${JSON.stringify(err)}`)
+          })
+        }
+      })
     })
     this.refreshCacheSize()
     this.loadVersion()
@@ -91,9 +105,32 @@ export struct SettingsPage {
     }
   }
 
+  /**
+   * 日记提醒开关 —— 真正落到系统代理提醒（reminderAgentManager），
+   * 不只是存偏好：注册/取消失败时回滚开关并提示，避免「开关开着但提醒发不出来」。
+   */
   private toggleDiaryReminder(enabled: boolean): void {
     this.diaryReminderEnabled = enabled
     AppSettings.setBoolean(getContext(this) as common.Context, 'diaryReminderEnabled', enabled)
+
+    const ctx = getContext(this) as common.UIAbilityContext
+    if (enabled) {
+      enableDailyReminder(ctx).then(() => {
+        ToastUtil.show('已开启，每晚 21:30 提醒你写日记')
+      }).catch((err: BusinessError) => {
+        // 回滚：开关和偏好都退回关，避免「看着开了、实际没注册」
+        this.diaryReminderEnabled = false
+        AppSettings.setBoolean(ctx, 'diaryReminderEnabled', false)
+        ToastUtil.showLong('开启失败：需要在系统设置中允许轻心发送通知')
+        Logger.warn(TAG, `开启日记提醒失败: ${JSON.stringify(err)}`)
+      })
+    } else {
+      disableDailyReminder().then(() => {
+        ToastUtil.show('已关闭日记提醒')
+      }).catch((err: BusinessError) => {
+        Logger.warn(TAG, `关闭日记提醒失败: ${JSON.stringify(err)}`)
+      })
+    }
   }
 
   /**

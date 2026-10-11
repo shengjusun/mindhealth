@@ -1,0 +1,21 @@
+{
+  "forms": [
+    {
+      "name": "DiaryQuickCard",
+      "displayName": "$string:quick_card_display_name",
+      "description": "$string:quick_card_desc",
+      "src": "./ets/formability/pages/DiaryQuickCard.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "isDynamic": true,
+      "isDefault": true,
+      "updateEnabled": false,
+      "defaultDimension": "2*4",
+      "supportDimensions": ["2*4"]
+    }
+  ]
+}
