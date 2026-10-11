@@ -23,6 +23,10 @@
     {
       "name": "quick_card_desc",
       "value": "写日记、树洞、状态自查的桌面快捷方式"
+    },
+    {
+      "name": "calendar_permission_reason",
+      "value": "需要读写日历，以便把每天写日记的提醒加进系统日历"
     }
   ]
 }

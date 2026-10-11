@@ -40,14 +40,17 @@ export const ERR_NOTIFICATION_DENIED = 'NOTIFICATION_DENIED'
  * 用户拒绝通知授权时抛 ERR_NOTIFICATION_DENIED。
  */
 export async function enableDailyReminder(context: common.UIAbilityContext): Promise<void> {
-  // 提醒最终以通知形态弹出；用户没授权通知的话提醒注册了也收不到，先引导授权
-  const notificationOn: boolean = await notificationManager.isNotificationEnabled()
+  // 提醒最终以通知形态弹出；通知没开的话提醒注册了也收不到
+  let notificationOn: boolean = await notificationManager.isNotificationEnabled()
   if (!notificationOn) {
-    try {
-      await notificationManager.requestEnableNotification(context)
-    } catch (error) {
-      // 用户在系统弹窗里点了拒绝 —— 如实上抛，让调用方回滚开关
-      Logger.warn(TAG, `用户拒绝通知授权: ${JSON.stringify(error)}`)
+    // ⭐ 不能用 requestEnableNotification()：
+    //    SDK 注释原文 —— 用户拒绝过一次授权后，这个 API 就**永远不再弹框**，
+    //    直接抛 1600004（Notification disabled）。表现就是「开关永远打不开」（真机复现）。
+    //    改走系统的通知设置半模态面板（@since 20），由用户在里面打开。
+    await notificationManager.openNotificationSettings(context)
+    notificationOn = await notificationManager.isNotificationEnabled()
+    if (!notificationOn) {
+      Logger.warn(TAG, '用户关闭通知设置面板时仍未开启通知')
       throw new Error(ERR_NOTIFICATION_DENIED)
     }
   }

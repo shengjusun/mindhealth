@@ -90,6 +90,23 @@
         "name": "ohos.permission.PUBLISH_AGENT_REMINDER"
       },
       {
+        // 日历读写（user_grant，运行时弹窗）：把每天写日记的提醒写进系统日历
+        "name": "ohos.permission.READ_CALENDAR",
+        "reason": "$string:calendar_permission_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.WRITE_CALENDAR",
+        "reason": "$string:calendar_permission_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
         "name": "ohos.permission.READ_MEDIA",
         "reason": "$string:read_media_reason",
         "usedScene": {

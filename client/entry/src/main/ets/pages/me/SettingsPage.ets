@@ -9,6 +9,7 @@ import { ToastUtil } from '../../common/utils/ToastUtil'
 import { notificationManager } from '@kit.NotificationKit'
 import { BusinessError } from '@kit.BasicServicesKit'
 import { disableDailyReminder, enableDailyReminder, isDailyReminderActive } from '../../common/utils/DiaryReminder'
+import { disableDiaryCalendarEvent, enableDiaryCalendarEvent } from '../../common/utils/DiaryCalendar'
 import { AppButton } from '../../common/components/AppButton'
 
 const TAG = 'SettingsPage'
@@ -123,12 +124,23 @@ export struct SettingsPage {
         AppSettings.setBoolean(ctx, 'diaryReminderEnabled', false)
         ToastUtil.showLong('开启失败：需要在系统设置中允许轻心发送通知')
         Logger.warn(TAG, `开启日记提醒失败: ${JSON.stringify(err)}`)
+        return
+      })
+      // 日历是锦上添花：权限被拒不算失败（提醒本身已生效），只做轻提示、不回滚开关
+      enableDiaryCalendarEvent(ctx).then(() => {
+        Logger.warn(TAG, '日历事件已同步创建')
+      }).catch((err: BusinessError) => {
+        ToastUtil.show('日历未授权，未写入系统日历')
+        Logger.warn(TAG, `写入日历失败: ${JSON.stringify(err)}`)
       })
     } else {
       disableDailyReminder().then(() => {
         ToastUtil.show('已关闭日记提醒')
       }).catch((err: BusinessError) => {
         Logger.warn(TAG, `关闭日记提醒失败: ${JSON.stringify(err)}`)
+      })
+      disableDiaryCalendarEvent(ctx).catch((err: BusinessError) => {
+        Logger.warn(TAG, `清理日历事件失败: ${JSON.stringify(err)}`)
       })
     }
   }
