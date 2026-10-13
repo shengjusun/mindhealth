@@ -154,30 +154,32 @@ mh/
 3. 后端地址默认写在 `client/entry/src/main/ets/common/constants/apiConfig.ets` 的 `DEFAULT_API_BASE_URL`，演示/换网络环境时改这一行；也可通过 Preferences 的 `api_base_url` 在启动时覆盖，无需重新打包（`EntryAbility.ets:133`、`apiConfig.ets:102-105`）。
 4. 断开网络时，题库走内置 rawfile 仍可答题；已缓存过的日记/记录可看快照。
 
-### 2. 必填配置
+### 2. 必填配置（环境变量注入）
 
-后端启动前需要创建 `backend/src/main/resources/application-local.yaml`（该文件已在 `.gitignore` 中，不会被提交），至少包含以下配置：
+**仓库不存放任何密钥**：`application.yaml` 里的敏感项全部是 `${...}` 占位符，真实值一律通过**环境变量**注入，不写进任何会入库的文件。
 
-```yaml
-spring:
-  datasource:
-    password: <本地 MySQL 密码>
+首次运行前，把下表变量设到本机环境：
 
-jwt:
-  secret: <64 位随机字符串>
-```
+| 变量 | 必填 | 说明 |
+|---|---|---|
+| `DB_PASSWORD` | ✅ | 本地 MySQL 口令。缺失则后端直接启动失败（实测报错 `Could not resolve placeholder`） |
+| `JWT_SECRET` | ✅ | JWT 签名密钥，64 位随机串。同上，缺失启动失败 |
+| `HUAWEI_CLIENT_ID` / `HUAWEI_CLIENT_SECRET` | — | 华为 AGC 登录凭据。不填则华为一键登录不可用 |
+| `DEEPSEEK_API_KEY` | — | DeepSeek AI 密钥。不填则 AI 解读不可用 |
 
-这两项都**没有默认值**，缺失时后端会直接启动失败（实测报错为 `Could not resolve placeholder`）：
+注入方式（任选其一）：
 
-- `spring.datasource.password`：`application.yaml:11` 已去掉默认值，避免误用开发库口令连到别人的库上。
-- `jwt.secret`：`application.yaml:59` 同样没有兜底值，JWT 签名密钥只存在本地配置或环境变量里。
+- **命令行**：复制 `env.local.example.bat` 为 `env.local.bat`（已被 `.gitignore` 忽略），填入真实值；`start-backend.bat` / `start-all.bat` / `start-backend-web.bat` / `start-backend-admin.bat` 会自动 `call` 它。
+- **IDE**：在 Run Configuration 的环境变量里配置同样这些变量。
 
-华为 `client-secret`、DeepSeek `api-key` 等密钥同样只放在这个文件里，不要写进 `application.yaml`。
+生成 64 位随机串：`python -c "import secrets;print(secrets.token_hex(32))"`
+
+> 早期版本用 `backend/src/main/resources/application-local.yaml` 存放这些值。该文件虽同样被 git 忽略，但密钥写在配置文件里易随打包/同步外泄；现统一改为环境变量注入 —— 仓库内零明文，本地明文只集中在 `env.local.bat`（已忽略）。
 
 ### 3. 后端（Spring Boot）
 
 1. 准备 MySQL 8，创建 `mindhealth` 库。执行 `init.sql` 前，先把其中管理端种子口令的占位符 `<LOCAL_BCRYPT_HASH>`（`init.sql:125-131`）替换为**本地生成**的 BCrypt 哈希（仓库不存放任何口令哈希），生成方式：`python -c "import bcrypt;print(bcrypt.hashpw(b'你的密码', bcrypt.gensalt(10)).decode())"`，再执行 `backend/src/main/resources/init.sql`（另有若干 `migration_*.sql` 增量脚本）。
-2. 数据库账号、密码、华为与 DeepSeek 的密钥等敏感配置放在 `backend/src/main/resources/application-local.yaml`（已 gitignore），不要写进 `application.yaml`。
+2. 数据库账号、密码、华为与 DeepSeek 的密钥等敏感配置一律走环境变量注入（见「必填配置」），不要写进 `application.yaml`；本地明文集中在 `env.local.bat`（已 gitignore）。
 3. 启动：`cd backend && mvn spring-boot:run`，服务端口 `9000`，`context-path` 为 `/api`（`application.yaml:44-47`）。
 4. 测试完毕请立即关闭服务，避免进程常驻。
 

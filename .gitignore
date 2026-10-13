@@ -54,7 +54,10 @@ resume/
 
 # ===== 本地启动 / 工具脚本（仅本机使用，不入库）=====
 # 根目录的 .bat：start-all / start-backend / start-backend-web / start-backend-admin / stop-all / chaxun
+# 以及本地环境变量文件 env.local.bat（内含真实密钥）
 /*.bat
+# 但模板要入库，供使用者复制后填自己的值
+!env.local.example.bat
 
 # 本地打包产物
 *.zip
