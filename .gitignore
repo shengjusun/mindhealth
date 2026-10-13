@@ -63,5 +63,19 @@ resume/
 docs/学习路线.md
 docs/交接-学习进行时.md
 
+# 个人工程过程文档（仅本地保留，不入库：含凭据明文 / 内网 IP / 本机路径，禁止公开）
+docs/backend-audit.md
+docs/client-audit.md
+docs/doc-ref-audit.csv
+docs/doc-ref-audit2.csv
+docs/项目理解报告.md
+docs/路径走查报告.md
+docs/UX走查-设置入口与全项目扫描.md
+docs/ui-redesign-notes.md
+docs/ui-redesign-preview.html
+docs/ui-redesign-preview.png
+docs/重构方案.md
+docs/AGC-创建配置指南.md
+
 # JiuwenSwarm runtime file operation logs
 .agent_history/
