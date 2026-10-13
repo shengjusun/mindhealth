@@ -52,6 +52,10 @@ docs/mindhealth-interview-pack/
 docs/handoff-孙胜举.md
 resume/
 
+# ===== 本地启动 / 工具脚本（仅本机使用，不入库）=====
+# 根目录的 .bat：start-all / start-backend / start-backend-web / start-backend-admin / stop-all / chaxun
+/*.bat
+
 # 本地打包产物
 *.zip
 
