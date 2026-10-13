@@ -176,7 +176,7 @@ jwt:
 
 ### 3. 后端（Spring Boot）
 
-1. 准备 MySQL 8，创建 `mindhealth` 库并执行 `backend/src/main/resources/init.sql`（另有若干 `migration_*.sql` 增量脚本）。
+1. 准备 MySQL 8，创建 `mindhealth` 库。执行 `init.sql` 前，先把其中管理端种子口令的占位符 `<LOCAL_BCRYPT_HASH>`（`init.sql:125-131`）替换为**本地生成**的 BCrypt 哈希（仓库不存放任何口令哈希），生成方式：`python -c "import bcrypt;print(bcrypt.hashpw(b'你的密码', bcrypt.gensalt(10)).decode())"`，再执行 `backend/src/main/resources/init.sql`（另有若干 `migration_*.sql` 增量脚本）。
 2. 数据库账号、密码、华为与 DeepSeek 的密钥等敏感配置放在 `backend/src/main/resources/application-local.yaml`（已 gitignore），不要写进 `application.yaml`。
 3. 启动：`cd backend && mvn spring-boot:run`，服务端口 `9000`，`context-path` 为 `/api`（`application.yaml:44-47`）。
 4. 测试完毕请立即关闭服务，避免进程常驻。
@@ -194,7 +194,7 @@ jwt:
 
 ### 后端
 
-1. **管理端种子账号为固定弱口令**：`init.sql:126-127` 种子的管理员使用固定 BCrypt 哈希，部署到实际环境前必须改密。
+1. **管理端种子账号口令需本地生成**：`init.sql:125-131` 的管理员口令为占位符 `<LOCAL_BCRYPT_HASH>`，建库前须本地生成 BCrypt 哈希并替换（勿把口令哈希提交到仓库）；未替换则种子口令不可用，无法登录管理端。
 2. **MyBatis 全量 SQL 打印到 stdout**：`application.yaml:42` 为 `StdOutImpl`，会把含手机号、日记原文、聊天内容的 SQL 刷到日志，生产环境应改为 slf4j 或仅在 local profile 开启。
 3. **改手机号接口缺失/静默丢弃**：客户端资料页构造的更新体包含 `phone`（`ProfileEditPage.ets:815-831`），但后端 `UpdateUserRequest` 白名单只有 `nickname/age/gender/avatar/signature`（`UpdateUserRequest.java:9-15`），`phone` 会被静默丢弃；真正能改手机号的 `PUT /user/phone` 客户端未接入。
 4. **换绑手机号未校验验证码**：`UserServiceImpl.java:184` 为 `// TODO: 验证验证码`，`code` 参数被忽略，任意值都能换绑。

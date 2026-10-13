@@ -123,8 +123,12 @@ CREATE TABLE IF NOT EXISTS `admin` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='管理员表';
 
 -- 插入默认管理员
+-- ⚠️ 口令哈希不入库：请本地生成后替换下方占位符，勿把口令哈希提交到仓库。
+--    生成方式（任选其一）：
+--      Python：python -c "import bcrypt;print(bcrypt.hashpw(b'你的密码', bcrypt.gensalt(10)).decode())"
+--      Java  ：new BCryptPasswordEncoder().encode("你的密码")
 INSERT INTO `admin` (`username`, `password`, `role`) VALUES 
-('admin', 'REMOVED', 'SUPER_ADMIN');
+('admin', '<LOCAL_BCRYPT_HASH>', 'SUPER_ADMIN');
 
 -- 插入默认测评数据
 INSERT INTO `assessment` (`name`, `description`, `type`) VALUES 
